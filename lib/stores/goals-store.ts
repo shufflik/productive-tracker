@@ -150,6 +150,7 @@ export const useGoalsStore = create<GoalsStore>()(
         // Add validation on load
         return {
           getItem: (name) => {
+            if (typeof window === 'undefined') return null
             try {
               const str = localStorage.getItem(name)
               if (!str) return null
@@ -172,6 +173,7 @@ export const useGoalsStore = create<GoalsStore>()(
             }
           },
           setItem: (name, value) => {
+            if (typeof window === 'undefined') return
             try {
               localStorage.setItem(name, value)
             } catch (error) {
@@ -179,6 +181,7 @@ export const useGoalsStore = create<GoalsStore>()(
             }
           },
           removeItem: (name) => {
+            if (typeof window === 'undefined') return
             try {
               localStorage.removeItem(name)
             } catch (error) {
