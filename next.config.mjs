@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  basePath: '/productive-tracker',
   typescript: {
     ignoreBuildErrors: true,
   },
