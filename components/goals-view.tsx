@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
+import { SwipeableList, Type } from "react-swipeable-list"
+import "react-swipeable-list/dist/styles.css"
 import { Button } from "@/components/ui/button"
-import { Plus, CheckSquare, Package } from "lucide-react"
+import { Plus, CheckSquare, Package, CalendarCheck, Calendar } from "lucide-react"
 import { GoalDialog } from "@/components/goal-dialog"
 import { DayReviewDialog } from "@/components/day-review-dialog"
 import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
@@ -23,6 +25,7 @@ export function GoalsView() {
   const rescheduleInStore = useGoalsStore((state) => state.rescheduleForTomorrow)
   const toggleImportantInStore = useGoalsStore((state) => state.toggleImportant)
   const moveToTodayInStore = useGoalsStore((state) => state.moveToToday)
+  const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
   const setGoalsInStore = useGoalsStore((state) => state.setGoals)
 
   // Local UI state
@@ -31,7 +34,7 @@ export function GoalsView() {
   const [backlogOpen, setBacklogOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow" | "backlog">("today")
-  const [openGoalId, setOpenGoalId] = useState<string | null>(null)
+  const [movingGoals, setMovingGoals] = useState<Record<string, string>>({})
 
   const addGoal = useCallback(
     (title: string, label: string) => {
@@ -73,9 +76,22 @@ export function GoalsView() {
 
   const rescheduleForTomorrow = useCallback(
     (id: string) => {
-      rescheduleInStore(id)
+      const goal = goals.find((g) => g.id === id)
+      
+      if (goal) {
+        setMovingGoals(prev => ({ ...prev, [id]: "Перенесено на Tomorrow" }))
+        
+        setTimeout(() => {
+          rescheduleInStore(id)
+          setMovingGoals(prev => {
+            const newState = { ...prev }
+            delete newState[id]
+            return newState
+          })
+        }, 3000)
+      }
     },
-    [rescheduleInStore]
+    [rescheduleInStore, goals]
   )
 
   const toggleImportant = useCallback(
@@ -83,6 +99,46 @@ export function GoalsView() {
       toggleImportantInStore(id)
     },
     [toggleImportantInStore]
+  )
+
+  const moveToBacklog = useCallback(
+    (id: string) => {
+      const goal = goals.find((g) => g.id === id)
+      
+      if (goal) {
+        setMovingGoals(prev => ({ ...prev, [id]: "Перенесено в Backlog" }))
+        
+        setTimeout(() => {
+          moveToBacklogInStore(id)
+          setMovingGoals(prev => {
+            const newState = { ...prev }
+            delete newState[id]
+            return newState
+          })
+        }, 3000)
+      }
+    },
+    [moveToBacklogInStore, goals]
+  )
+
+  const moveToTodaySingle = useCallback(
+    (id: string) => {
+      const goal = goals.find((g) => g.id === id)
+      
+      if (goal) {
+        setMovingGoals(prev => ({ ...prev, [id]: "Перенесено в Today" }))
+        
+        setTimeout(() => {
+          moveToTodayInStore(id)
+          setMovingGoals(prev => {
+            const newState = { ...prev }
+            delete newState[id]
+            return newState
+          })
+        }, 3000)
+      }
+    },
+    [moveToTodayInStore, goals]
   )
 
   const openEditDialog = useCallback((goal: Goal) => {
@@ -161,32 +217,35 @@ export function GoalsView() {
       <div className="flex gap-2 p-1 bg-muted rounded-lg">
         <button
           onClick={() => setSelectedDay("today")}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
             selectedDay === "today"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
+          <CalendarCheck className="w-4 h-4" />
           Today
         </button>
         <button
           onClick={() => setSelectedDay("tomorrow")}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
             selectedDay === "tomorrow"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
+          <Calendar className="w-4 h-4" />
           Tomorrow
         </button>
         <button
           onClick={() => setSelectedDay("backlog")}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
             selectedDay === "backlog"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
+          <Package className="w-4 h-4" />
           Backlog
         </button>
       </div>
@@ -258,7 +317,7 @@ export function GoalsView() {
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{label}</h3>
                   <div className="h-px bg-border flex-1" />
                 </div>
-                <div className="space-y-2">
+                <SwipeableList type={Type.IOS} threshold={0.25}>
                   {goalsInLabel.map((goal) => (
                     <SwipeableGoalItem
                       key={goal.id}
@@ -267,19 +326,20 @@ export function GoalsView() {
                       onToggleComplete={toggleComplete}
                       onEdit={openEditDialog}
                       onDelete={deleteGoal}
-                      onReschedule={rescheduleForTomorrow}
+                      onMoveToToday={moveToTodaySingle}
+                      onMoveToTomorrow={rescheduleForTomorrow}
+                      onMoveToBacklog={moveToBacklog}
                       onToggleImportant={toggleImportant}
-                      isOpen={openGoalId === goal.id}
-                      onOpenChange={(isOpen) => setOpenGoalId(isOpen ? goal.id : null)}
+                      movingMessage={movingGoals[goal.id]}
                     />
                   ))}
-                </div>
+                </SwipeableList>
               </div>
             ))}
           </div>
         ) : (
           // Regular list for today/tomorrow
-          <>
+          <SwipeableList type={Type.IOS} threshold={0.25}>
             {displayGoals.map((goal) => (
               <SwipeableGoalItem
                 key={goal.id}
@@ -288,13 +348,14 @@ export function GoalsView() {
                 onToggleComplete={toggleComplete}
                 onEdit={openEditDialog}
                 onDelete={deleteGoal}
-                onReschedule={rescheduleForTomorrow}
+                onMoveToToday={moveToTodaySingle}
+                onMoveToTomorrow={rescheduleForTomorrow}
+                onMoveToBacklog={moveToBacklog}
                 onToggleImportant={toggleImportant}
-                isOpen={openGoalId === goal.id}
-                onOpenChange={(isOpen) => setOpenGoalId(isOpen ? goal.id : null)}
+                movingMessage={movingGoals[goal.id]}
               />
             ))}
-          </>
+          </SwipeableList>
         )}
       </div>
 

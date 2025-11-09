@@ -19,7 +19,8 @@ type GoalsActions = {
   toggleComplete: (id: string) => void
   toggleImportant: (id: string) => void
   rescheduleForTomorrow: (id: string) => void
-  moveToToday: (goalIds: string[]) => void
+  moveToToday: (goalIds: string[] | string) => void
+  moveToBacklog: (id: string) => void
   
   // Batch operations
   setGoals: (goals: Goal[]) => void
@@ -104,12 +105,27 @@ export const useGoalsStore = create<GoalsStore>()(
 
       moveToToday: (goalIds) => {
         const todayDate = new Date().toDateString()
+        const idsArray = Array.isArray(goalIds) ? goalIds : [goalIds]
         set((state) => ({
           goals: state.goals.map((g) =>
-            goalIds.includes(g.id)
+            idsArray.includes(g.id)
               ? {
                   ...g,
                   targetDate: todayDate,
+                  completed: false,
+                }
+              : g
+          ),
+        }))
+      },
+
+      moveToBacklog: (id) => {
+        set((state) => ({
+          goals: state.goals.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  targetDate: "backlog",
                   completed: false,
                 }
               : g

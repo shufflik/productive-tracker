@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
+import { SwipeableList, Type } from "react-swipeable-list"
+import "react-swipeable-list/dist/styles.css"
 import { Target, Plus } from "lucide-react"
 import { HabitDetailDialog } from "@/components/habit-detail-dialog"
 import { HabitDialog } from "@/components/habit-dialog"
@@ -27,7 +29,6 @@ export function HabitsView() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [habitDialogOpen, setHabitDialogOpen] = useState(false)
   const [editingHabit, setEditingHabit] = useState<Goal | null>(null)
-  const [currentOpenId, setCurrentOpenId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const addHabit = useCallback(
@@ -144,20 +145,20 @@ export function HabitsView() {
               </Button>
             </div>
           ) : (
-            selectedDateHabits.map((habit) => (
-              <SwipeableHabitItem
-                key={habit.id}
-                habit={habit}
-                isCompleted={isHabitCompletedForDate(habit.id, selectedDate)}
-                streak={calculateStreak(habit.id)}
-                onToggle={() => toggleHabitCompletion(habit.id)}
-                onEdit={() => openEditDialog(habit)}
-                onDelete={() => deleteHabit(habit.id)}
-                onOpenDetail={() => handleHabitClick(habit)}
-                currentOpenId={currentOpenId}
-                onSwipeChange={setCurrentOpenId}
-              />
-            ))
+            <SwipeableList type={Type.IOS} threshold={0.25}>
+              {selectedDateHabits.map((habit) => (
+                <SwipeableHabitItem
+                  key={habit.id}
+                  habit={habit}
+                  isCompleted={isHabitCompletedForDate(habit.id, selectedDate)}
+                  streak={calculateStreak(habit.id)}
+                  onToggle={() => toggleHabitCompletion(habit.id)}
+                  onEdit={() => openEditDialog(habit)}
+                  onDelete={() => deleteHabit(habit.id)}
+                  onOpenDetail={() => handleHabitClick(habit)}
+                />
+              ))}
+            </SwipeableList>
           )}
         </div>
       </div>
