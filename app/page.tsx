@@ -60,6 +60,7 @@ export default function Home() {
     <div 
       className="min-h-screen bg-background pb-20" 
       style={isTelegramWebApp ? { 
+        paddingTop: 'var(--tg-content-safe-area-inset-top, 0px)',
         paddingBottom: 'calc(5rem + var(--tg-content-safe-area-inset-bottom, 0px))'
       } : undefined}
     >
