@@ -14,6 +14,7 @@ declare global {
         expand: () => void
         disableVerticalSwipes: () => void
         isExpanded: boolean
+        initDataUnsafe: any
       }
     }
   }
@@ -37,7 +38,15 @@ export default function Home() {
         
         // Initialize Telegram WebApp
         tg.ready()
+        
+        // Expand to full screen (important for menu button launches)
+        // Call multiple times to ensure it works
         tg.expand()
+        
+        // Try again after a short delay to ensure Telegram is ready
+        setTimeout(() => {
+          tg.expand()
+        }, 100)
         
         // Disable vertical swipes to prevent closing
         if (tg.disableVerticalSwipes) {
@@ -51,12 +60,16 @@ export default function Home() {
     <div 
       className="min-h-screen bg-background pb-20" 
       style={isTelegramWebApp ? { 
-        paddingTop: 'var(--tg-content-safe-area-inset-top, 0px)',
         paddingBottom: 'calc(5rem + var(--tg-content-safe-area-inset-bottom, 0px))'
       } : undefined}
     >
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-10">
+      <header 
+        className="bg-card border-b border-border sticky z-10"
+        style={isTelegramWebApp ? {
+          top: 'var(--tg-content-safe-area-inset-top, 0px)'
+        } : { top: 0 }}
+      >
         <div className="max-w-md mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold text-foreground">Daily Tracker</h1>
           <p className="text-sm text-muted-foreground">Stay productive, every day</p>
