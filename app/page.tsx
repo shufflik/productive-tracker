@@ -48,7 +48,13 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background pb-20" style={isTelegramWebApp ? { paddingTop: '13vh' } : undefined}>
+    <div 
+      className="min-h-screen bg-background pb-20" 
+      style={isTelegramWebApp ? { 
+        paddingTop: 'var(--tg-content-safe-area-inset-top, 0px)',
+        paddingBottom: 'calc(5rem + var(--tg-content-safe-area-inset-bottom, 0px))'
+      } : undefined}
+    >
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-4">
