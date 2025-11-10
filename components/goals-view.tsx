@@ -10,6 +10,7 @@ import { DayReviewDialog } from "@/components/day-review-dialog"
 import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
 import { useGoalsStore } from "@/lib/stores/goals-store"
+import { useDayStateStore } from "@/lib/stores/day-state-store"
 import type { Goal } from "@/lib/types"
 
 // Re-export Goal type for backward compatibility
@@ -27,6 +28,9 @@ export function GoalsView() {
   const moveToTodayInStore = useGoalsStore((state) => state.moveToToday)
   const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
   const setGoalsInStore = useGoalsStore((state) => state.setGoals)
+  
+  // Day state store
+  const isTodayEnded = useDayStateStore((state) => state.isTodayEnded)
 
   // Local UI state
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -212,6 +216,9 @@ export function GoalsView() {
     [moveToTodayInStore]
   )
 
+  // Check if today is ended
+  const isCurrentDayEnded = selectedDay === "today" && isTodayEnded()
+
   return (
     <div className="space-y-6">
       <div className="flex gap-2 p-1 bg-muted rounded-lg">
@@ -250,6 +257,14 @@ export function GoalsView() {
         </button>
       </div>
 
+      {isCurrentDayEnded && (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 text-center">
+          <p className="text-sm font-medium text-green-600 dark:text-green-400">
+            🎉 Today is completed! Great job on finishing your day.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">
@@ -259,14 +274,24 @@ export function GoalsView() {
         </div>
         <div className="flex items-center gap-2">
           {selectedDay !== "backlog" && (
-            <Button onClick={() => setBacklogOpen(true)} variant="ghost" size="icon">
+            <Button 
+              onClick={() => setBacklogOpen(true)} 
+              variant="ghost" 
+              size="icon"
+              disabled={isCurrentDayEnded}
+            >
               <Package className="w-4 h-4" />
             </Button>
           )}
-          <Button onClick={() => setDialogOpen(true)} variant="ghost" size="icon">
+          <Button 
+            onClick={() => setDialogOpen(true)} 
+            variant="ghost" 
+            size="icon"
+            disabled={isCurrentDayEnded}
+          >
             <Plus className="w-4 h-4" />
           </Button>
-          {selectedDay === "today" && (
+          {selectedDay === "today" && !isCurrentDayEnded && (
             <Button onClick={() => setReviewOpen(true)} variant="outline" size="sm">
               End Day
             </Button>
