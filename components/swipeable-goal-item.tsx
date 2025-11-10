@@ -18,6 +18,7 @@ interface SwipeableGoalItemProps {
   onMoveToBacklog: (id: string) => void
   onToggleImportant: (id: string) => void
   movingMessage?: string
+  isTodayEnded?: boolean
 }
 
 export function SwipeableGoalItem({
@@ -31,6 +32,7 @@ export function SwipeableGoalItem({
   onMoveToBacklog,
   onToggleImportant,
   movingMessage,
+  isTodayEnded = false,
 }: SwipeableGoalItemProps) {
   const [swipeKey, setSwipeKey] = useState(0)
 
@@ -86,6 +88,7 @@ export function SwipeableGoalItem({
             onMoveToTomorrow={() => { onMoveToTomorrow(goal.id); resetSwipe() }}
             onMoveToBacklog={() => { onMoveToBacklog(goal.id); resetSwipe() }}
             availableOptions={getMoveOptions()}
+            isTodayEnded={isTodayEnded}
           />
         </div>
       </div>

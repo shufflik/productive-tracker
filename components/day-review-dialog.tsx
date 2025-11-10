@@ -53,7 +53,7 @@ type DayReviewDialogProps = {
 export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayReviewDialogProps) {
   const markDayAsEnded = useDayStateStore((state) => state.markDayAsEnded)
   const [localGoals, setLocalGoals] = useState<GoalWithDetails[]>([])
-  const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "focus" | "finished">("confirmation")
+  const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "focus">("confirmation")
   const [distractionLevel, setDistractionLevel] = useState<DistractionLevel>("little")
 
   useEffect(() => {
@@ -194,21 +194,23 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
     // Mark today as ended
     markDayAsEnded(today)
 
-    // Show confetti animation
-    confetti({
-      particleCount: 150,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#22c55e', '#16a34a', '#15803d', '#84cc16', '#eab308']
-    })
+    // Close dialog first
+    onClose()
 
-    // Haptic feedback for success in Telegram
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
-      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success')
-    }
+    // Show confetti animation and haptic feedback after a small delay
+    setTimeout(() => {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#22c55e', '#16a34a', '#15803d', '#84cc16', '#eab308']
+      })
 
-    // Show finished screen
-    setStep("finished")
+      // Haptic feedback for success in Telegram
+      if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success')
+      }
+    }, 100)
   }
 
   const completedCount = localGoals.filter((g) => g.completed).length
@@ -265,7 +267,6 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
             {step === "summary" && "Day Summary"}
             {step === "details" && "Unfinished Tasks Details"}
             {step === "focus" && "Focus Assessment"}
-            {step === "finished" && "Day Completed!"}
           </DialogTitle>
         </DialogHeader>
 
@@ -498,69 +499,40 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
           </div>
         )}
 
-        {step === "finished" && (
-          <div className="py-6 space-y-6">
-            <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                <PartyPopper className="w-10 h-10 text-green-500" />
-              </div>
-              <p className="text-xl font-bold text-foreground mb-2">
-                {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric" })} is completed!
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Great job! Your day has been successfully reviewed and saved.
-              </p>
-            </div>
-            <div className="bg-muted rounded-lg p-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                You completed <span className="font-bold text-primary">{completedCount} out of {totalCount}</span> goals
-              </p>
-            </div>
-          </div>
-        )}
-
         <div className="flex gap-2">
-          {step === "finished" ? (
-            <Button onClick={onClose} className="flex-1">
-              Close
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
-                Cancel
-              </Button>
-              {step !== "confirmation" && step !== "completion" && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (step === "summary") setStep("completion")
-                    else if (step === "details") setStep("summary")
-                    else if (step === "focus") {
-                      if (incompleteGoals.length > 0) setStep("details")
-                      else setStep("summary")
-                    }
-                  }}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-              )}
-              <Button
-                onClick={handleContinue}
-                className="flex-1"
-                disabled={
-                  step === "details" &&
-                  incompleteGoals.some((g) => !g.reason || (g.reason === "other" && !g.customReason?.trim()) || !g.action)
+          <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+            Cancel
+          </Button>
+          {step !== "confirmation" && step !== "completion" && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (step === "summary") setStep("completion")
+                else if (step === "details") setStep("summary")
+                else if (step === "focus") {
+                  if (incompleteGoals.length > 0) setStep("details")
+                  else setStep("summary")
                 }
-              >
-                {step === "confirmation" && "Start Review"}
-                {step === "completion" && "Continue"}
-                {step === "summary" && (incompleteGoals.length > 0 ? "Continue" : "Next")}
-                {step === "details" && "Continue"}
-                {step === "focus" && "Finish"}
-              </Button>
-            </>
+              }}
+              className="flex-1"
+            >
+              Back
+            </Button>
           )}
+          <Button
+            onClick={handleContinue}
+            className="flex-1"
+            disabled={
+              step === "details" &&
+              incompleteGoals.some((g) => !g.reason || (g.reason === "other" && !g.customReason?.trim()) || !g.action)
+            }
+          >
+            {step === "confirmation" && "Start Review"}
+            {step === "completion" && "Continue"}
+            {step === "summary" && (incompleteGoals.length > 0 ? "Continue" : "Next")}
+            {step === "details" && "Continue"}
+            {step === "focus" && "Finish"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

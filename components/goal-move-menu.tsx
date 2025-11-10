@@ -9,10 +9,16 @@ interface GoalMoveMenuProps {
   onMoveToTomorrow: () => void
   onMoveToBacklog: () => void
   availableOptions: ("today" | "tomorrow" | "backlog")[]
+  isTodayEnded?: boolean
 }
 
-export function GoalMoveMenu({ onMoveToToday, onMoveToTomorrow, onMoveToBacklog, availableOptions }: GoalMoveMenuProps) {
+export function GoalMoveMenu({ onMoveToToday, onMoveToTomorrow, onMoveToBacklog, availableOptions, isTodayEnded = false }: GoalMoveMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
+  
+  // Фильтруем опции - если день завершен, убираем "today"
+  const filteredOptions = isTodayEnded 
+    ? availableOptions.filter(opt => opt !== "today")
+    : availableOptions
 
   const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
@@ -45,7 +51,7 @@ export function GoalMoveMenu({ onMoveToToday, onMoveToTomorrow, onMoveToBacklog,
           </DialogHeader>
 
           <div className="space-y-2 py-4">
-            {availableOptions.includes("today") && (
+            {filteredOptions.includes("today") && (
               <button
                 onClick={() => handleSelect(onMoveToToday)}
                 className="w-full px-4 py-3 flex items-center gap-3 text-sm rounded-lg border border-border hover:bg-accent transition-colors text-left"
@@ -54,7 +60,7 @@ export function GoalMoveMenu({ onMoveToToday, onMoveToTomorrow, onMoveToBacklog,
                 <span>Today</span>
               </button>
             )}
-            {availableOptions.includes("tomorrow") && (
+            {filteredOptions.includes("tomorrow") && (
               <button
                 onClick={() => handleSelect(onMoveToTomorrow)}
                 className="w-full px-4 py-3 flex items-center gap-3 text-sm rounded-lg border border-border hover:bg-accent transition-colors text-left"
@@ -63,7 +69,7 @@ export function GoalMoveMenu({ onMoveToToday, onMoveToTomorrow, onMoveToBacklog,
                 <span>Tomorrow</span>
               </button>
             )}
-            {availableOptions.includes("backlog") && (
+            {filteredOptions.includes("backlog") && (
               <button
                 onClick={() => handleSelect(onMoveToBacklog)}
                 className="w-full px-4 py-3 flex items-center gap-3 text-sm rounded-lg border border-border hover:bg-accent transition-colors text-left"

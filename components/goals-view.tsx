@@ -11,6 +11,7 @@ import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
+import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import type { Goal } from "@/lib/types"
 
 // Re-export Goal type for backward compatibility
@@ -257,14 +258,6 @@ export function GoalsView() {
         </button>
       </div>
 
-      {isCurrentDayEnded && (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 text-center">
-          <p className="text-sm font-medium text-green-600 dark:text-green-400">
-            🎉 Today is completed! Great job on finishing your day.
-          </p>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">
@@ -299,7 +292,7 @@ export function GoalsView() {
         </div>
       </div>
 
-      {displayGoals.length > 0 && selectedDay === "today" && (
+      {!isCurrentDayEnded && displayGoals.length > 0 && selectedDay === "today" && (
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-foreground">Today's Progress</span>
@@ -318,22 +311,43 @@ export function GoalsView() {
         </div>
       )}
 
-      <div className="space-y-3">
-        {displayGoals.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-              {selectedDay === "backlog" ? (
-                <Package className="w-8 h-8 text-muted-foreground" />
-              ) : (
-                <CheckSquare className="w-8 h-8 text-muted-foreground" />
-              )}
-            </div>
-            <p className="text-muted-foreground mb-4">
-              No goals{" "}
-              {selectedDay === "today" ? "for today" : selectedDay === "tomorrow" ? "for tomorrow" : "in backlog"}
+      {isCurrentDayEnded ? (
+        <div className="text-center">
+          <div className="w-32 h-32 mx-auto">
+            <DotLottieReact
+              src="https://lottie.host/ae45736a-73c2-4946-a022-d8e9fd7b596e/HI8VGdybGB.lottie"
+              autoplay
+            />
+          </div>
+          <p className="text-xl font-bold text-foreground mb-2">
+            Today is completed!
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Great job on finishing your day.
+          </p>
+          <div className="bg-muted rounded-lg p-4 max-w-xs mx-auto">
+            <p className="text-sm text-muted-foreground">
+              You completed <span className="font-bold text-primary">{displayGoals.filter((g) => g.completed).length} out of {displayGoals.length}</span> goals
             </p>
           </div>
-        ) : selectedDay === "backlog" ? (
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {displayGoals.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                {selectedDay === "backlog" ? (
+                  <Package className="w-8 h-8 text-muted-foreground" />
+                ) : (
+                  <CheckSquare className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <p className="text-muted-foreground mb-4">
+                No goals{" "}
+                {selectedDay === "today" ? "for today" : selectedDay === "tomorrow" ? "for tomorrow" : "in backlog"}
+              </p>
+            </div>
+          ) : selectedDay === "backlog" ? (
           <div className="space-y-4">
             {Object.entries(groupedBacklogGoals).map(([label, goalsInLabel]) => (
               <div key={label} className="space-y-2">
@@ -356,6 +370,7 @@ export function GoalsView() {
                       onMoveToBacklog={moveToBacklog}
                       onToggleImportant={toggleImportant}
                       movingMessage={movingGoals[goal.id]}
+                      isTodayEnded={isTodayEnded()}
                     />
                   ))}
                 </SwipeableList>
@@ -378,11 +393,13 @@ export function GoalsView() {
                 onMoveToBacklog={moveToBacklog}
                 onToggleImportant={toggleImportant}
                 movingMessage={movingGoals[goal.id]}
+                isTodayEnded={isTodayEnded()}
               />
             ))}
           </SwipeableList>
         )}
-      </div>
+        </div>
+      )}
 
       <GoalDialog
         open={dialogOpen}
