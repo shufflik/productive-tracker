@@ -13,6 +13,7 @@ type DayStateStore = {
   
   // Actions
   markDayAsEnded: (date: string) => void
+  cancelDayEnd: (date: string) => void
   isDayEnded: (date: string) => boolean
   getTodayState: () => DayState
   isTodayEnded: () => boolean
@@ -33,6 +34,14 @@ export const useDayStateStore = create<DayStateStore>()(
             },
           },
         }))
+      },
+
+      cancelDayEnd: (date) => {
+        set((state) => {
+          const newDayStates = { ...state.dayStates }
+          delete newDayStates[date]
+          return { dayStates: newDayStates }
+        })
       },
 
       isDayEnded: (date) => {

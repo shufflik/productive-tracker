@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Check, X, ChevronDown, ChevronUp } from "lucide-react"
 import type { IncompleteReason } from "@/components/day-review-dialog"
+import { useDayStateStore } from "@/lib/stores/day-state-store"
 
 type DayStatus = "good" | "average" | "bad" | null
 
@@ -31,9 +32,18 @@ type ReasonData = {
 }
 
 export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateStatus }: DayStatusDialogProps) {
+  const isDayEnded = useDayStateStore((state) => state.isDayEnded)
+  const cancelDayEnd = useDayStateStore((state) => state.cancelDayEnd)
   const [completedGoals, setCompletedGoals] = useState<Goal[]>([])
   const [incompleteGoals, setIncompleteGoals] = useState<ReasonData[]>([])
   const [showIncomplete, setShowIncomplete] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [showStatusChange, setShowStatusChange] = useState(false)
+  
+  const isSelectedDayEnded = date ? isDayEnded(date) : false
+  
+  // Проверяем, является ли выбранный день сегодняшним
+  const isToday = date === new Date().toISOString().split("T")[0]
 
   useEffect(() => {
     if (date) {
@@ -53,6 +63,11 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
       // Get incomplete goals with reasons
       const incomplete = reasons.filter((r) => r.date === date)
       setIncompleteGoals(incomplete)
+      
+      // Сбрасываем состояния при открытии диалога
+      setShowCompleted(false)
+      setShowIncomplete(false)
+      setShowStatusChange(false)
     }
   }, [date])
 
@@ -124,7 +139,7 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
               <span className="font-semibold">{getStatusLabel(currentStatus)}</span>
               {currentStatus && (
                 <button
-                  onClick={() => setShowIncomplete(!showIncomplete)}
+                  onClick={() => setShowStatusChange(!showStatusChange)}
                   className="text-xs underline hover:no-underline"
                 >
                   Change
@@ -132,14 +147,14 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
               )}
             </div>
 
-            {showIncomplete && (
+            {showStatusChange && (
               <div className="space-y-2 pt-2">
                 <Button
                   variant="outline"
                   className="w-full justify-start h-auto py-3 bg-[rgb(16,185,129)] hover:bg-[rgb(16,185,129)]/90 border-[rgb(16,185,129)] text-white"
                   onClick={() => {
                     handleStatusChange("good")
-                    setShowIncomplete(false)
+                    setShowStatusChange(false)
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -158,7 +173,7 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
                   className="w-full justify-start h-auto py-3 bg-[rgb(251,191,36)] hover:bg-[rgb(251,191,36)]/90 border-[rgb(251,191,36)] text-white"
                   onClick={() => {
                     handleStatusChange("average")
-                    setShowIncomplete(false)
+                    setShowStatusChange(false)
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -177,7 +192,7 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
                   className="w-full justify-start h-auto py-3 bg-[rgb(239,68,68)] hover:bg-[rgb(239,68,68)]/90 border-[rgb(239,68,68)] text-white"
                   onClick={() => {
                     handleStatusChange("bad")
-                    setShowIncomplete(false)
+                    setShowStatusChange(false)
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -197,7 +212,7 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
                     className="w-full bg-transparent"
                     onClick={() => {
                       handleStatusChange(null)
-                      setShowIncomplete(false)
+                      setShowStatusChange(false)
                     }}
                   >
                     Clear Status
@@ -209,25 +224,35 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
 
           {completedGoals.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="text-sm font-semibold text-foreground flex items-center gap-2 w-full"
+              >
                 <Check className="w-4 h-4 text-green-600" />
                 Completed Goals ({completedGoals.length})
-              </h3>
-              <div className="bg-card border border-border rounded-lg p-3 space-y-2">
-                {completedGoals.map((goal) => (
-                  <div key={goal.id} className="flex items-center gap-2 text-sm">
-                    <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-green-600" />
+                {showCompleted ? (
+                  <ChevronUp className="w-4 h-4 ml-auto" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 ml-auto" />
+                )}
+              </button>
+              {showCompleted && (
+                <div className="bg-card border border-border rounded-lg p-3 space-y-2">
+                  {completedGoals.map((goal) => (
+                    <div key={goal.id} className="flex items-center gap-2 text-sm">
+                      <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-green-600" />
+                      </div>
+                      <span className="text-foreground">{goal.title}</span>
+                      {goal.label && (
+                        <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                          {goal.label}
+                        </span>
+                      )}
                     </div>
-                    <span className="text-foreground">{goal.title}</span>
-                    {goal.label && (
-                      <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                        {goal.label}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -275,9 +300,44 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
           )}
         </div>
 
-        <Button variant="outline" onClick={onClose} className="w-full bg-transparent">
-          Close
-        </Button>
+        {isSelectedDayEnded ? (
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (date) {
+                // Отменяем завершение дня
+                cancelDayEnd(date)
+                
+                // Очищаем данные в календаре stats
+                onUpdateStatus(date, null)
+                
+                // Очищаем dayReviews для этого дня
+                const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
+                const filteredReviews = dayReviews.filter((r: any) => r.date !== date)
+                localStorage.setItem("dayReviews", JSON.stringify(filteredReviews))
+                
+                // Очищаем reasons для этого дня
+                const reasons = JSON.parse(localStorage.getItem("reasons") || "[]")
+                const filteredReasons = reasons.filter((r: any) => r.date !== date)
+                localStorage.setItem("reasons", JSON.stringify(filteredReasons))
+                
+                // Очищаем distractions для этого дня
+                const distractions = JSON.parse(localStorage.getItem("distractions") || "{}")
+                delete distractions[date]
+                localStorage.setItem("distractions", JSON.stringify(distractions))
+              }
+              onClose()
+            }} 
+            disabled={!isToday}
+            className={`w-full ${isToday ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' : 'bg-muted text-muted-foreground border-muted cursor-not-allowed'}`}
+          >
+            Cancel End Day {!isToday && "(Only Today)"}
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={onClose} className="w-full bg-transparent">
+            Close
+          </Button>
+        )}
       </DialogContent>
     </Dialog>
   )
