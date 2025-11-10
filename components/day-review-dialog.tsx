@@ -124,6 +124,27 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
 
     const today = new Date().toISOString().split("T")[0]
     const incompleteGoals = localGoals.filter((g) => !g.completed)
+    const completedGoals = localGoals.filter((g) => g.completed)
+
+    // Save completed goals
+    const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
+    const existingReviewIndex = dayReviews.findIndex((r: any) => r.date === today)
+    
+    const reviewData = {
+      date: today,
+      completedGoals: completedGoals.map((g) => ({
+        id: g.id,
+        title: g.title,
+        label: g.label,
+      })),
+    }
+    
+    if (existingReviewIndex >= 0) {
+      dayReviews[existingReviewIndex] = reviewData
+    } else {
+      dayReviews.push(reviewData)
+    }
+    localStorage.setItem("dayReviews", JSON.stringify(dayReviews))
 
     if (incompleteGoals.length > 0) {
       const reasonsData = JSON.parse(localStorage.getItem("reasons") || "[]")

@@ -99,7 +99,7 @@ export function SwipeableGoalItem({
       leadingActions={leadingActions()}
       trailingActions={trailingActions()}
       threshold={0.25}
-      blockSwipe={false}
+      blockSwipe={!!movingMessage}
       maxSwipe={0.4}
     >
       <div className="relative w-full">

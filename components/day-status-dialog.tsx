@@ -19,9 +19,6 @@ type DayStatusDialogProps = {
 type Goal = {
   id: string
   title: string
-  completed: boolean
-  date: string
-  type: "temporary" | "habit"
   label?: string
 }
 
@@ -41,16 +38,14 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
   useEffect(() => {
     if (date) {
       // Load goals for this date
-      const allGoals: Goal[] = JSON.parse(localStorage.getItem("goals") || "[]")
       const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
       const reasons: ReasonData[] = JSON.parse(localStorage.getItem("reasons") || "[]")
 
       // Find review for this date
       const review = dayReviews.find((r: any) => r.date === date)
 
-      if (review) {
-        const completed = allGoals.filter((g) => review.completedGoals.includes(g.id))
-        setCompletedGoals(completed)
+      if (review && review.completedGoals) {
+        setCompletedGoals(review.completedGoals)
       } else {
         setCompletedGoals([])
       }
