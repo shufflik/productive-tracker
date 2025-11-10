@@ -1,16 +1,54 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { GoalsView } from "@/components/goals-view"
 import { StatisticsView } from "@/components/statistics-view"
 import { HabitsView } from "@/components/habits-view"
 import { CheckSquare, BarChart3, Target } from "lucide-react"
 
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        ready: () => void
+        expand: () => void
+        disableVerticalSwipes: () => void
+        isExpanded: boolean
+      }
+    }
+  }
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"goals" | "statistics" | "habits">("goals")
+  const [isTelegramWebApp, setIsTelegramWebApp] = useState(false)
+
+  useEffect(() => {
+    // Check if running in Telegram WebApp
+    // We need to check both that the API exists AND that we're actually in Telegram
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp
+      
+      // Check if we're really inside Telegram by checking initDataUnsafe or platform
+      const isRealTelegram = tg.initDataUnsafe !== undefined && Object.keys(tg.initDataUnsafe).length > 0
+      
+      if (isRealTelegram) {
+        setIsTelegramWebApp(true)
+        
+        // Initialize Telegram WebApp
+        tg.ready()
+        tg.expand()
+        
+        // Disable vertical swipes to prevent closing
+        if (tg.disableVerticalSwipes) {
+          tg.disableVerticalSwipes()
+        }
+      }
+    }
+  }, [])
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20" style={isTelegramWebApp ? { paddingTop: '13vh' } : undefined}>
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-4">
