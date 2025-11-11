@@ -136,6 +136,13 @@ export function SwipeableGoalItem({
                 {goal.title}
               </p>
             </div>
+            {goal.label && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-muted-foreground">
+                  {goal.label}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         

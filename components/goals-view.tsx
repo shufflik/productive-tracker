@@ -362,34 +362,62 @@ export function GoalsView() {
             </div>
           ) : (
           <div className="space-y-4">
-            {Object.entries(groupedGoals).map(([label, goalsInLabel]) => (
-              <div key={label} className="space-y-2">
-                <div className="flex items-center gap-2 px-2">
-                  <div className="h-px bg-border flex-1" />
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{label}</h3>
-                  <div className="h-px bg-border flex-1" />
+            {Object.entries(groupedGoals).map(([label, goalsInLabel]) => {
+              // Generate consistent color from label
+              const hashCode = (str: string) => {
+                let hash = 0
+                for (let i = 0; i < str.length; i++) {
+                  hash = str.charCodeAt(i) + ((hash << 5) - hash)
+                }
+                return hash
+              }
+              
+              const colors = [
+                'bg-blue-500',
+                'bg-green-500',
+                'bg-purple-500',
+                'bg-pink-500',
+                'bg-yellow-500',
+                'bg-orange-500',
+                'bg-red-500',
+                'bg-cyan-500',
+                'bg-indigo-500',
+                'bg-teal-500',
+              ]
+              
+              const colorIndex = Math.abs(hashCode(label)) % colors.length
+              const labelColor = colors[colorIndex]
+              
+              return (
+                <div key={label} className="space-y-2">
+                  <div className="flex items-center gap-2 px-2">
+                    <div className={`h-1 ${labelColor} flex-1 rounded-full`} />
+                  </div>
+                  <div className="space-y-2">
+                    <SwipeableList type={Type.IOS} threshold={0.25}>
+                      {goalsInLabel.map((goal, index) => (
+                        <div key={goal.id} className={index > 0 ? "mt-2" : ""}>
+                          <SwipeableGoalItem
+                            goal={goal}
+                            selectedDay={selectedDay}
+                            onToggleComplete={toggleComplete}
+                            onEdit={openEditDialog}
+                            onDelete={deleteGoal}
+                            onMoveToToday={moveToTodaySingle}
+                            onMoveToTomorrow={rescheduleForTomorrow}
+                            onMoveToBacklog={moveToBacklog}
+                            onToggleImportant={toggleImportant}
+                            onOpenDetail={openGoalDetail}
+                            movingMessage={movingGoals[goal.id]}
+                            isTodayEnded={isTodayEnded()}
+                          />
+                        </div>
+                      ))}
+                    </SwipeableList>
+                  </div>
                 </div>
-                <SwipeableList type={Type.IOS} threshold={0.25}>
-                  {goalsInLabel.map((goal) => (
-                    <SwipeableGoalItem
-                      key={goal.id}
-                      goal={goal}
-                      selectedDay={selectedDay}
-                      onToggleComplete={toggleComplete}
-                      onEdit={openEditDialog}
-                      onDelete={deleteGoal}
-                      onMoveToToday={moveToTodaySingle}
-                      onMoveToTomorrow={rescheduleForTomorrow}
-                      onMoveToBacklog={moveToBacklog}
-                      onToggleImportant={toggleImportant}
-                      onOpenDetail={openGoalDetail}
-                      movingMessage={movingGoals[goal.id]}
-                      isTodayEnded={isTodayEnded()}
-                    />
-                  ))}
-                </SwipeableList>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
         </div>
