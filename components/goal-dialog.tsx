@@ -5,38 +5,37 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import type { Goal } from "@/lib/types"
 
 type GoalDialogProps = {
   open: boolean
   onClose: () => void
-  onSave: ((id: string, title: string, label: string) => void) | ((title: string, label: string) => void)
+  onSave: (title: string, label: string, description: string) => void
   goal?: Goal | null
 }
 
 export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
   const [title, setTitle] = useState("")
-  const [label, setLabel] = useState("") // Added label state
+  const [label, setLabel] = useState("")
+  const [description, setDescription] = useState("")
 
   useEffect(() => {
     if (goal) {
       setTitle(goal.title)
-      setLabel(goal.label || "") // Load existing label
+      setLabel(goal.label || "")
+      setDescription(goal.description || "")
     } else {
       setTitle("")
-      setLabel("") // Reset label for new goals
+      setLabel("")
+      setDescription("")
     }
   }, [goal, open])
 
   const handleSave = () => {
     if (!title.trim() || !label.trim()) return // Both fields required
 
-    if (goal) {
-      ;(onSave as (id: string, title: string, label: string) => void)(goal.id, title, label)
-    } else {
-      ;(onSave as (title: string, label: string) => void)(title, label)
-    }
-
+    onSave(title, label, description)
     onClose()
   }
 
@@ -67,7 +66,17 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               placeholder="e.g., Work, Personal, Health"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && title.trim() && handleSave()}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              placeholder="Add details about this goal..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
             />
           </div>
         </div>

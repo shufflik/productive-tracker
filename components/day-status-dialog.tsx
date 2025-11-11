@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Check, X, ChevronDown, ChevronUp } from "lucide-react"
 import type { IncompleteReason } from "@/components/day-review-dialog"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
+import { getTodayLocalISO } from "@/lib/utils/date"
 
 type DayStatus = "good" | "average" | "bad" | null
 
@@ -43,7 +44,7 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
   const isSelectedDayEnded = date ? isDayEnded(date) : false
   
   // Проверяем, является ли выбранный день сегодняшним
-  const isToday = date === new Date().toISOString().split("T")[0]
+  const isToday = date === getTodayLocalISO()
 
   useEffect(() => {
     if (date) {

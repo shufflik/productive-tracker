@@ -13,8 +13,8 @@ type GoalsState = {
 
 type GoalsActions = {
   // Goal CRUD operations
-  addGoal: (title: string, label: string, targetDate?: string) => void
-  updateGoal: (id: string, title: string, label: string) => void
+  addGoal: (title: string, label: string, description: string, targetDate?: string) => void
+  updateGoal: (id: string, title: string, label: string, description: string) => void
   deleteGoal: (id: string) => void
   toggleComplete: (id: string) => void
   toggleImportant: (id: string) => void
@@ -41,7 +41,7 @@ export const useGoalsStore = create<GoalsStore>()(
       goals: [],
       isLoaded: false,
 
-      addGoal: (title, label, targetDate) => {
+      addGoal: (title, label, description, targetDate) => {
         let finalTargetDate: string
 
         if (targetDate) {
@@ -53,6 +53,7 @@ export const useGoalsStore = create<GoalsStore>()(
         const newGoal: Goal = {
           id: generateId(),
           title,
+          description: description || undefined,
           type: "temporary",
           completed: false,
           targetDate: finalTargetDate,
@@ -64,9 +65,9 @@ export const useGoalsStore = create<GoalsStore>()(
         }))
       },
 
-      updateGoal: (id, title, label) => {
+      updateGoal: (id, title, label, description) => {
         set((state) => ({
-          goals: state.goals.map((g) => (g.id === id ? { ...g, title, label } : g)),
+          goals: state.goals.map((g) => (g.id === id ? { ...g, title, label, description: description || undefined } : g)),
         }))
       },
 

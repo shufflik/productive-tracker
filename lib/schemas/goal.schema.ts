@@ -3,6 +3,7 @@ import { z } from "zod"
 export const goalSchema = z.object({
   id: z.string(),
   title: z.string().min(1),
+  description: z.string().optional(),
   type: z.enum(["habit", "temporary"]),
   completed: z.boolean(),
   repeatType: z.enum(["daily", "weekly"]).optional(),

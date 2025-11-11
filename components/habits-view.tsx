@@ -16,6 +16,7 @@ import type { Goal } from "@/lib/types"
 export function HabitsView() {
   // Zustand stores
   const habits = useHabitsStore((state) => state.goals)
+  const dayCompletions = useHabitsStore((state) => state.dayCompletions)
   const addHabitToStore = useHabitsStore((state) => state.addHabit)
   const updateHabitInStore = useHabitsStore((state) => state.updateHabit)
   const deleteHabitFromStore = useHabitsStore((state) => state.deleteHabit)
@@ -154,7 +155,6 @@ export function HabitsView() {
                   streak={calculateStreak(habit.id)}
                   onToggle={() => toggleHabitCompletion(habit.id)}
                   onEdit={() => openEditDialog(habit)}
-                  onDelete={() => deleteHabit(habit.id)}
                   onOpenDetail={() => handleHabitClick(habit)}
                 />
               ))}
@@ -167,6 +167,7 @@ export function HabitsView() {
         open={habitDialogOpen}
         onClose={closeHabitDialog}
         onSave={editingHabit ? updateHabit : addHabit}
+        onDelete={deleteHabit}
         habit={editingHabit}
       />
 

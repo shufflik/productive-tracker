@@ -6,6 +6,7 @@ import "react-swipeable-list/dist/styles.css"
 import { Button } from "@/components/ui/button"
 import { Plus, CheckSquare, Package, CalendarCheck, Calendar } from "lucide-react"
 import { GoalDialog } from "@/components/goal-dialog"
+import { GoalDetailDialog } from "@/components/goal-detail-dialog"
 import { DayReviewDialog } from "@/components/day-review-dialog"
 import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
@@ -37,12 +38,14 @@ export function GoalsView() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [backlogOpen, setBacklogOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
+  const [selectedGoalForDetail, setSelectedGoalForDetail] = useState<Goal | null>(null)
   const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow" | "backlog">("today")
   const [movingGoals, setMovingGoals] = useState<Record<string, string>>({})
 
   const addGoal = useCallback(
-    (title: string, label: string) => {
+    (title: string, label: string, description: string) => {
       let targetDate: string
 
       if (selectedDay === "backlog") {
@@ -53,14 +56,14 @@ export function GoalsView() {
         targetDate = new Date().toDateString()
       }
 
-      addGoalToStore(title, label, targetDate)
+      addGoalToStore(title, label, description, targetDate)
     },
     [selectedDay, addGoalToStore]
   )
 
   const updateGoal = useCallback(
-    (id: string, title: string, label: string) => {
-      updateGoalInStore(id, title, label)
+    (id: string, title: string, label: string, description: string) => {
+      updateGoalInStore(id, title, label, description)
     },
     [updateGoalInStore]
   )
@@ -156,6 +159,16 @@ export function GoalsView() {
     setEditingGoal(null)
   }, [])
 
+  const openGoalDetail = useCallback((goal: Goal) => {
+    setSelectedGoalForDetail(goal)
+    setDetailOpen(true)
+  }, [])
+
+  const closeDetailDialog = useCallback(() => {
+    setDetailOpen(false)
+    setSelectedGoalForDetail(null)
+  }, [])
+
   const shouldShowForSelectedDay = useCallback(
     (goal: Goal): boolean => {
       // Only show temporary goals, not habits
@@ -178,22 +191,22 @@ export function GoalsView() {
     [goals, shouldShowForSelectedDay]
   )
 
-  const groupedBacklogGoals = useMemo(
-    () =>
-      selectedDay === "backlog"
-        ? displayGoals.reduce(
-            (acc, goal) => {
-              const labelKey = goal.label || "Unlabeled"
-              if (!acc[labelKey]) {
-                acc[labelKey] = []
-              }
-              acc[labelKey].push(goal)
-              return acc
-            },
-            {} as Record<string, Goal[]>
-          )
-        : {},
-    [selectedDay, displayGoals]
+  const groupedGoals = useMemo(
+    () => {
+      // Group goals by label for all days
+      return displayGoals.reduce(
+        (acc, goal) => {
+          const labelKey = goal.label || "Unlabeled"
+          if (!acc[labelKey]) {
+            acc[labelKey] = []
+          }
+          acc[labelKey].push(goal)
+          return acc
+        },
+        {} as Record<string, Goal[]>
+      )
+    },
+    [displayGoals]
   )
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -347,9 +360,9 @@ export function GoalsView() {
                 {selectedDay === "today" ? "for today" : selectedDay === "tomorrow" ? "for tomorrow" : "in backlog"}
               </p>
             </div>
-          ) : selectedDay === "backlog" ? (
+          ) : (
           <div className="space-y-4">
-            {Object.entries(groupedBacklogGoals).map(([label, goalsInLabel]) => (
+            {Object.entries(groupedGoals).map(([label, goalsInLabel]) => (
               <div key={label} className="space-y-2">
                 <div className="flex items-center gap-2 px-2">
                   <div className="h-px bg-border flex-1" />
@@ -369,6 +382,7 @@ export function GoalsView() {
                       onMoveToTomorrow={rescheduleForTomorrow}
                       onMoveToBacklog={moveToBacklog}
                       onToggleImportant={toggleImportant}
+                      onOpenDetail={openGoalDetail}
                       movingMessage={movingGoals[goal.id]}
                       isTodayEnded={isTodayEnded()}
                     />
@@ -377,26 +391,6 @@ export function GoalsView() {
               </div>
             ))}
           </div>
-        ) : (
-          // Regular list for today/tomorrow
-          <SwipeableList type={Type.IOS} threshold={0.25}>
-            {displayGoals.map((goal) => (
-              <SwipeableGoalItem
-                key={goal.id}
-                goal={goal}
-                selectedDay={selectedDay}
-                onToggleComplete={toggleComplete}
-                onEdit={openEditDialog}
-                onDelete={deleteGoal}
-                onMoveToToday={moveToTodaySingle}
-                onMoveToTomorrow={rescheduleForTomorrow}
-                onMoveToBacklog={moveToBacklog}
-                onToggleImportant={toggleImportant}
-                movingMessage={movingGoals[goal.id]}
-                isTodayEnded={isTodayEnded()}
-              />
-            ))}
-          </SwipeableList>
         )}
         </div>
       )}
@@ -404,7 +398,7 @@ export function GoalsView() {
       <GoalDialog
         open={dialogOpen}
         onClose={closeDialog}
-        onSave={editingGoal ? (title: string, label: string) => updateGoal(editingGoal.id, title, label) : addGoal}
+        onSave={editingGoal ? (title: string, label: string, description: string) => updateGoal(editingGoal.id, title, label, description) : addGoal}
         goal={editingGoal}
       />
 
@@ -420,6 +414,12 @@ export function GoalsView() {
         onClose={() => setReviewOpen(false)}
         goals={displayGoals}
         onUpdateGoals={setGoalsInStore}
+      />
+
+      <GoalDetailDialog
+        open={detailOpen}
+        onClose={closeDetailDialog}
+        goal={selectedGoalForDetail}
       />
     </div>
   )

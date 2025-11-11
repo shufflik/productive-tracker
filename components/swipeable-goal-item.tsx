@@ -17,6 +17,7 @@ interface SwipeableGoalItemProps {
   onMoveToTomorrow: (id: string) => void
   onMoveToBacklog: (id: string) => void
   onToggleImportant: (id: string) => void
+  onOpenDetail: (goal: Goal) => void
   movingMessage?: string
   isTodayEnded?: boolean
 }
@@ -31,6 +32,7 @@ export function SwipeableGoalItem({
   onMoveToTomorrow,
   onMoveToBacklog,
   onToggleImportant,
+  onOpenDetail,
   movingMessage,
   isTodayEnded = false,
 }: SwipeableGoalItemProps) {
@@ -106,7 +108,10 @@ export function SwipeableGoalItem({
       maxSwipe={0.4}
     >
       <div className="relative w-full">
-        <div className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}>
+        <div 
+          className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
+          onClick={() => onOpenDetail(goal)}
+        >
           {selectedDay === "today" && (
             <button
               onClick={(e) => {
@@ -131,7 +136,6 @@ export function SwipeableGoalItem({
                 {goal.title}
               </p>
             </div>
-            {goal.label && <p className="text-xs text-muted-foreground mt-1">{goal.label}</p>}
           </div>
         </div>
         

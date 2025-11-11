@@ -6,6 +6,7 @@ export type RepeatType = "daily" | "weekly"
 export type Goal = {
   id: string
   title: string
+  description?: string
   type: GoalType
   completed: boolean
   repeatType?: RepeatType

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import type { Goal } from "@/lib/types"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import confetti from "canvas-confetti"
+import { getTodayLocalISO } from "@/lib/utils/date"
 
 declare global {
   interface Window {
@@ -139,7 +140,8 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
     else if (completionRate >= 0.4) status = "average"
     else status = "bad"
 
-    const today = new Date().toISOString().split("T")[0]
+    // Получаем сегодняшнюю дату в локальном времени
+    const today = getTodayLocalISO()
     const incompleteGoals = localGoals.filter((g) => !g.completed)
     const completedGoals = localGoals.filter((g) => g.completed)
 

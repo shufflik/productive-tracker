@@ -13,10 +13,11 @@ type HabitDialogProps = {
   onSave:
     | ((id: string, title: string, repeatType: "daily" | "weekly", repeatDays?: number[]) => void)
     | ((title: string, repeatType: "daily" | "weekly", repeatDays?: number[]) => void)
+  onDelete?: (id: string) => void
   habit?: Goal | null
 }
 
-export function HabitDialog({ open, onClose, onSave, habit }: HabitDialogProps) {
+export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDialogProps) {
   const [title, setTitle] = useState("")
   const [repeatType, setRepeatType] = useState<"daily" | "weekly">("daily")
   const [repeatDays, setRepeatDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6])
@@ -71,6 +72,13 @@ export function HabitDialog({ open, onClose, onSave, habit }: HabitDialogProps) 
     }
 
     onClose()
+  }
+
+  const handleDelete = () => {
+    if (habit && onDelete) {
+      onDelete(habit.id)
+      onClose()
+    }
   }
 
   return (
@@ -136,17 +144,28 @@ export function HabitDialog({ open, onClose, onSave, habit }: HabitDialogProps) 
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!title.trim() || (repeatType === "weekly" && repeatDays.length === 0)}
-            className="flex-1"
-          >
-            {habit ? "Update" : "Add"} Habit
-          </Button>
+        <div className="space-y-2">
+          {habit && onDelete && (
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              className="w-full bg-red-500 hover:bg-red-600 text-white border-red-500"
+            >
+              Delete Habit
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!title.trim() || (repeatType === "weekly" && repeatDays.length === 0)}
+              className="flex-1"
+            >
+              {habit ? "Update" : "Add"} Habit
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

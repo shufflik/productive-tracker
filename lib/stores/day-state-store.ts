@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
+import { getTodayLocalISO } from "@/lib/utils/date"
 
 type DayState = {
   date: string // ISO date format "2025-11-10"
@@ -50,13 +51,13 @@ export const useDayStateStore = create<DayStateStore>()(
       },
 
       getTodayState: () => {
-        const today = new Date().toISOString().split("T")[0]
+        const today = getTodayLocalISO()
         const state = get().dayStates[today]
         return state ?? { date: today, isEndDay: false }
       },
 
       isTodayEnded: () => {
-        const today = new Date().toISOString().split("T")[0]
+        const today = getTodayLocalISO()
         return get().isDayEnded(today)
       },
     }),
