@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Goal } from "@/lib/types"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import confetti from "canvas-confetti"
@@ -32,7 +33,7 @@ type DayStatus = "good" | "average" | "bad"
 
 export type IncompleteReason = "no-strength" | "worked-all-day" | "played" | "poor-time-management" | "other"
 
-export type TaskAction = "move" | "split" | "not-relevant" | "blocked"
+export type TaskAction = "backlog" | "tomorrow" | "not-relevant"
 
 export type DistractionLevel = "no" | "little" | "sometimes" | "often" | "constantly"
 
@@ -49,9 +50,11 @@ type DayReviewDialogProps = {
   onClose: () => void
   goals: Goal[]
   onUpdateGoals: (goals: Goal[]) => void
+  date?: string // Опциональная дата для пропущенных дней, если не передана - используется текущая
+  allowCancel?: boolean // Разрешить ли закрытие диалога (для пропущенных дней = false)
 }
 
-export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayReviewDialogProps) {
+export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, allowCancel = true }: DayReviewDialogProps) {
   const markDayAsEnded = useDayStateStore((state) => state.markDayAsEnded)
   const [localGoals, setLocalGoals] = useState<GoalWithDetails[]>([])
   const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "focus">("confirmation")
@@ -140,17 +143,17 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
     else if (completionRate >= 0.4) status = "average"
     else status = "bad"
 
-    // Получаем сегодняшнюю дату в локальном времени
-    const today = getTodayLocalISO()
+    // Используем переданную дату или текущую
+    const reviewDate = date || getTodayLocalISO()
     const incompleteGoals = localGoals.filter((g) => !g.completed)
     const completedGoals = localGoals.filter((g) => g.completed)
 
     // Save completed goals
     const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
-    const existingReviewIndex = dayReviews.findIndex((r: any) => r.date === today)
+    const existingReviewIndex = dayReviews.findIndex((r: any) => r.date === reviewDate)
     
     const reviewData = {
-      date: today,
+      date: reviewDate,
       completedGoals: completedGoals.map((g) => ({
         id: g.id,
         title: g.title,
@@ -170,7 +173,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
       incompleteGoals.forEach((goal) => {
         if (goal.reason) {
           reasonsData.push({
-            date: today,
+            date: reviewDate,
             goalId: goal.id,
             goalTitle: goal.title,
             reason: goal.reason,
@@ -185,16 +188,16 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
     }
 
     const distractionData = JSON.parse(localStorage.getItem("distractions") || "{}")
-    distractionData[today] = distractionLevel
+    distractionData[reviewDate] = distractionLevel
     localStorage.setItem("distractions", JSON.stringify(distractionData))
 
     // Save to calendar
     const calendar = JSON.parse(localStorage.getItem("calendar") || "{}")
-    calendar[today] = status
+    calendar[reviewDate] = status
     localStorage.setItem("calendar", JSON.stringify(calendar))
 
-    // Mark today as ended
-    markDayAsEnded(today)
+    // Mark day as ended
+    markDayAsEnded(reviewDate)
 
     // Close dialog first
     onClose()
@@ -238,10 +241,9 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
 
   const getActionLabel = (action: TaskAction) => {
     const labels: Record<TaskAction, string> = {
-      move: "Move",
-      split: "Split",
+      backlog: "Move to backlog",
+      tomorrow: "Move to Tomorrow",
       "not-relevant": "Not relevant",
-      blocked: "Blocked",
     }
     return labels[action]
   }
@@ -259,12 +261,21 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
 
   const distractionLevels: DistractionLevel[] = ["no", "little", "sometimes", "often", "constantly"]
 
+  // Форматируем дату для отображения
+  const formattedDate = date 
+    ? new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })
+    : null
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md">
+    <Dialog open={open} onOpenChange={allowCancel ? onClose : undefined}>
+      <DialogContent className="max-w-[90%] sm:max-w-md" showCloseButton={allowCancel}>
         <DialogHeader>
           <DialogTitle>
-            {step === "confirmation" && "End Day"}
+            {step === "confirmation" && (date ? `End Day - ${formattedDate}` : "End Day")}
             {step === "completion" && "Mark Completed Goals"}
             {step === "summary" && "Day Summary"}
             {step === "details" && "Unfinished Tasks Details"}
@@ -376,93 +387,109 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
         )}
 
         {step === "details" && (
-          <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-            {incompleteGoals.map((goal, index) => (
-              <div key={goal.id} className="space-y-3 pb-4 border-b border-border last:border-0">
-                <p className="text-sm font-semibold text-foreground">
-                  {index + 1}. {goal.title}
-                </p>
+          <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            {incompleteGoals.map((goal, index) => {
+              // Проверяем, является ли этот день пропущенным 2 дня назад
+              const today = getTodayLocalISO()
+              const reviewDate = date || today
+              const daysDiff = Math.floor(
+                (new Date(today + "T00:00:00").getTime() - new Date(reviewDate + "T00:00:00").getTime()) / 
+                (1000 * 60 * 60 * 24)
+              )
+              const isTomorrowDisabled = daysDiff >= 2
 
-                {/* Reason */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Reason *</Label>
-                  <RadioGroup
-                    value={goal.reason || ""}
-                    onValueChange={(value) => setGoalReason(goal.id, value as IncompleteReason)}
-                  >
-                    {(
-                      ["no-strength", "worked-all-day", "played", "poor-time-management", "other"] as IncompleteReason[]
-                    ).map((reason) => (
-                      <div key={reason} className="flex items-center space-x-2">
-                        <RadioGroupItem value={reason} id={`${goal.id}-${reason}`} />
-                        <Label htmlFor={`${goal.id}-${reason}`} className="text-sm cursor-pointer">
-                          {getReasonLabel(reason)}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                  {goal.reason === "other" && (
-                    <Textarea
-                      placeholder="Please describe your reason..."
-                      value={goal.customReason || ""}
-                      onChange={(e) => setGoalCustomReason(goal.id, e.target.value)}
-                      className="min-h-[60px] text-sm"
-                    />
-                  )}
-                </div>
+              return (
+                <div key={goal.id} className="space-y-3 pb-4 border-b border-border last:border-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {index + 1}. {goal.title}
+                  </p>
 
-                {/* Action */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Action *</Label>
-                  <RadioGroup
-                    value={goal.action || ""}
-                    onValueChange={(value) => setGoalAction(goal.id, value as TaskAction)}
-                  >
-                    {(["move", "split", "not-relevant", "blocked"] as TaskAction[]).map((action) => (
-                      <div key={action} className="flex items-center space-x-2">
-                        <RadioGroupItem value={action} id={`${goal.id}-action-${action}`} />
-                        <Label htmlFor={`${goal.id}-action-${action}`} className="text-sm cursor-pointer">
-                          {getActionLabel(action)}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
+                  {/* Reason */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Reason *</Label>
+                    <Select
+                      value={goal.reason || ""}
+                      onValueChange={(value) => setGoalReason(goal.id, value as IncompleteReason)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select reason..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(
+                          ["no-strength", "worked-all-day", "played", "poor-time-management", "other"] as IncompleteReason[]
+                        ).map((reason) => (
+                          <SelectItem key={reason} value={reason}>
+                            {getReasonLabel(reason)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {goal.reason === "other" && (
+                      <Textarea
+                        placeholder="Please describe your reason..."
+                        value={goal.customReason || ""}
+                        onChange={(e) => setGoalCustomReason(goal.id, e.target.value)}
+                        className="min-h-[60px] text-sm"
+                      />
+                    )}
+                  </div>
 
-                {/* % Ready */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">% Ready (optional)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={goal.percentReady || 0}
-                      onChange={(e) => setGoalPercentReady(goal.id, Math.min(100, Math.max(0, Number(e.target.value))))}
-                      className="w-16 h-8 text-sm text-center"
+                  {/* Action */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Action *</Label>
+                    <Select
+                      value={goal.action || ""}
+                      onValueChange={(value) => setGoalAction(goal.id, value as TaskAction)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select action..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="backlog">{getActionLabel("backlog")}</SelectItem>
+                        <SelectItem value="tomorrow" disabled={isTomorrowDisabled}>
+                          {getActionLabel("tomorrow")}
+                          {isTomorrowDisabled && " (not available)"}
+                        </SelectItem>
+                        <SelectItem value="not-relevant">{getActionLabel("not-relevant")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* % Ready */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">% Ready (optional)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={goal.percentReady || 0}
+                        onChange={(e) => setGoalPercentReady(goal.id, Math.min(100, Math.max(0, Number(e.target.value))))}
+                        className="w-16 h-8 text-sm text-center"
+                      />
+                    </div>
+                    <Slider
+                      value={[goal.percentReady || 0]}
+                      onValueChange={(value) => setGoalPercentReady(goal.id, value[0])}
+                      max={100}
+                      step={5}
+                      className="w-full"
                     />
                   </div>
-                  <Slider
-                    value={[goal.percentReady || 0]}
-                    onValueChange={(value) => setGoalPercentReady(goal.id, value[0])}
-                    max={100}
-                    step={5}
-                    className="w-full"
-                  />
-                </div>
 
-                {/* Note */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Note (optional)</Label>
-                  <Textarea
-                    placeholder="Add any additional notes..."
-                    value={goal.note || ""}
-                    onChange={(e) => setGoalNote(goal.id, e.target.value)}
-                    className="min-h-[60px] text-sm"
-                  />
+                  {/* Note */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Note (optional)</Label>
+                    <Textarea
+                      placeholder="Add any additional notes..."
+                      value={goal.note || ""}
+                      onChange={(e) => setGoalNote(goal.id, e.target.value)}
+                      className="min-h-[60px] text-sm"
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -502,9 +529,11 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals }: DayRevi
         )}
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
-            Cancel
-          </Button>
+          {allowCancel && (
+            <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+              Cancel
+            </Button>
+          )}
           {step !== "confirmation" && step !== "completion" && (
             <Button
               variant="outline"

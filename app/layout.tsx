@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PendingDayReviewsManager } from '@/components/pending-day-reviews-manager'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -22,6 +23,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <PendingDayReviewsManager />
           {children}
         </ThemeProvider>
         <Analytics />
