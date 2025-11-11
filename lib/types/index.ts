@@ -3,18 +3,34 @@
 export type GoalType = "habit" | "temporary"
 export type RepeatType = "daily" | "weekly"
 
-export type Goal = {
+// Base type for common properties
+type BaseItem = {
   id: string
   title: string
-  description?: string
-  type: GoalType
   completed: boolean
-  repeatType?: RepeatType
-  repeatDays?: number[] // 0-6, where 0 is Sunday
-  targetDate?: string
   important?: boolean
+}
+
+// Goal (temporary task with deadline)
+export type Goal = BaseItem & {
+  type: "temporary"
+  description?: string
+  targetDate?: string
   label?: string
 }
+
+// Habit (recurring task with streak tracking, no description)
+export type Habit = BaseItem & {
+  type: "habit"
+  repeatType: RepeatType
+  repeatDays?: number[] // 0-6, where 0 is Sunday
+  currentStreak: number
+  maxStreak: number
+  lastCompletedDate?: string
+}
+
+// Union type for both
+export type TaskItem = Goal | Habit
 
 export type DayCompletion = {
   date: string

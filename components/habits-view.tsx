@@ -11,7 +11,7 @@ import { SwipeableHabitItem } from "@/components/swipeable-habit-item"
 import { WeekNavigator } from "@/components/week-navigator"
 import { useHabitsStore } from "@/lib/stores/habits-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
-import type { Goal } from "@/lib/types"
+import type { Habit } from "@/lib/types"
 
 export function HabitsView() {
   // Zustand stores
@@ -24,12 +24,13 @@ export function HabitsView() {
   const isHabitCompletedInStore = useHabitsStore((state) => state.isHabitCompletedForDate)
   const isHabitScheduledInStore = useHabitsStore((state) => state.isHabitScheduledForDate)
   const calculateStreakInStore = useHabitsStore((state) => state.calculateStreak)
+  const calculateMaxStreakInStore = useHabitsStore((state) => state.calculateMaxStreak)
 
   // Local UI state
-  const [selectedHabit, setSelectedHabit] = useState<Goal | null>(null)
+  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [habitDialogOpen, setHabitDialogOpen] = useState(false)
-  const [editingHabit, setEditingHabit] = useState<Goal | null>(null)
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const addHabit = useCallback(
@@ -54,7 +55,7 @@ export function HabitsView() {
   )
 
   const isHabitScheduledForDate = useCallback(
-    (habit: Goal, date: Date): boolean => {
+    (habit: Habit, date: Date): boolean => {
       return isHabitScheduledInStore(habit, date)
     },
     [isHabitScheduledInStore]
@@ -81,12 +82,19 @@ export function HabitsView() {
     [calculateStreakInStore]
   )
 
-  const handleHabitClick = useCallback((habit: Goal) => {
+  const calculateMaxStreak = useCallback(
+    (habitId: string): number => {
+      return calculateMaxStreakInStore(habitId)
+    },
+    [calculateMaxStreakInStore]
+  )
+
+  const handleHabitClick = useCallback((habit: Habit) => {
     setSelectedHabit(habit)
     setDetailOpen(true)
   }, [])
 
-  const openEditDialog = useCallback((habit: Goal) => {
+  const openEditDialog = useCallback((habit: Habit) => {
     setEditingHabit(habit)
     setHabitDialogOpen(true)
   }, [])
@@ -154,6 +162,7 @@ export function HabitsView() {
                       habit={habit}
                       isCompleted={isHabitCompletedForDate(habit.id, selectedDate)}
                       streak={calculateStreak(habit.id)}
+                      isCurrentDate={isSelectedDateToday()}
                       onToggle={() => toggleHabitCompletion(habit.id)}
                       onEdit={() => openEditDialog(habit)}
                       onOpenDetail={() => handleHabitClick(habit)}
@@ -179,6 +188,7 @@ export function HabitsView() {
         onClose={() => setDetailOpen(false)}
         habit={selectedHabit}
         streak={selectedHabit ? calculateStreak(selectedHabit.id) : 0}
+        maxStreak={selectedHabit ? calculateMaxStreak(selectedHabit.id) : 0}
       />
     </div>
   )

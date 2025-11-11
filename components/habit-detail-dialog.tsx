@@ -1,17 +1,19 @@
 "use client"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Target, TrendingUp, Calendar } from "lucide-react"
-import type { Goal } from "@/lib/types"
+import { Target, Calendar } from "lucide-react"
+import { DotLottieReact } from "@lottiefiles/dotlottie-react"
+import type { Habit } from "@/lib/types"
 
 type HabitDetailDialogProps = {
   open: boolean
   onClose: () => void
-  habit: Goal | null
+  habit: Habit | null
   streak: number
+  maxStreak: number
 }
 
-export function HabitDetailDialog({ open, onClose, habit, streak }: HabitDetailDialogProps) {
+export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: HabitDetailDialogProps) {
   if (!habit) return null
 
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -39,10 +41,18 @@ export function HabitDetailDialog({ open, onClose, habit, streak }: HabitDetailD
           </div>
 
           {/* Streak Display */}
-          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-6 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className="w-6 h-6 text-primary" />
-              <span className="text-5xl font-bold text-primary">{streak}</span>
+          <div className="bg-gradient-to-br from-orange-500/10 to-red-500/5 rounded-lg p-6 text-center">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              {streak > 0 && (
+                <div className="w-16 h-16">
+                  <DotLottieReact
+                    src="https://lottie.host/e9aafbd4-8c8d-412f-98d9-df7270baeb9c/oUfY2XnkZi.lottie"
+                    loop
+                    autoplay
+                  />
+                </div>
+              )}
+              <span className={`text-5xl font-bold ${streak > 0 ? 'text-orange-500' : 'text-muted-foreground'}`}>{streak}</span>
             </div>
             <p className="text-sm font-medium text-foreground">Consecutive Days</p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -87,8 +97,8 @@ export function HabitDetailDialog({ open, onClose, habit, streak }: HabitDetailD
               <p className="text-xs text-muted-foreground mt-1">Days per week</p>
             </div>
             <div className="bg-card border border-border rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-foreground">{streak > 0 ? "🔥" : "💪"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{streak > 0 ? "On fire!" : "Ready to start"}</p>
+              <p className="text-2xl font-bold text-foreground">{maxStreak}</p>
+              <p className="text-xs text-muted-foreground mt-1">Best streak</p>
             </div>
           </div>
         </div>

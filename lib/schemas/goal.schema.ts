@@ -1,19 +1,38 @@
 import { z } from "zod"
 
-export const goalSchema = z.object({
+// Base schema for common properties
+const baseItemSchema = z.object({
   id: z.string(),
   title: z.string().min(1),
-  description: z.string().optional(),
-  type: z.enum(["habit", "temporary"]),
   completed: z.boolean(),
-  repeatType: z.enum(["daily", "weekly"]).optional(),
-  repeatDays: z.array(z.number().min(0).max(6)).optional(),
-  targetDate: z.string().optional(),
   important: z.boolean().optional(),
+})
+
+// Goal schema (temporary task with deadline)
+const goalSchema = baseItemSchema.extend({
+  type: z.literal("temporary"),
+  description: z.string().optional(),
+  targetDate: z.string().optional(),
   label: z.string().optional(),
 })
 
-export const goalsArraySchema = z.array(goalSchema)
+// Habit schema (no description)
+const habitSchema = baseItemSchema.extend({
+  type: z.literal("habit"),
+  repeatType: z.enum(["daily", "weekly"]),
+  repeatDays: z.array(z.number().min(0).max(6)).optional(),
+  currentStreak: z.number(),
+  maxStreak: z.number(),
+  lastCompletedDate: z.string().optional(),
+})
+
+// Union schema
+export const taskItemSchema = z.discriminatedUnion("type", [
+  goalSchema,
+  habitSchema,
+])
+
+export const goalsArraySchema = z.array(taskItemSchema)
 
 export const dayCompletionSchema = z.object({
   date: z.string(),

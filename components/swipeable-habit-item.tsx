@@ -3,12 +3,13 @@
 import { SwipeableListItem, SwipeAction, TrailingActions, LeadingActions, Type } from "react-swipeable-list"
 import "react-swipeable-list/dist/styles.css"
 import { Pencil, TrendingUp, Star, Check } from "lucide-react"
-import type { Goal } from "@/lib/types"
+import type { Habit } from "@/lib/types"
 
 type SwipeableHabitItemProps = {
-  habit: Goal
+  habit: Habit
   isCompleted: boolean
   streak: number
+  isCurrentDate: boolean
   onToggle: () => void
   onEdit: () => void
   onOpenDetail: () => void
@@ -18,6 +19,7 @@ export function SwipeableHabitItem({
   habit,
   isCompleted,
   streak,
+  isCurrentDate,
   onToggle,
   onEdit,
   onOpenDetail,
@@ -51,15 +53,17 @@ export function SwipeableHabitItem({
   return (
     <SwipeableListItem 
       listType={Type.IOS} 
-      leadingActions={leadingActions()}
-      trailingActions={trailingActions()} 
+      leadingActions={isCurrentDate ? leadingActions() : undefined}
+      trailingActions={isCurrentDate ? trailingActions() : undefined} 
       threshold={0.25} 
-      blockSwipe={false} 
+      blockSwipe={!isCurrentDate} 
       maxSwipe={0.25}
     >
       <div className="relative w-full">
         <div 
-          className="bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer"
+          className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${
+            !isCurrentDate ? "opacity-60" : ""
+          }`}
           onClick={() => onOpenDetail()}
         >
           <div className="flex-1 min-w-0">

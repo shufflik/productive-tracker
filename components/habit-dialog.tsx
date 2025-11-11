@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { Goal } from "@/lib/types"
+import type { Habit } from "@/lib/types"
 
 type HabitDialogProps = {
   open: boolean
@@ -14,7 +14,7 @@ type HabitDialogProps = {
     | ((id: string, title: string, repeatType: "daily" | "weekly", repeatDays?: number[]) => void)
     | ((title: string, repeatType: "daily" | "weekly", repeatDays?: number[]) => void)
   onDelete?: (id: string) => void
-  habit?: Goal | null
+  habit?: Habit | null
 }
 
 export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDialogProps) {
