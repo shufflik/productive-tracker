@@ -306,7 +306,7 @@ export function GoalsView() {
       </div>
 
       {!isCurrentDayEnded && displayGoals.length > 0 && selectedDay === "today" && (
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-muted/50 border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-foreground">Today's Progress</span>
             <span className="text-sm font-bold text-primary">
@@ -315,7 +315,7 @@ export function GoalsView() {
           </div>
           <div className="w-full bg-muted rounded-full h-2">
             <div
-              className="bg-primary h-2 rounded-full transition-all"
+              className="bg-green-500 h-2 rounded-full transition-all"
               style={{
                 width: `${displayGoals.length > 0 ? (displayGoals.filter((g) => g.completed).length / displayGoals.length) * 100 : 0}%`,
               }}
@@ -390,8 +390,8 @@ export function GoalsView() {
               
               return (
                 <div key={label} className="space-y-2">
-                  <div className="flex items-center gap-2 px-2">
-                    <div className={`h-1 ${labelColor} flex-1 rounded-full`} />
+                  <div className="flex items-center justify-center px-2">
+                    <div className={`h-1 ${labelColor} w-16 rounded-full`} />
                   </div>
                   <div className="space-y-2">
                     <SwipeableList type={Type.IOS} threshold={0.25}>
@@ -410,6 +410,7 @@ export function GoalsView() {
                             onOpenDetail={openGoalDetail}
                             movingMessage={movingGoals[goal.id]}
                             isTodayEnded={isTodayEnded()}
+                            labelColor={labelColor}
                           />
                         </div>
                       ))}

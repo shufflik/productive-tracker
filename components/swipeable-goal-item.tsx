@@ -20,6 +20,7 @@ interface SwipeableGoalItemProps {
   onOpenDetail: (goal: Goal) => void
   movingMessage?: string
   isTodayEnded?: boolean
+  labelColor?: string
 }
 
 export function SwipeableGoalItem({
@@ -35,11 +36,32 @@ export function SwipeableGoalItem({
   onOpenDetail,
   movingMessage,
   isTodayEnded = false,
+  labelColor,
 }: SwipeableGoalItemProps) {
   const [swipeKey, setSwipeKey] = useState(0)
 
   const resetSwipe = () => {
     setSwipeKey(prev => prev + 1)
+  }
+
+  // Convert Tailwind color class to rgba
+  const getBackgroundColor = () => {
+    if (!labelColor) return undefined
+    
+    const colorMap: Record<string, string> = {
+      'bg-blue-500': 'rgba(59, 130, 246, 0.02)',
+      'bg-green-500': 'rgba(34, 197, 94, 0.02)',
+      'bg-purple-500': 'rgba(168, 85, 247, 0.02)',
+      'bg-pink-500': 'rgba(236, 72, 153, 0.02)',
+      'bg-yellow-500': 'rgba(234, 179, 8, 0.02)',
+      'bg-orange-500': 'rgba(249, 115, 22, 0.02)',
+      'bg-red-500': 'rgba(239, 68, 68, 0.02)',
+      'bg-cyan-500': 'rgba(6, 182, 212, 0.02)',
+      'bg-indigo-500': 'rgba(99, 102, 241, 0.02)',
+      'bg-teal-500': 'rgba(20, 184, 166, 0.02)',
+    }
+    
+    return colorMap[labelColor]
   }
 
   // Определяем доступные опции перемещения в зависимости от текущего раздела
@@ -109,7 +131,8 @@ export function SwipeableGoalItem({
     >
       <div className="relative w-full">
         <div 
-          className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
+          className={`border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'} ${!labelColor ? 'bg-card' : ''}`}
+          style={labelColor ? { backgroundColor: getBackgroundColor() } : undefined}
           onClick={() => onOpenDetail(goal)}
         >
           {selectedDay === "today" && (
