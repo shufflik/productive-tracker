@@ -41,9 +41,12 @@ export function PendingDayReviewsManager() {
       const nextDate = sortedDates[0]
       setCurrentReviewDate(nextDate)
       
+      // Конвертируем ISO дату в toDateString формат для сравнения с goals
+      const nextDateAsDateString = new Date(nextDate + "T00:00:00").toDateString()
+      
       // Загружаем goals для этой даты
       const dateGoals = goalsFromStore.filter(
-        (g) => g.type === "temporary" && g.targetDate === nextDate
+        (g) => g.type === "temporary" && g.targetDate === nextDateAsDateString
       ) as Goal[]
       setCurrentDateGoals(dateGoals)
     }
