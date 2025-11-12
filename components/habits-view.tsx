@@ -119,7 +119,7 @@ export function HabitsView() {
   }, [selectedDate])
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto scrollbar-hide space-y-6">
       <WeekNavigator selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
       <div>

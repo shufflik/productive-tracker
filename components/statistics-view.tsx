@@ -213,7 +213,7 @@ export function StatisticsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto scrollbar-hide space-y-6">
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>

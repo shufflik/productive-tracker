@@ -234,8 +234,8 @@ export function GoalsView() {
   const isCurrentDayEnded = selectedDay === "today" && isTodayEnded()
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2 p-1 bg-muted rounded-lg">
+    <div className="flex flex-col h-full space-y-6">
+      <div className="flex gap-2 p-1 bg-muted rounded-lg flex-shrink-0">
         <button
           onClick={() => setSelectedDay("today")}
           className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
@@ -271,7 +271,7 @@ export function GoalsView() {
         </button>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-lg font-semibold text-foreground">
             {selectedDay === "today" ? "Today's Goals" : selectedDay === "tomorrow" ? "Tomorrow's Goals" : "Backlog"}
@@ -311,7 +311,7 @@ export function GoalsView() {
         const allCompleted = completedCount === totalCount
         
         return (
-          <div className="rounded-lg p-4" style={{ backgroundColor: 'lab(31.6% 36 -85 / 0.15)' }}>
+          <div className="rounded-lg p-4 flex-shrink-0 !mb-2" style={{ backgroundColor: 'lab(31.6% 36 -85 / 0.15)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-foreground">Today's Progress</span>
               <span className={`text-sm font-bold transition-colors ${allCompleted ? "text-green-500" : "text-foreground"}`}>
@@ -330,6 +330,7 @@ export function GoalsView() {
         )
       })()}
 
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
       {isCurrentDayEnded ? (
         <div className="text-center">
           <div className="w-32 h-32 mx-auto">
@@ -432,6 +433,7 @@ export function GoalsView() {
         )}
         </div>
       )}
+      </div>
 
       <GoalDialog
         open={dialogOpen}

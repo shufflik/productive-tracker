@@ -63,22 +63,27 @@ export default function Home() {
 
   return (
     <div 
-      className="min-h-screen bg-background pb-20" 
+      className="h-screen bg-background flex flex-col overflow-hidden" 
       style={isTelegramWebApp ? { 
         paddingTop: 'var(--tg-content-safe-area-inset-top, 0px)',
-        paddingBottom: 'calc(5rem + var(--tg-content-safe-area-inset-bottom, 0px))'
+        paddingBottom: 'var(--tg-content-safe-area-inset-bottom, 0px)'
       } : undefined}
     >
       {/* Main Content */}
-      <main className="max-w-md mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold text-foreground text-center mb-6">Daily Tracker</h1>
-        {activeTab === "goals" && <GoalsView />}
-        {activeTab === "statistics" && <StatisticsView />}
-        {activeTab === "habits" && <HabitsView />}
+      <main className="max-w-md mx-auto px-4 pt-6 pb-1 w-full flex-1 flex flex-col min-h-0 relative">
+        <h1 className="text-2xl font-bold text-foreground text-center mb-6 flex-shrink-0">Daily Tracker</h1>
+        <div className="flex-1 min-h-0">
+          {activeTab === "goals" && <GoalsView />}
+          {activeTab === "statistics" && <StatisticsView />}
+          {activeTab === "habits" && <HabitsView />}
+        </div>
+        
+        {/* Bottom fade gradient */}
+        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border">
+      <nav className="bg-card border-t border-border flex-shrink-0">
         <div className="max-w-md mx-auto flex">
           <button
             onClick={() => setActiveTab("goals")}
