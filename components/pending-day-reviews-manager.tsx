@@ -28,10 +28,10 @@ export function PendingDayReviewsManager() {
   // Проверка пропущенных дней при монтировании
   useEffect(() => {
     if (!isInitialized) {
-      checkMissedDays()
+      checkMissedDays(goalsFromStore)
       setIsInitialized(true)
     }
-  }, [isInitialized, checkMissedDays])
+  }, [isInitialized, checkMissedDays, goalsFromStore])
 
   // Показываем диалог для первой даты из очереди
   useEffect(() => {

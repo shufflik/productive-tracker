@@ -23,7 +23,7 @@ type DayStateStore = {
   isTodayEnded: () => boolean
   
   // Новые методы для автоматического закрытия дней
-  checkMissedDays: () => void
+  checkMissedDays: (goals: Array<{ targetDate?: string; type: string }>) => void
   markDayForReview: (date: string) => void
   completePendingReview: (date: string) => void
   updateLastActiveDate: () => void
@@ -77,7 +77,7 @@ export const useDayStateStore = create<DayStateStore>()(
       },
 
       // Проверка пропущенных дней и автоматическое закрытие
-      checkMissedDays: () => {
+      checkMissedDays: (goals) => {
         const today = getTodayLocalISO()
         const lastActive = get().lastActiveDate
         
@@ -98,24 +98,38 @@ export const useDayStateStore = create<DayStateStore>()(
           return
         }
 
-        // Максимум 2 пропущенных дня (today и tomorrow)
-        diffInDays = Math.min(diffInDays, 2)
-
-        // Для каждого пропущенного дня (включая lastActive, если он не был закрыт)
-        const missedDates: string[] = []
+      // Для каждого пропущенного дня между lastActive и today
+      // Закрываем максимум ПЕРВЫЕ 2 пропущенных дня (включая lastActive если не закрыт)
+      const missedDates: string[] = []
+      let closedCount = 0
+      
+      // Начинаем с lastActive (i=0), заканчиваем до today (i < diffInDays)
+      // Закрываем максимум 2 дня
+      for (let i = 0; i < diffInDays && closedCount < 2; i++) {
+        const missedDate = new Date(lastActiveDate)
+        missedDate.setDate(missedDate.getDate() + i)
+        const missedDateISO = missedDate.toISOString().split('T')[0]
         
-        for (let i = 0; i < diffInDays; i++) {
-          const missedDate = new Date(lastActiveDate)
-          missedDate.setDate(missedDate.getDate() + i)
-          const missedDateISO = missedDate.toISOString().split('T')[0]
+        // Проверяем, не был ли этот день уже закрыт
+        if (!get().isDayEnded(missedDateISO)) {
+          // Конвертируем ISO дату в toDateString для сравнения с goals
+          const missedDateAsDateString = new Date(missedDateISO + "T00:00:00").toDateString()
           
-          // Проверяем, не был ли этот день уже закрыт
-          if (!get().isDayEnded(missedDateISO)) {
+          // Проверяем, были ли goals для этого дня
+          const hasGoals = goals.some(
+            (g) => g.type === "temporary" && g.targetDate === missedDateAsDateString
+          )
+          
+          if (hasGoals) {
+            // Есть goals - добавляем в очередь для review
             missedDates.push(missedDateISO)
             // Автоматически помечаем день как завершенный
             get().markDayAsEnded(missedDateISO)
+            closedCount++
           }
+          // Если нет goals - просто пропускаем день (не закрываем его)
         }
+      }
 
         // Добавляем пропущенные даты в очередь на review
         if (missedDates.length > 0) {
