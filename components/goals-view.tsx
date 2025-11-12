@@ -311,7 +311,7 @@ export function GoalsView() {
         const allCompleted = completedCount === totalCount
         
         return (
-          <div className="rounded-lg p-4 flex-shrink-0 !mb-2" style={{ backgroundColor: 'lab(31.6% 36 -85 / 0.15)' }}>
+          <div className="rounded-lg p-4 flex-shrink-0 !mb-4" style={{ backgroundColor: 'lab(31.6% 36 -85 / 0.15)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-foreground">Today's Progress</span>
               <span className={`text-sm font-bold transition-colors ${allCompleted ? "text-green-500" : "text-foreground"}`}>
