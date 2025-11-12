@@ -44,21 +44,21 @@ export function SwipeableGoalItem({
     setSwipeKey(prev => prev + 1)
   }
 
-  // Convert Tailwind color class to rgba
-  const getBackgroundColor = () => {
+  // Convert Tailwind color class to border color
+  const getBorderColor = () => {
     if (!labelColor) return undefined
     
     const colorMap: Record<string, string> = {
-      'bg-blue-500': 'rgba(59, 130, 246, 0.02)',
-      'bg-green-500': 'rgba(34, 197, 94, 0.02)',
-      'bg-purple-500': 'rgba(168, 85, 247, 0.02)',
-      'bg-pink-500': 'rgba(236, 72, 153, 0.02)',
-      'bg-yellow-500': 'rgba(234, 179, 8, 0.02)',
-      'bg-orange-500': 'rgba(249, 115, 22, 0.02)',
-      'bg-red-500': 'rgba(239, 68, 68, 0.02)',
-      'bg-cyan-500': 'rgba(6, 182, 212, 0.02)',
-      'bg-indigo-500': 'rgba(99, 102, 241, 0.02)',
-      'bg-teal-500': 'rgba(20, 184, 166, 0.02)',
+      'bg-blue-500': 'rgb(59, 130, 246)',
+      'bg-green-500': 'rgb(34, 197, 94)',
+      'bg-purple-500': 'rgb(168, 85, 247)',
+      'bg-pink-500': 'rgb(236, 72, 153)',
+      'bg-yellow-500': 'rgb(234, 179, 8)',
+      'bg-orange-500': 'rgb(249, 115, 22)',
+      'bg-red-500': 'rgb(239, 68, 68)',
+      'bg-cyan-500': 'rgb(6, 182, 212)',
+      'bg-indigo-500': 'rgb(99, 102, 241)',
+      'bg-teal-500': 'rgb(20, 184, 166)',
     }
     
     return colorMap[labelColor]
@@ -131,8 +131,8 @@ export function SwipeableGoalItem({
     >
       <div className="relative w-full">
         <div 
-          className={`border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'} ${!labelColor ? 'bg-card' : ''}`}
-          style={labelColor ? { backgroundColor: getBackgroundColor() } : undefined}
+          className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
+          style={labelColor ? { borderLeftWidth: '3px', borderLeftColor: getBorderColor() } : undefined}
           onClick={() => onOpenDetail(goal)}
         >
           {selectedDay === "today" && (
@@ -159,13 +159,6 @@ export function SwipeableGoalItem({
                 {goal.title}
               </p>
             </div>
-            {goal.label && (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-muted-foreground">
-                  {goal.label}
-                </span>
-              </div>
-            )}
           </div>
         </div>
         

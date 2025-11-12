@@ -3,6 +3,7 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { getTodayLocalISO } from "@/lib/utils/date"
+import { syncService } from "@/lib/services/sync-service"
 
 type DayState = {
   date: string // ISO date format "2025-11-10"
@@ -46,6 +47,9 @@ export const useDayStateStore = create<DayStateStore>()(
             },
           },
         }))
+        
+        // CRITICAL EVENT: синхронизируем сразу
+        syncService.sync()
       },
 
       cancelDayEnd: (date) => {
@@ -139,6 +143,9 @@ export const useDayStateStore = create<DayStateStore>()(
         set((state) => ({
           pendingReviewDates: state.pendingReviewDates.filter((d) => d !== date),
         }))
+        
+        // CRITICAL EVENT: синхронизируем сразу
+        syncService.sync()
       },
 
       updateLastActiveDate: () => {

@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware"
 import type { Goal, Habit, RepeatType, DayCompletion } from "@/lib/types"
 import { goalsArraySchema, dayCompletionsArraySchema } from "@/lib/schemas/goal.schema"
 import { generateId } from "@/lib/utils/id"
+import { syncService } from "@/lib/services/sync-service"
 
 type HabitsState = {
   goals: Habit[]
@@ -79,6 +80,10 @@ export const useHabitsStore = create<HabitsStore>()(
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
         }))
+        
+        // При удалении привычки - синхронизируем (для notifications)
+        // Не критично, но полезно для backend метрик
+        syncService.sync()
       },
 
       toggleHabitCompletion: (habitId, date) => {

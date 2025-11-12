@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/next'
 import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PendingDayReviewsManager } from '@/components/pending-day-reviews-manager'
+import { Toaster } from 'sonner'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -19,12 +20,23 @@ export default function RootLayout({
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          forcedTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <PendingDayReviewsManager />
           {children}
+          <Toaster 
+            position="bottom-center"
+            toastOptions={{
+              style: {
+                background: '#dc2626',
+                color: '#fff'
+              },
+              className: 'sonner-toast',
+            }}
+          />
         </ThemeProvider>
         <Analytics />
       </body>

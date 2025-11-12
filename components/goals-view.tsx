@@ -305,24 +305,30 @@ export function GoalsView() {
         </div>
       </div>
 
-      {!isCurrentDayEnded && displayGoals.length > 0 && selectedDay === "today" && (
-        <div className="bg-muted/50 border border-border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-foreground">Today's Progress</span>
-            <span className="text-sm font-bold text-primary">
-              {displayGoals.filter((g) => g.completed).length} / {displayGoals.length}
-            </span>
+      {!isCurrentDayEnded && displayGoals.length > 0 && selectedDay === "today" && (() => {
+        const completedCount = displayGoals.filter((g) => g.completed).length
+        const totalCount = displayGoals.length
+        const allCompleted = completedCount === totalCount
+        
+        return (
+          <div className="rounded-lg p-4" style={{ backgroundColor: 'lab(31.6% 36 -85 / 0.15)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-foreground">Today's Progress</span>
+              <span className={`text-sm font-bold transition-colors ${allCompleted ? "text-green-500" : "text-foreground"}`}>
+                {completedCount} / {totalCount}
+              </span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div
+                className="bg-green-500 h-2 rounded-full transition-all"
+                style={{
+                  width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%`,
+                }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-green-500 h-2 rounded-full transition-all"
-              style={{
-                width: `${displayGoals.length > 0 ? (displayGoals.filter((g) => g.completed).length / displayGoals.length) * 100 : 0}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {isCurrentDayEnded ? (
         <div className="text-center">
@@ -390,8 +396,11 @@ export function GoalsView() {
               
               return (
                 <div key={label} className="space-y-2">
-                  <div className="flex items-center justify-center px-2">
-                    <div className={`h-1 ${labelColor} w-16 rounded-full`} />
+                  <div className="flex items-center gap-2 px-2">
+                    <div className={`h-2 w-2 ${labelColor} rounded-full`} />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                      {label}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     <SwipeableList type={Type.IOS} threshold={0.25}>

@@ -5,6 +5,7 @@ import { GoalsView } from "@/components/goals-view"
 import { StatisticsView } from "@/components/statistics-view"
 import { HabitsView } from "@/components/habits-view"
 import { CheckSquare, BarChart3, Target } from "lucide-react"
+import { syncService } from "@/lib/services/sync-service"
 
 declare global {
   interface Window {
@@ -54,6 +55,10 @@ export default function Home() {
         }
       }
     }
+    
+    // FULL SYNC при открытии WebApp
+    // Это покрывает все несинхронизированные изменения
+    syncService.sync()
   }, [])
 
   return (

@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware"
 import type { Goal } from "@/lib/types"
 import { goalsArraySchema } from "@/lib/schemas/goal.schema"
 import { generateId } from "@/lib/utils/id"
+import { syncService } from "@/lib/services/sync-service"
 
 type GoalsState = {
   goals: Goal[]
@@ -30,7 +31,6 @@ type GoalsActions = {
   getGoalsForDate: (date: Date) => Goal[]
   getBacklogGoals: () => Goal[]
   getTemporaryGoals: () => Goal[]
-  getHabits: () => Goal[]
 }
 
 type GoalsStore = GoalsState & GoalsActions
@@ -69,12 +69,16 @@ export const useGoalsStore = create<GoalsStore>()(
         set((state) => ({
           goals: state.goals.map((g) => (g.id === id ? { ...g, title, label, description: description || undefined } : g)),
         }))
+
+        syncService.sync()
       },
 
       deleteGoal: (id) => {
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
         }))
+
+        syncService.sync()
       },
 
       toggleComplete: (id) => {
@@ -102,6 +106,8 @@ export const useGoalsStore = create<GoalsStore>()(
               : g
           ),
         }))
+        
+        syncService.sync()
       },
 
       moveToToday: (goalIds) => {
@@ -155,10 +161,6 @@ export const useGoalsStore = create<GoalsStore>()(
 
       getTemporaryGoals: () => {
         return get().goals.filter((g) => g.type === "temporary")
-      },
-
-      getHabits: () => {
-        return get().goals.filter((g) => g.type === "habit")
       },
     }),
     {

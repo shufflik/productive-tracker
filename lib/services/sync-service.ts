@@ -1,216 +1,253 @@
 /**
  * Sync Service - сервис для синхронизации данных с бекендом
  * 
- * Текущая реализация - заглушка для будущей интеграции с бекендом
- * В будущем здесь будет полная логика синхронизации
+ * ПРОСТАЯ НАДЕЖНАЯ АРХИТЕКТУРА:
+ * 1. Все изменения → сразу в localStorage (offline-first)
+ * 2. Full sync при КАЖДОМ открытии WebApp (покрывает все несинхронизированные изменения)
+ * 3. Immediate sync для critical events (close day, reschedule goal, delete habit)
+ * 4. Асинхронная работа - не блокирует UI, показывает toast только при ошибках
  */
 
-import type { TaskItem } from "@/lib/types"
-import type { DayCompletion } from "@/lib/types"
+import type { Goal, Habit, DayCompletion } from "@/lib/types"
+import { toast } from "sonner"
 
-// Метаданные синхронизации
-export type SyncMetadata = {
-  lastSyncTimestamp: number | null
-  isSyncing: boolean
-  pendingChanges: Change[]
+// Типы для синхронизации
+export type SyncData = {
+  goals: Goal[]
+  habits: Habit[]
+  habitCompletions: DayCompletion[]
+  dayStates: Record<string, { date: string; isEndDay: boolean }>
+  pendingReviewDates: string[]
 }
 
-// Типы изменений для офлайн-режима
-export type Change = {
-  id: string
-  timestamp: number
-  type: "goals" | "habits" | "day-reviews" | "day-states"
-  action: "create" | "update" | "delete"
-  data: any
-}
-
-// Конфликты при синхронизации
-export type Conflict = {
-  id: string
-  localData: any
-  serverData: any
-  timestamp: number
-}
-
-// Запрос синхронизации
 export type SyncRequest = {
-  lastSyncTimestamp: number | null
-  pendingChanges: Change[]
+  userId: string
+  lastSyncTimestamp: number
+  data: SyncData
 }
 
-// Ответ от сервера
 export type SyncResponse = {
-  serverData: any
-  conflicts: Conflict[]
+  success: boolean
+  conflicts: Array<{ type: string; message: string }>
   newSyncTimestamp: number
 }
 
 /**
- * Сервис синхронизации данных
- * 
- * АРХИТЕКТУРА:
- * 1. Offline-first подход - все изменения сначала в локальный store
- * 2. Периодическая синхронизация с бекендом
- * 3. Conflict resolution через timestamp (last-write-wins)
- * 4. Очередь pendingChanges для офлайн изменений
+ * Сервис синхронизации
  */
 class SyncService {
-  private syncMetadata: SyncMetadata = {
-    lastSyncTimestamp: null,
-    isSyncing: false,
-    pendingChanges: [],
-  }
+  private isSyncing = false
+  private lastSyncTimestamp = 0
 
   /**
-   * Синхронизация при старте приложения
-   * Вызывается один раз при загрузке приложения
+   * Основной метод синхронизации
+   * Отправляет ВСЕ данные на сервер
+   * 
+   * Вызывается:
+   * - При открытии WebApp (всегда)
+   * - После critical events (close day, reschedule goal, delete habit)
+   * 
+   * Работает асинхронно, не блокирует UI
+   * Показывает toast только при ошибках
    */
-  async syncOnAppStart(): Promise<void> {
-    console.log("[SyncService] syncOnAppStart called")
-    
-    // TODO: Реализация при подключении бекенда
-    // 1. Проверить наличие интернета
-    // 2. Загрузить данные с сервера
-    // 3. Мерджить с локальными данными
-    // 4. Отправить pendingChanges на сервер
-    // 5. Обновить lastSyncTimestamp
-    
-    // Заглушка - ничего не делаем
-    return Promise.resolve()
-  }
+  async sync(): Promise<void> {
+    // Если уже синхронизируемся - пропускаем
+    if (this.isSyncing) {
+      console.log("[SyncService] Sync already in progress, skipping")
+      return
+    }
 
-  /**
-   * Мердж локальных и серверных данных
-   * Стратегия: last-write-wins (по timestamp)
-   */
-  mergeData<T extends { id: string }>(
-    local: T[],
-    remote: T[],
-    getTimestamp: (item: T) => number
-  ): T[] {
-    const merged = new Map<string, T>()
+    this.isSyncing = true
+    console.log("[SyncService] Starting full sync...")
 
-    // Добавляем все локальные данные
-    local.forEach((item) => merged.set(item.id, item))
+    try {
+      const data = this.collectAllData()
+      const userId = this.getUserId()
 
-    // Мерджим с серверными данными
-    remote.forEach((remoteItem) => {
-      const localItem = merged.get(remoteItem.id)
-      
-      if (!localItem) {
-        // Нет локально - берем серверную версию
-        merged.set(remoteItem.id, remoteItem)
-      } else {
-        // Есть и локально и на сервере - сравниваем timestamp
-        const localTimestamp = getTimestamp(localItem)
-        const remoteTimestamp = getTimestamp(remoteItem)
-        
-        if (remoteTimestamp > localTimestamp) {
-          // Серверная версия новее
-          merged.set(remoteItem.id, remoteItem)
-        }
-        // Иначе оставляем локальную версию
+      const request: SyncRequest = {
+        userId,
+        lastSyncTimestamp: this.lastSyncTimestamp,
+        data,
       }
+
+      // ЗАГЛУШКА: В реальном приложении это будет fetch к backend
+      const response = await this.mockBackendSync(request)
+
+      if (response.success) {
+        this.lastSyncTimestamp = response.newSyncTimestamp
+        console.log("[SyncService] Sync completed successfully", {
+          timestamp: response.newSyncTimestamp,
+          conflicts: response.conflicts.length,
+        })
+
+        if (response.conflicts.length > 0) {
+          console.warn("[SyncService] Conflicts detected:", response.conflicts)
+          // При конфликтах можно показать toast, но не критично
+        }
+      } else {
+        console.error("[SyncService] Sync failed")
+        this.showErrorToast("Ошибка синхронизации")
+      }
+    } catch (error) {
+      console.error("[SyncService] Sync error:", error)
+      this.showErrorToast("Ошибка синхронизации")
+    } finally {
+      this.isSyncing = false
+    }
+  }
+
+  /**
+   * Показать toast с ошибкой
+   */
+  private showErrorToast(title: string): void {
+    // Проверяем что находимся в браузере
+    if (typeof window === "undefined") return
+
+    toast.error(title, {
+      duration: 4000,
+    })
+  }
+
+  /**
+   * Получить userId из Telegram WebApp
+   */
+  private getUserId(): string {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+      return String(window.Telegram.WebApp.initDataUnsafe.user.id)
+    }
+    // Fallback для разработки
+    return "dev-user-id"
+  }
+
+  /**
+   * Собрать все данные из stores
+   */
+  private collectAllData(): SyncData {
+    if (typeof window === "undefined") {
+      return {
+        goals: [],
+        habits: [],
+        habitCompletions: [],
+        dayStates: {},
+        pendingReviewDates: [],
+      }
+    }
+
+    // Получаем данные из localStorage напрямую
+    const goalsData = localStorage.getItem("goals-storage")
+    const habitsData = localStorage.getItem("habits-storage")
+    const dayStateData = localStorage.getItem("day-state-storage")
+
+    const goals = goalsData ? JSON.parse(goalsData).state?.goals || [] : []
+    const habitsState = habitsData ? JSON.parse(habitsData).state : null
+    const dayState = dayStateData ? JSON.parse(dayStateData).state : null
+
+    return {
+      goals,
+      habits: habitsState?.goals || [],
+      habitCompletions: habitsState?.dayCompletions || [],
+      dayStates: dayState?.dayStates || {},
+      pendingReviewDates: dayState?.pendingReviewDates || [],
+    }
+  }
+
+  /**
+   * ЗАГЛУШКА: Имитация backend sync
+   * 
+   * В реальном приложении заменить на:
+   * 
+   * const response = await fetch('/api/sync', {
+   *   method: 'POST',
+   *   headers: { 'Content-Type': 'application/json' },
+   *   body: JSON.stringify(request)
+   * })
+   * return response.json()
+   */
+  private async mockBackendSync(request: SyncRequest): Promise<SyncResponse> {
+    // Имитация сетевой задержки
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    console.log("[MockBackend] Received sync request:", {
+      userId: request.userId,
+      goalsCount: request.data.goals.length,
+      habitsCount: request.data.habits.length,
+      dayStatesCount: Object.keys(request.data.dayStates).length,
+      pendingReviews: request.data.pendingReviewDates.length,
     })
 
-    return Array.from(merged.values())
-  }
+    // Имитация обработки на backend
+    // Backend бы здесь:
+    // 1. Сохранил данные в БД
+    // 2. Обновил метаданные для notifications:
+    //    - last_sync_timestamp
+    //    - last_day_ended_date
+    //    - pending_review_dates
+    //    - current_streak
+    //    - total_goals_count
+    //    - total_habits_count
+    // 3. Проверил конфликты (если есть)
+    // 4. Вернул новый timestamp
 
-  /**
-   * Отправка изменений на сервер
-   */
-  async pushChanges(): Promise<void> {
-    console.log("[SyncService] pushChanges called")
+    // ⚠️ ДЛЯ ТЕСТИРОВАНИЯ TOAST: раскомментируй один из вариантов ниже
     
-    if (this.syncMetadata.isSyncing) {
-      console.log("[SyncService] Sync already in progress")
-      return
+    // Вариант 1: Имитация ошибки сервера
+    return {
+      success: false,
+      conflicts: [],
+      newSyncTimestamp: Date.now(),
     }
-
-    if (this.syncMetadata.pendingChanges.length === 0) {
-      console.log("[SyncService] No pending changes")
-      return
-    }
-
-    // TODO: Реализация при подключении бекенда
-    // 1. Установить isSyncing = true
-    // 2. Отправить POST /api/sync с pendingChanges
-    // 3. Обработать conflicts если есть
-    // 4. Очистить pendingChanges
-    // 5. Обновить lastSyncTimestamp
-    // 6. Установить isSyncing = false
     
-    // Заглушка - ничего не делаем
-    return Promise.resolve()
-  }
-
-  /**
-   * Добавление изменения в очередь
-   */
-  addPendingChange(change: Change): void {
-    this.syncMetadata.pendingChanges.push(change)
-    console.log(`[SyncService] Added pending change: ${change.type} ${change.action}`, change)
+    // Вариант 2: Имитация network error
+    // throw new Error("Нет соединения с сервером")
     
-    // TODO: При подключении бекенда - попытаться синхронизировать
-    // if (navigator.onLine) {
-    //   this.pushChanges()
+    // Вариант 3: Имитация timeout
+    // throw new Error("Превышено время ожидания ответа")
+
+    // // Нормальная работа (успех)
+    // return {
+    //   success: true,
+    //   conflicts: [],
+    //   newSyncTimestamp: Date.now(),
     // }
   }
 
   /**
-   * Получение метаданных синхронизации
+   * Проверка статуса синхронизации
    */
-  getSyncMetadata(): SyncMetadata {
-    return { ...this.syncMetadata }
-  }
-
-  /**
-   * Проверка наличия несинхронизированных изменений
-   */
-  hasPendingChanges(): boolean {
-    return this.syncMetadata.pendingChanges.length > 0
-  }
-
-  /**
-   * API endpoints для будущей интеграции
-   */
-  private readonly API_ENDPOINTS = {
-    SYNC_GOALS: "/api/sync/goals",
-    SYNC_HABITS: "/api/sync/habits",
-    SYNC_DAY_REVIEWS: "/api/sync/day-reviews",
-    SYNC_DAY_STATES: "/api/sync/day-states",
+  getStatus() {
+    return {
+      isSyncing: this.isSyncing,
+      lastSyncTimestamp: this.lastSyncTimestamp,
+      lastSyncDate: this.lastSyncTimestamp
+        ? new Date(this.lastSyncTimestamp).toLocaleString()
+        : "Never",
+    }
   }
 }
 
-// Экспорт singleton instance
+// Экспорт singleton
 export const syncService = new SyncService()
 
 /**
- * ИНСТРУКЦИЯ ПО ИНТЕГРАЦИИ С БЕКЕНДОМ:
- * 
- * 1. Создать API endpoints:
- *    - POST /api/sync/goals
- *    - POST /api/sync/habits
- *    - POST /api/sync/day-reviews
- *    - POST /api/sync/day-states
- * 
- * 2. Формат запроса:
- *    {
- *      lastSyncTimestamp: number | null,
- *      pendingChanges: Change[]
- *    }
- * 
- * 3. Формат ответа:
- *    {
- *      serverData: any[],
- *      conflicts: Conflict[],
- *      newSyncTimestamp: number
- *    }
- * 
- * 4. Интегрировать вызовы sync в stores:
- *    - После каждого изменения: syncService.addPendingChange(...)
- *    - При старте приложения: syncService.syncOnAppStart()
- * 
- * 5. Добавить UI для индикации синхронизации и конфликтов
+ * Глобальный тип для Telegram WebApp
  */
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initDataUnsafe?: {
+          user?: {
+            id: number
+            first_name?: string
+            last_name?: string
+            username?: string
+          }
+        }
+        ready: () => void
+        expand: () => void
+        disableVerticalSwipes?: () => void
+      }
+    }
+  }
+}
 
