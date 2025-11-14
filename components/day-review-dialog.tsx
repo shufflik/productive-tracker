@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Check, AlertCircle, PartyPopper } from "lucide-react"
+import { Check, AlertCircle } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,21 +15,7 @@ import { useDayStateStore } from "@/lib/stores/day-state-store"
 import confetti from "canvas-confetti"
 import { getTodayLocalISO } from "@/lib/utils/date"
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        HapticFeedback?: {
-          notificationOccurred: (type: 'error' | 'success' | 'warning') => void
-          impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
-          selectionChanged: () => void
-        }
-      }
-    }
-  }
-}
-
-type DayStatus = "good" | "average" | "bad"
+type DayStatus = "good" | "average" | "poor" | "bad"
 
 export type IncompleteReason = "no-strength" | "worked-all-day" | "played" | "poor-time-management" | "other"
 
@@ -141,6 +127,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     let status: DayStatus
     if (completionRate >= 0.7) status = "good"
     else if (completionRate >= 0.4) status = "average"
+    else if (completionRate >= 0.2) status = "poor"
     else status = "bad"
 
     // Используем переданную дату или текущую
@@ -226,6 +213,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   let dayStatus: DayStatus
   if (completionRate >= 0.7) dayStatus = "good"
   else if (completionRate >= 0.4) dayStatus = "average"
+  else if (completionRate >= 0.2) dayStatus = "poor"
   else dayStatus = "bad"
 
   const getReasonLabel = (reason: IncompleteReason) => {
@@ -339,17 +327,31 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                     ? "bg-green-500/20"
                     : dayStatus === "average"
                       ? "bg-yellow-500/20"
-                      : "bg-red-500/20"
+                      : dayStatus === "poor"
+                        ? "bg-orange-500/20"
+                        : "bg-red-500/20"
                 }`}
               >
                 <div
                   className={`w-14 h-14 rounded-full ${
-                    dayStatus === "good" ? "bg-green-500" : dayStatus === "average" ? "bg-yellow-500" : "bg-red-500"
+                    dayStatus === "good" 
+                      ? "bg-green-500" 
+                      : dayStatus === "average" 
+                        ? "bg-yellow-500" 
+                        : dayStatus === "poor"
+                          ? "bg-orange-500"
+                          : "bg-red-500"
                   }`}
                 />
               </div>
               <p className="text-lg font-semibold text-foreground mb-1">
-                {dayStatus === "good" ? "Great Day!" : dayStatus === "average" ? "Good Effort!" : "Keep Going!"}
+                {dayStatus === "good" 
+                  ? "Great Day!" 
+                  : dayStatus === "average" 
+                    ? "Good Effort!" 
+                    : dayStatus === "poor"
+                      ? "Keep Trying!"
+                      : "Keep Going!"}
               </p>
               <p className="text-sm text-muted-foreground">
                 You completed {completedCount} out of {totalCount} goals
@@ -371,7 +373,9 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                         ? "rgb(34 197 94)"
                         : dayStatus === "average"
                           ? "rgb(234 179 8)"
-                          : "rgb(239 68 68)",
+                          : dayStatus === "poor"
+                            ? "rgb(249 115 22)"
+                            : "rgb(239 68 68)",
                   }}
                 />
               </div>

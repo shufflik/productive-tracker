@@ -12,7 +12,7 @@ type DayState = {
 
 type DayStateStore = {
   dayStates: Record<string, DayState> // key is ISO date string
-  lastActiveDate: string | null // последняя дата активности пользователя
+  lastActiveDate: string | null // последняя дата и время активности пользователя (ISO datetime "2025-01-15T14:30:00.000Z")
   pendingReviewDates: string[] // даты, для которых нужно показать review диалог
   
   // Actions
@@ -81,18 +81,24 @@ export const useDayStateStore = create<DayStateStore>()(
         const today = getTodayLocalISO()
         const lastActive = get().lastActiveDate
         
-        // Если первый запуск или активность была сегодня - ничего не делаем
-        if (!lastActive || lastActive === today) {
+        // Если первый запуск - ничего не делаем
+        if (!lastActive) {
           get().updateLastActiveDate()
           return
         }
 
-        // Считаем пропущенные дни
-        const lastActiveDate = new Date(lastActive + "T00:00:00")
+        // Парсим lastActiveDate (может быть ISO datetime или старый формат ISO date)
+        const lastActiveDate = new Date(lastActive)
         const todayDate = new Date(today + "T00:00:00")
-        const diffInMs = todayDate.getTime() - lastActiveDate.getTime()
+        
+        // Сравниваем только даты (без времени) для определения пропущенных дней
+        const lastActiveDateOnly = new Date(lastActiveDate.getFullYear(), lastActiveDate.getMonth(), lastActiveDate.getDate())
+        const todayDateOnly = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate())
+        
+        const diffInMs = todayDateOnly.getTime() - lastActiveDateOnly.getTime()
         let diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
 
+        // Если активность была сегодня - ничего не делаем
         if (diffInDays <= 0) {
           get().updateLastActiveDate()
           return
@@ -106,7 +112,7 @@ export const useDayStateStore = create<DayStateStore>()(
       // Начинаем с lastActive (i=0), заканчиваем до today (i < diffInDays)
       // Закрываем максимум 2 дня
       for (let i = 0; i < diffInDays && closedCount < 2; i++) {
-        const missedDate = new Date(lastActiveDate)
+        const missedDate = new Date(lastActiveDateOnly)
         missedDate.setDate(missedDate.getDate() + i)
         const missedDateISO = missedDate.toISOString().split('T')[0]
         
@@ -117,7 +123,7 @@ export const useDayStateStore = create<DayStateStore>()(
           
           // Проверяем, были ли goals для этого дня
           const hasGoals = goals.some(
-            (g) => g.type === "temporary" && g.targetDate === missedDateAsDateString
+            (g) => g.type === "goal" && g.targetDate === missedDateAsDateString
           )
           
           if (hasGoals) {
@@ -163,8 +169,9 @@ export const useDayStateStore = create<DayStateStore>()(
       },
 
       updateLastActiveDate: () => {
-        const today = getTodayLocalISO()
-        set({ lastActiveDate: today })
+        // Сохраняем точное время для корректной обработки merge conflicts
+        const now = new Date().toISOString()
+        set({ lastActiveDate: now })
       },
 
       getPendingReviewDates: () => {
@@ -207,4 +214,40 @@ export const useDayStateStore = create<DayStateStore>()(
     }
   )
 )
+
+// Зарегистрировать обработчик применения review блока от backend
+// Выполняет merge локальных данных с данными от сервера
+syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
+  useDayStateStore.setState((state) => {
+    // Merge pendingReviewDates: объединяем локальные и серверные, убирая дубликаты
+    const localDates = state.pendingReviewDates || []
+    const serverDates = reviewBlock.pendingReviewDates || []
+    const mergedDates = Array.from(new Set([...localDates, ...serverDates])).sort()
+
+    // Применяем lastActiveDate от сервера, если он новее локального
+    // Сравниваем по точному времени (ISO datetime) для корректной обработки merge conflicts
+    let newLastActiveDate = state.lastActiveDate
+    if (reviewBlock.lastActiveDate) {
+      if (!state.lastActiveDate) {
+        // Если локально нет - берем с сервера
+        newLastActiveDate = reviewBlock.lastActiveDate
+      } else {
+        // Парсим ISO datetime (поддерживаем старый формат ISO date для обратной совместимости)
+        const localDate = new Date(state.lastActiveDate)
+        const serverDate = new Date(reviewBlock.lastActiveDate)
+        
+        // Сравниваем по точному времени: берем более новую
+        if (serverDate > localDate) {
+          newLastActiveDate = reviewBlock.lastActiveDate
+        }
+      }
+    }
+
+    return {
+    ...state,
+      pendingReviewDates: mergedDates,
+      lastActiveDate: newLastActiveDate,
+    }
+  })
+})
 

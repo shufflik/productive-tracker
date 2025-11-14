@@ -8,7 +8,7 @@ import type { IncompleteReason } from "@/components/day-review-dialog"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { getTodayLocalISO } from "@/lib/utils/date"
 
-type DayStatus = "good" | "average" | "bad" | null
+type DayStatus = "good" | "average" | "poor" | "bad" | null
 
 type DayStatusDialogProps = {
   open: boolean
@@ -30,6 +30,7 @@ type ReasonData = {
   goalTitle: string
   reason: IncompleteReason
   customReason?: string
+  percentReady?: number
 }
 
 export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateStatus }: DayStatusDialogProps) {
@@ -39,7 +40,6 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
   const [incompleteGoals, setIncompleteGoals] = useState<ReasonData[]>([])
   const [showIncomplete, setShowIncomplete] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
-  const [showStatusChange, setShowStatusChange] = useState(false)
   
   const isSelectedDayEnded = date ? isDayEnded(date) : false
   
@@ -68,15 +68,10 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
       // Сбрасываем состояния при открытии диалога
       setShowCompleted(false)
       setShowIncomplete(false)
-      setShowStatusChange(false)
     }
   }, [date])
 
   if (!date) return null
-
-  const handleStatusChange = (status: DayStatus) => {
-    onUpdateStatus(date, status)
-  }
 
   const formattedDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
     weekday: "long",
@@ -102,6 +97,8 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
         return "Good Day"
       case "average":
         return "Average Day"
+      case "poor":
+        return "Poor Day"
       case "bad":
         return "Bad Day"
       default:
@@ -115,12 +112,20 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
         return "bg-[rgb(16,185,129)]"
       case "average":
         return "bg-[rgb(251,191,36)]"
+      case "poor":
+        return "bg-[rgb(249,115,22)]"
       case "bad":
         return "bg-[rgb(239,68,68)]"
       default:
         return "bg-muted"
     }
   }
+
+  // Calculate productivity percentage
+  const totalGoals = completedGoals.length + incompleteGoals.length
+  const productivityPercentage = totalGoals > 0 
+    ? Math.round((completedGoals.length / totalGoals) * 100) 
+    : 0
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -138,89 +143,10 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
               className={`${getStatusColor(currentStatus)} text-white rounded-lg p-4 flex items-center justify-between`}
             >
               <span className="font-semibold">{getStatusLabel(currentStatus)}</span>
-              {currentStatus && (
-                <button
-                  onClick={() => setShowStatusChange(!showStatusChange)}
-                  className="text-xs underline hover:no-underline"
-                >
-                  Change
-                </button>
+              {totalGoals > 0 && (
+                <span className="text-sm font-medium opacity-90">{productivityPercentage}%</span>
               )}
             </div>
-
-            {showStatusChange && (
-              <div className="space-y-2 pt-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-auto py-3 bg-[rgb(16,185,129)] hover:bg-[rgb(16,185,129)]/90 border-[rgb(16,185,129)] text-white"
-                  onClick={() => {
-                    handleStatusChange("good")
-                    setShowStatusChange(false)
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
-                      {currentStatus === "good" && <Check className="w-4 h-4" />}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-semibold">Good Day</div>
-                      <div className="text-xs opacity-80">70%+ goals completed</div>
-                    </div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-auto py-3 bg-[rgb(251,191,36)] hover:bg-[rgb(251,191,36)]/90 border-[rgb(251,191,36)] text-white"
-                  onClick={() => {
-                    handleStatusChange("average")
-                    setShowStatusChange(false)
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
-                      {currentStatus === "average" && <Check className="w-4 h-4" />}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-semibold">Average Day</div>
-                      <div className="text-xs opacity-80">40-70% goals completed</div>
-                    </div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-auto py-3 bg-[rgb(239,68,68)] hover:bg-[rgb(239,68,68)]/90 border-[rgb(239,68,68)] text-white"
-                  onClick={() => {
-                    handleStatusChange("bad")
-                    setShowStatusChange(false)
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
-                      {currentStatus === "bad" && <Check className="w-4 h-4" />}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-semibold">Bad Day</div>
-                      <div className="text-xs opacity-80">Less than 40% completed</div>
-                    </div>
-                  </div>
-                </Button>
-
-                {currentStatus && (
-                  <Button
-                    variant="outline"
-                    className="w-full bg-transparent"
-                    onClick={() => {
-                      handleStatusChange(null)
-                      setShowStatusChange(false)
-                    }}
-                  >
-                    Clear Status
-                  </Button>
-                )}
-              </div>
-            )}
           </div>
 
           {completedGoals.length > 0 && (
@@ -274,7 +200,7 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
               {showIncomplete && (
                 <div className="bg-card border border-border rounded-lg p-3 space-y-3">
                   {incompleteGoals.map((item, index) => (
-                    <div key={index} className="space-y-1">
+                    <div key={index} className="space-y-2">
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
                           <X className="w-3 h-3 text-red-600" />
@@ -287,6 +213,22 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
                           </p>
                         </div>
                       </div>
+                      {item.percentReady !== undefined && item.percentReady > 0 && (
+                        <div className="ml-6 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Progress</span>
+                            <span className="text-xs font-medium text-foreground">{item.percentReady}%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full transition-all bg-[rgb(249,115,22)]"
+                              style={{
+                                width: `${item.percentReady}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -7,20 +7,6 @@ import { HabitsView } from "@/components/habits-view"
 import { CheckSquare, BarChart3, Target } from "lucide-react"
 import { syncService } from "@/lib/services/sync-service"
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        ready: () => void
-        expand: () => void
-        disableVerticalSwipes: () => void
-        isExpanded: boolean
-        initDataUnsafe: any
-      }
-    }
-  }
-}
-
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"goals" | "statistics" | "habits">("goals")
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false)

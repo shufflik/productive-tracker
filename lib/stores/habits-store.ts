@@ -2,14 +2,13 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import type { Goal, Habit, RepeatType, DayCompletion } from "@/lib/types"
-import { goalsArraySchema, dayCompletionsArraySchema } from "@/lib/schemas/goal.schema"
+import type { Goal, Habit, RepeatType } from "@/lib/types"
+import { goalsArraySchema } from "@/lib/schemas/goal.schema"
 import { generateId } from "@/lib/utils/id"
 import { syncService } from "@/lib/services/sync-service"
 
 type HabitsState = {
-  goals: Habit[]
-  dayCompletions: DayCompletion[]
+  habits: Habit[]
   isLoaded: boolean
 }
 
@@ -29,9 +28,12 @@ type HabitsActions = {
   calculateMaxStreak: (habitId: string) => number
   getHabitsForDate: (date: Date) => Habit[]
   
-  // Sync with goals store
-  syncWithGoalsStore: (goals: Goal[]) => void
-  getAllGoals: () => Habit[]
+  // Sync with goals store (legacy, для совместимости)
+  syncWithGoalsStore: (goals: Array<Goal | Habit>) => void
+  getAllHabits: () => Habit[]
+  
+  // Batch operations
+  setHabits: (habits: Habit[]) => void
 }
 
 type HabitsStore = HabitsState & HabitsActions
@@ -39,8 +41,7 @@ type HabitsStore = HabitsState & HabitsActions
 export const useHabitsStore = create<HabitsStore>()(
   persist(
     (set, get) => ({
-      goals: [],
-      dayCompletions: [],
+      habits: [],
       isLoaded: false,
 
       addHabit: (title, repeatType, repeatDays) => {
@@ -54,126 +55,145 @@ export const useHabitsStore = create<HabitsStore>()(
           currentStreak: 0,
           maxStreak: 0,
           lastCompletedDate: undefined,
+          completions: {},
         }
 
         set((state) => ({
-          goals: [...state.goals, newHabit],
+          habits: [...state.habits, newHabit],
         }))
+
+        syncService.enqueueHabitChange("create", newHabit)
       },
 
       updateHabit: (id, title, repeatType, repeatDays) => {
-        set((state) => ({
-          goals: state.goals.map((g) =>
-            g.id === id
-              ? {
-                  ...g,
-                  title,
-                  repeatType,
-                  repeatDays: repeatType === "weekly" ? repeatDays : undefined,
-                }
-              : g
-          ),
-        }))
+        let updatedHabit: Habit | undefined
+
+        set((state) => {
+          const habit = state.habits.find((h) => h.id === id)
+          if (!habit) return state
+
+          updatedHabit = {
+            ...habit,
+            title,
+            repeatType,
+            repeatDays: repeatType === "weekly" ? repeatDays : undefined,
+          }
+
+          return {
+            habits: state.habits.map((h) => (h.id === id ? updatedHabit! : h)),
+          }
+        })
+
+        if (updatedHabit) {
+          syncService.enqueueHabitChange("update", updatedHabit)
+        }
       },
 
       deleteHabit: (id) => {
+        const habitToDelete = get().habits.find((h) => h.id === id)
+        if (!habitToDelete) return
+
+        // Удаляем из UI
         set((state) => ({
-          goals: state.goals.filter((g) => g.id !== id),
+          habits: state.habits.filter((h) => h.id !== id),
         }))
-        
-        // При удалении привычки - синхронизируем (для notifications)
-        // Не критично, но полезно для backend метрик
+
+        // enqueueHabitChange схлопнет create+delete или отправит delete для существующей
+        syncService.enqueueHabitChange("delete", habitToDelete)
         syncService.sync()
       },
 
       toggleHabitCompletion: (habitId, date) => {
         const dateString = date.toDateString()
-        
+        let updatedHabit: Habit | undefined
+
         set((state) => {
-          const habit = state.goals.find((g) => g.id === habitId)
+          const habit = state.habits.find((h) => h.id === habitId)
           if (!habit) return state
 
-          const completions = [...state.dayCompletions]
-          const dateIndex = completions.findIndex((c) => c.date === dateString)
-          
-          // Toggle completion status
-          let isCompleting = false
-          
-          if (dateIndex === -1) {
-            completions.push({
-              date: dateString,
-              goals: [{ id: habitId, completed: true }],
-            })
-            isCompleting = true
-          } else {
-            const goalIndex = completions[dateIndex].goals.findIndex((g) => g.id === habitId)
-            if (goalIndex === -1) {
-              completions[dateIndex].goals.push({ id: habitId, completed: true })
-              isCompleting = true
-            } else {
-              isCompleting = !completions[dateIndex].goals[goalIndex].completed
-              completions[dateIndex].goals[goalIndex].completed = isCompleting
-            }
+          // Получаем текущий статус выполнения для этой даты
+          const currentCompletions = habit.completions || {}
+          const isCurrentlyCompleted = currentCompletions[dateString] || false
+          const isCompleting = !isCurrentlyCompleted
+
+          // Обновляем completions
+          const newCompletions = {
+            ...currentCompletions,
+            [dateString]: isCompleting,
+          }
+
+          // Если снимаем отметку, удаляем запись (опционально, можно оставить false)
+          if (!isCompleting) {
+            delete newCompletions[dateString]
           }
 
           // Update streak
-          const updatedGoals = state.goals.map((g) => {
-            if (g.id !== habitId) return g
+          const updatedHabits = state.habits.map((h) => {
+            if (h.id !== habitId) return h
 
             if (isCompleting) {
               // Calculate new streak
               let newStreak = 1
-              
-              if (g.lastCompletedDate) {
-                const lastDate = new Date(g.lastCompletedDate)
+
+              if (h.lastCompletedDate) {
+                const lastDate = new Date(h.lastCompletedDate)
                 const currentDate = new Date(date)
                 lastDate.setHours(0, 0, 0, 0)
                 currentDate.setHours(0, 0, 0, 0)
-                
+
                 // Find next scheduled day after lastDate
                 const nextScheduled = new Date(lastDate)
                 nextScheduled.setDate(nextScheduled.getDate() + 1)
-                
+
                 // Keep incrementing until we find a scheduled day
                 while (!get().isHabitScheduledForDate(habit, nextScheduled)) {
                   nextScheduled.setDate(nextScheduled.getDate() + 1)
                   // Safety: stop after 7 days for weekly, 1 day for daily
                   if (nextScheduled > currentDate) break
                 }
-                
+
                 // If current date is the next scheduled day -> continue streak
                 if (nextScheduled.getTime() === currentDate.getTime()) {
-                  newStreak = (g.currentStreak || 0) + 1
+                  newStreak = (h.currentStreak || 0) + 1
                 }
                 // Otherwise streak resets to 1 (missed days)
               }
 
-              return {
-                ...g,
+              updatedHabit = {
+                ...h,
                 currentStreak: newStreak,
-                maxStreak: Math.max(newStreak, g.maxStreak || 0),
+                maxStreak: Math.max(newStreak, h.maxStreak || 0),
                 lastCompletedDate: dateString,
+                completions: newCompletions,
               }
+
+              return updatedHabit
             } else {
               // Unchecking - decrease streak
-              return {
-                ...g,
-                currentStreak: Math.max(0, (g.currentStreak || 0) - 1),
+              updatedHabit = {
+                ...h,
+                currentStreak: Math.max(0, (h.currentStreak || 0) - 1),
+                completions: newCompletions,
               }
+
+              return updatedHabit
             }
           })
 
-          return { dayCompletions: completions, goals: updatedGoals }
+          return { habits: updatedHabits }
         })
+
+        // Добавляем изменения в очередь синхронизации
+        if (updatedHabit) {
+          syncService.enqueueHabitChange("update", updatedHabit)
+        }
       },
 
       isHabitCompletedForDate: (habitId, date) => {
         const dateString = date.toDateString()
-        const dateCompletion = get().dayCompletions.find((c) => c.date === dateString)
-
-        if (!dateCompletion) return false
-        const goalCompletion = dateCompletion.goals.find((g) => g.id === habitId)
-        return goalCompletion?.completed || false
+        const habit = get().habits.find((h) => h.id === habitId)
+        if (!habit) return false
+        return habit.completions?.[dateString] || false
       },
 
       isHabitScheduledForDate: (habit, date) => {
@@ -186,28 +206,32 @@ export const useHabitsStore = create<HabitsStore>()(
       },
 
       calculateStreak: (habitId) => {
-        const habit = get().goals.find((g) => g.id === habitId)
+        const habit = get().habits.find((h) => h.id === habitId)
         return habit?.currentStreak || 0
       },
 
       calculateMaxStreak: (habitId) => {
-        const habit = get().goals.find((g) => g.id === habitId)
+        const habit = get().habits.find((h) => h.id === habitId)
         return habit?.maxStreak || 0
       },
 
       getHabitsForDate: (date) => {
-        const habits = get().goals.filter((g) => g.type === "habit")
+        const habits = get().habits
         return habits.filter((h) => get().isHabitScheduledForDate(h, date))
       },
 
       syncWithGoalsStore: (goals) => {
-        // Only keep habits from the goals list
+        // Only keep habits from the goals list (legacy method for compatibility)
         const habits = goals.filter((g): g is Habit => g.type === "habit")
-        set({ goals: habits })
+        set({ habits })
       },
 
-      getAllGoals: () => {
-        return get().goals
+      getAllHabits: () => {
+        return get().habits
+      },
+
+      setHabits: (habits) => {
+        set({ habits })
       },
     }),
     {
@@ -222,30 +246,25 @@ export const useHabitsStore = create<HabitsStore>()(
 
               const parsed = JSON.parse(str)
 
-              // Validate goals
-              if (parsed.state?.goals) {
-                const goalsResult = goalsArraySchema.safeParse(parsed.state.goals)
-                if (!goalsResult.success) {
-                  console.error("Invalid habits data in localStorage:", goalsResult.error)
-                  parsed.state.goals = []
-                }
+              // Validate habits (поддерживаем старый формат goals для миграции)
+              if (parsed.state?.goals && !parsed.state?.habits) {
+                // Миграция: переименовываем goals в habits
+                parsed.state.habits = parsed.state.goals
+                delete parsed.state.goals
               }
-
-              // Validate day completions
-              if (parsed.state?.dayCompletions) {
-                const completionsResult = dayCompletionsArraySchema.safeParse(
-                  parsed.state.dayCompletions
-                )
-                if (!completionsResult.success) {
-                  console.error("Invalid completions data in localStorage:", completionsResult.error)
-                  parsed.state.dayCompletions = []
+              
+              if (parsed.state?.habits) {
+                const habitsResult = goalsArraySchema.safeParse(parsed.state.habits)
+                if (!habitsResult.success) {
+                  console.error("Invalid habits data in localStorage:", habitsResult.error)
+                  parsed.state.habits = []
                 }
               }
 
               return JSON.stringify(parsed)
             } catch (error) {
               console.error("Error loading habits from localStorage:", error)
-              return JSON.stringify({ state: { goals: [], dayCompletions: [], isLoaded: false } })
+              return JSON.stringify({ state: { habits: [], isLoaded: false } })
             }
           },
           setItem: (name, value) => {
@@ -274,4 +293,51 @@ export const useHabitsStore = create<HabitsStore>()(
     }
   )
 )
+
+// Зарегистрировать обработчики применения данных о привычках от backend
+// Выполняет merge локальных и серверных данных по _localUpdatedAt
+syncService.registerHabitsApplyHandler((serverHabits) => {
+  useHabitsStore.setState((state) => {
+    const localHabits = state.habits || []
+    const serverHabitsMap = new Map(serverHabits.map(h => [h.id, h]))
+    const mergedHabits: Habit[] = []
+    const processedIds = new Set<string>()
+
+    // Обрабатываем локальные привычки
+    for (const localHabit of localHabits) {
+      const serverHabit = serverHabitsMap.get(localHabit.id)
+      
+      if (serverHabit) {
+        // Сущность есть и локально, и на сервере - делаем merge
+        const localUpdatedAt = localHabit._localUpdatedAt || 0
+        const serverUpdatedAt = serverHabit._localUpdatedAt || 0
+        
+        // Берем более новую версию
+        if (localUpdatedAt > serverUpdatedAt) {
+          mergedHabits.push(localHabit)
+        } else {
+          mergedHabits.push(serverHabit)
+        }
+        processedIds.add(localHabit.id)
+      } else {
+        // Сущность есть только локально - оставляем локальную
+        mergedHabits.push(localHabit)
+        processedIds.add(localHabit.id)
+      }
+    }
+
+    // Добавляем серверные привычки, которых нет локально
+    for (const serverHabit of serverHabits) {
+      if (!processedIds.has(serverHabit.id)) {
+        mergedHabits.push(serverHabit)
+      }
+    }
+
+    return {
+    ...state,
+      habits: mergedHabits,
+    }
+  })
+})
+
 

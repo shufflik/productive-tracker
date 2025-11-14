@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/next'
 import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PendingDayReviewsManager } from '@/components/pending-day-reviews-manager'
+import { ConflictsManager } from '@/components/conflicts-manager'
 import { Toaster } from 'sonner'
 import './globals.css'
 
@@ -26,6 +27,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <PendingDayReviewsManager />
+          <ConflictsManager />
           {children}
           <Toaster 
             position="bottom-center"

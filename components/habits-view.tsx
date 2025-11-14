@@ -15,8 +15,7 @@ import type { Habit } from "@/lib/types"
 
 export function HabitsView() {
   // Zustand stores
-  const habits = useHabitsStore((state) => state.goals)
-  const dayCompletions = useHabitsStore((state) => state.dayCompletions)
+  const habits = useHabitsStore((state) => state.habits)
   const addHabitToStore = useHabitsStore((state) => state.addHabit)
   const updateHabitInStore = useHabitsStore((state) => state.updateHabit)
   const deleteHabitFromStore = useHabitsStore((state) => state.deleteHabit)

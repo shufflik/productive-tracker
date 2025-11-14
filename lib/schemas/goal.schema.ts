@@ -1,16 +1,24 @@
 import { z } from "zod"
 
-// Base schema for common properties
-const baseItemSchema = z.object({
-  id: z.string(),
-  title: z.string().min(1),
-  completed: z.boolean(),
-  important: z.boolean().optional(),
+// Local sync metadata schema (optional, чтобы не ломать старые данные)
+const localSyncMetaSchema = z.object({
+  _localUpdatedAt: z.number().optional(),
+  _localOp: z.enum(["create", "update", "delete", "upsert"]).optional(),
 })
+
+// Base schema for common properties
+const baseItemSchema = z
+  .object({
+    id: z.string(),
+    title: z.string().min(1),
+    completed: z.boolean(),
+    important: z.boolean().optional(),
+  })
+  .merge(localSyncMetaSchema)
 
 // Goal schema (temporary task with deadline)
 const goalSchema = baseItemSchema.extend({
-  type: z.literal("temporary"),
+  type: z.literal("goal"),
   description: z.string().optional(),
   targetDate: z.string().optional(),
   label: z.string().optional(),
@@ -42,7 +50,7 @@ export const dayCompletionSchema = z.object({
       completed: z.boolean(),
     })
   ),
-})
+}).merge(localSyncMetaSchema)
 
 export const dayCompletionsArraySchema = z.array(dayCompletionSchema)
 

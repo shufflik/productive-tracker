@@ -54,90 +54,175 @@ export const useGoalsStore = create<GoalsStore>()(
           id: generateId(),
           title,
           description: description || undefined,
-          type: "temporary",
+          type: "goal",
           completed: false,
           targetDate: finalTargetDate,
-          label,
+          label: label ? label.toUpperCase() : label,
         }
 
         set((state) => ({
           goals: [...state.goals, newGoal],
         }))
+
+        syncService.enqueueGoalChange("create", newGoal)
       },
 
       updateGoal: (id, title, label, description) => {
-        set((state) => ({
-          goals: state.goals.map((g) => (g.id === id ? { ...g, title, label, description: description || undefined } : g)),
-        }))
+        let updatedGoal: Goal | undefined
 
-        syncService.sync()
+        set((state) => {
+          const goal = state.goals.find((g) => g.id === id)
+          if (!goal) return state
+
+          updatedGoal = {
+            ...goal,
+            title,
+            label: label ? label.toUpperCase() : label,
+            description: description || undefined,
+          }
+
+          return {
+            goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
+          }
+        })
+
+        if (updatedGoal) {
+          syncService.enqueueGoalChange("update", updatedGoal)
+          syncService.sync()
+        }
       },
 
       deleteGoal: (id) => {
+        const goalToDelete = get().goals.find((g) => g.id === id)
+        if (!goalToDelete) return
+
+        // Удаляем из UI
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
         }))
 
+        // enqueueGoalChange схлопнет create+delete или отправит delete для существующей
+        syncService.enqueueGoalChange("delete", goalToDelete)
         syncService.sync()
       },
 
       toggleComplete: (id) => {
-        set((state) => ({
-          goals: state.goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g)),
-        }))
+        let updatedGoal: Goal | undefined
+
+        set((state) => {
+          const goal = state.goals.find((g) => g.id === id)
+          if (!goal) return state
+
+          updatedGoal = {
+            ...goal,
+            completed: !goal.completed,
+          }
+
+          return {
+            goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
+          }
+        })
+
+        if (updatedGoal) {
+          syncService.enqueueGoalChange("update", updatedGoal)
+        }
       },
 
       toggleImportant: (id) => {
-        set((state) => ({
-          goals: state.goals.map((g) => (g.id === id ? { ...g, important: !g.important } : g)),
-        }))
+        let updatedGoal: Goal | undefined
+
+        set((state) => {
+          const goal = state.goals.find((g) => g.id === id)
+          if (!goal) return state
+
+          updatedGoal = {
+            ...goal,
+            important: !goal.important,
+          }
+
+          return {
+            goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
+          }
+        })
+
+        if (updatedGoal) {
+          syncService.enqueueGoalChange("update", updatedGoal)
+        }
       },
 
       rescheduleForTomorrow: (id) => {
         const tomorrow = new Date(Date.now() + 86400000).toDateString()
-        set((state) => ({
-          goals: state.goals.map((g) =>
-            g.id === id
-              ? {
-                  ...g,
-                  targetDate: g.type === "temporary" ? tomorrow : g.targetDate,
-                  completed: false,
-                }
-              : g
-          ),
-        }))
-        
-        syncService.sync()
+        let updatedGoal: Goal | undefined
+
+        set((state) => {
+          const goal = state.goals.find((g) => g.id === id)
+          if (!goal) return state
+
+          updatedGoal = {
+            ...goal,
+            targetDate: goal.type === "goal" ? tomorrow : goal.targetDate,
+            completed: false,
+          }
+
+          return {
+            goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
+          }
+        })
+
+        if (updatedGoal) {
+          syncService.enqueueGoalChange("update", updatedGoal)
+          syncService.sync()
+        }
       },
 
       moveToToday: (goalIds) => {
         const todayDate = new Date().toDateString()
         const idsArray = Array.isArray(goalIds) ? goalIds : [goalIds]
-        set((state) => ({
-          goals: state.goals.map((g) =>
-            idsArray.includes(g.id)
-              ? {
-                  ...g,
-                  targetDate: todayDate,
-                  completed: false,
-                }
-              : g
-          ),
-        }))
+        const updatedGoals: Goal[] = []
+
+        set((state) => {
+          const goals = state.goals.map((g) => {
+            if (idsArray.includes(g.id)) {
+              const updated = {
+                ...g,
+                targetDate: todayDate,
+                completed: false,
+              }
+              updatedGoals.push(updated)
+              return updated
+            }
+            return g
+          })
+
+          return { goals }
+        })
+
+        updatedGoals.forEach((goal) => {
+          syncService.enqueueGoalChange("update", goal)
+        })
       },
 
       moveToBacklog: (id) => {
-        set((state) => ({
-          goals: state.goals.map((g) =>
-            g.id === id
-              ? {
-                  ...g,
-                  targetDate: "backlog",
-                  completed: false,
-                }
-              : g
-          ),
-        }))
+        let updatedGoal: Goal | undefined
+
+        set((state) => {
+          const goal = state.goals.find((g) => g.id === id)
+          if (!goal) return state
+
+          updatedGoal = {
+            ...goal,
+            targetDate: "backlog",
+            completed: false,
+          }
+
+          return {
+            goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
+          }
+        })
+
+        if (updatedGoal) {
+          syncService.enqueueGoalChange("update", updatedGoal)
+        }
       },
 
       setGoals: (goals) => {
@@ -151,16 +236,18 @@ export const useGoalsStore = create<GoalsStore>()(
       getGoalsForDate: (date) => {
         const dateString = date.toDateString()
         return get().goals.filter(
-          (g) => g.type === "temporary" && g.targetDate === dateString
+          (g) => g.type === "goal" && g.targetDate === dateString
         )
       },
 
       getBacklogGoals: () => {
-        return get().goals.filter((g) => g.type === "temporary" && g.targetDate === "backlog")
+        return get().goals.filter(
+          (g) => g.type === "goal" && g.targetDate === "backlog"
+        )
       },
 
       getTemporaryGoals: () => {
-        return get().goals.filter((g) => g.type === "temporary")
+        return get().goals.filter((g) => g.type === "goal")
       },
     }),
     {
@@ -217,4 +304,56 @@ export const useGoalsStore = create<GoalsStore>()(
     }
   )
 )
+
+// Зарегистрировать обработчик применения целей от backend
+// Выполняет merge локальных и серверных данных по _localUpdatedAt
+syncService.registerGoalsApplyHandler((serverGoals) => {
+  useGoalsStore.setState((state) => {
+    const localGoals = state.goals || []
+    const serverGoalsMap = new Map(serverGoals.map(g => [g.id, g]))
+    const mergedGoals: Goal[] = []
+    const processedIds = new Set<string>()
+
+    // Обрабатываем локальные цели
+    for (const localGoal of localGoals) {
+      const serverGoal = serverGoalsMap.get(localGoal.id)
+      
+      if (serverGoal) {
+        // Сущность есть и локально, и на сервере - делаем merge
+        const localUpdatedAt = localGoal._localUpdatedAt || 0
+        const serverUpdatedAt = serverGoal._localUpdatedAt || 0
+        
+        // Берем более новую версию
+        const selectedGoal = localUpdatedAt > serverUpdatedAt ? localGoal : serverGoal
+        mergedGoals.push({
+          ...selectedGoal,
+          label: selectedGoal.label?.toUpperCase() || selectedGoal.label,
+        })
+        processedIds.add(localGoal.id)
+      } else {
+        // Сущность есть только локально - оставляем локальную
+        mergedGoals.push({
+          ...localGoal,
+          label: localGoal.label?.toUpperCase() || localGoal.label,
+        })
+        processedIds.add(localGoal.id)
+      }
+    }
+
+    // Добавляем серверные цели, которых нет локально
+    for (const serverGoal of serverGoals) {
+      if (!processedIds.has(serverGoal.id)) {
+        mergedGoals.push({
+          ...serverGoal,
+          label: serverGoal.label?.toUpperCase() || serverGoal.label,
+        })
+      }
+    }
+
+    return {
+      goals: mergedGoals,
+    isLoaded: true,
+    }
+  })
+})
 

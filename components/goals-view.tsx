@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Plus, CheckSquare, Package, CalendarCheck, Calendar } from "lucide-react"
 import { GoalDialog } from "@/components/goal-dialog"
 import { GoalDetailDialog } from "@/components/goal-detail-dialog"
-import { DayReviewDialog } from "@/components/day-review-dialog"
+import { DayReviewDialog, type TaskAction } from "@/components/day-review-dialog"
 import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
 import { useGoalsStore } from "@/lib/stores/goals-store"
@@ -29,7 +29,6 @@ export function GoalsView() {
   const toggleImportantInStore = useGoalsStore((state) => state.toggleImportant)
   const moveToTodayInStore = useGoalsStore((state) => state.moveToToday)
   const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
-  const setGoalsInStore = useGoalsStore((state) => state.setGoals)
   
   // Day state store
   const isTodayEnded = useDayStateStore((state) => state.isTodayEnded)
@@ -172,7 +171,7 @@ export function GoalsView() {
   const shouldShowForSelectedDay = useCallback(
     (goal: Goal): boolean => {
       // Only show temporary goals, not habits
-      if (goal.type !== "temporary") return false
+      if (goal.type !== "goal") return false
 
       if (selectedDay === "backlog") {
         return goal.targetDate === "backlog"
@@ -232,6 +231,49 @@ export function GoalsView() {
 
   // Check if today is ended
   const isCurrentDayEnded = selectedDay === "today" && isTodayEnded()
+
+  const handleUpdateGoals = useCallback((updatedGoals: Goal[]) => {
+    // Обновляем goals в store на основе изменений из review
+    // Используем type assertion для доступа к полю action из GoalWithDetails
+    type GoalWithAction = Goal & { action?: TaskAction }
+    const goalsWithActions = updatedGoals as GoalWithAction[]
+    
+    goalsWithActions.forEach((goal) => {
+      const originalGoal = goals.find((g) => g.id === goal.id)
+      if (originalGoal) {
+        // Обрабатываем действия для незавершенных задач
+        if (!goal.completed && goal.action) {
+          switch (goal.action) {
+            case "tomorrow":
+              rescheduleInStore(goal.id)
+              break
+            case "backlog":
+              moveToBacklogInStore(goal.id)
+              break
+            case "not-relevant":
+              deleteGoalFromStore(goal.id)
+              break
+          }
+          // После применения действия не нужно обновлять другие поля
+          return
+        }
+        
+        // Обновляем статус завершения если изменился
+        if (goal.completed !== originalGoal.completed) {
+          toggleCompleteInStore(goal.id)
+        }
+        
+        // Обновляем основные поля если изменились
+        if (goal.type === "goal" && originalGoal.type === "goal") {
+          if (goal.title !== originalGoal.title || 
+              goal.description !== originalGoal.description || 
+              goal.label !== originalGoal.label) {
+            updateGoalInStore(goal.id, goal.title, goal.label || "", goal.description || "")
+          }
+        }
+      }
+    })
+  }, [goals, rescheduleInStore, moveToBacklogInStore, deleteGoalFromStore, toggleCompleteInStore, updateGoalInStore])
 
   return (
     <div className="flex flex-col h-full space-y-6">
@@ -453,7 +495,7 @@ export function GoalsView() {
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
         goals={displayGoals}
-        onUpdateGoals={setGoalsInStore}
+        onUpdateGoals={handleUpdateGoals}
       />
 
       <GoalDetailDialog

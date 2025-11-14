@@ -1,7 +1,23 @@
 // Core types for the application
 
-export type GoalType = "habit" | "temporary"
+export type GoalType = "habit" | "goal"
 export type RepeatType = "daily" | "weekly"
+
+// Local sync metadata for offline-first
+export type LocalSyncOperation = "create" | "update" | "delete" | "upsert"
+
+export type LocalSyncMeta = {
+  /**
+   * Время последнего локального изменения сущности (ms since epoch)
+   * Может присутствовать в данных, пришедших с backend или в старых данных
+   */
+  _localUpdatedAt?: number
+  /**
+   * Тип последней локальной операции над сущностью
+   * Может присутствовать в данных, пришедших с backend или в старых данных
+   */
+  _localOp?: LocalSyncOperation
+}
 
 // Base type for common properties
 type BaseItem = {
@@ -9,11 +25,11 @@ type BaseItem = {
   title: string
   completed: boolean
   important?: boolean
-}
+} & LocalSyncMeta
 
 // Goal (temporary task with deadline)
 export type Goal = BaseItem & {
-  type: "temporary"
+  type: "goal"
   description?: string
   targetDate?: string
   label?: string
@@ -27,18 +43,16 @@ export type Habit = BaseItem & {
   currentStreak: number
   maxStreak: number
   lastCompletedDate?: string
+  /**
+   * История выполнения привычки по датам
+   * Ключ: дата в формате toDateString() (например, "Mon Jan 15 2025")
+   * Значение: выполнена ли привычка в этот день
+   */
+  completions?: Record<string, boolean>
 }
 
 // Union type for both
 export type TaskItem = Goal | Habit
-
-export type DayCompletion = {
-  date: string
-  goals: {
-    id: string
-    completed: boolean
-  }[]
-}
 
 export type DayReason = {
   date: string

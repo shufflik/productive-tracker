@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DayStatusDialog } from "@/components/day-status-dialog"
 
-type DayStatus = "good" | "average" | "bad" | null
+type DayStatus = "good" | "average" | "poor" | "bad" | null
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -46,6 +46,8 @@ export function CalendarView() {
         return "bg-[rgb(16,185,129)]"
       case "average":
         return "bg-[rgb(251,191,36)]"
+      case "poor":
+        return "bg-[rgb(249,115,22)]"
       case "bad":
         return "bg-[rgb(239,68,68)]"
       default:
@@ -99,6 +101,7 @@ export function CalendarView() {
   const stats = {
     good: Object.values(calendar).filter((s) => s === "good").length,
     average: Object.values(calendar).filter((s) => s === "average").length,
+    poor: Object.values(calendar).filter((s) => s === "poor").length,
     bad: Object.values(calendar).filter((s) => s === "bad").length,
   }
 
@@ -146,6 +149,13 @@ export function CalendarView() {
               <span className="text-sm text-foreground">Average Day</span>
             </div>
             <span className="text-sm font-medium text-muted-foreground">{stats.average} days</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-[rgb(249,115,22)]" />
+              <span className="text-sm text-foreground">Poor Day</span>
+            </div>
+            <span className="text-sm font-medium text-muted-foreground">{stats.poor} days</span>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
