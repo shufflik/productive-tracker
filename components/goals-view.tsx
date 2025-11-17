@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { SwipeableList, Type } from "react-swipeable-list"
-import "react-swipeable-list/dist/styles.css"
 import { Button } from "@/components/ui/button"
 import { Plus, CheckSquare, Package, CalendarCheck, Calendar } from "lucide-react"
 import { GoalDialog } from "@/components/goal-dialog"
@@ -469,27 +467,25 @@ export function GoalsView() {
                     </span>
                   </div>
                   <div className="space-y-2">
-                    <SwipeableList type={Type.IOS} threshold={0.25}>
-                      {goalsInLabel.map((goal, index) => (
-                        <div key={goal.id} className={index > 0 ? "mt-2" : ""}>
-                          <SwipeableGoalItem
-                            goal={goal}
-                            selectedDay={selectedDay}
-                            onToggleComplete={toggleComplete}
-                            onEdit={openEditDialog}
-                            onDelete={deleteGoal}
-                            onMoveToToday={moveToTodaySingle}
-                            onMoveToTomorrow={rescheduleForTomorrow}
-                            onMoveToBacklog={moveToBacklog}
-                            onToggleImportant={toggleImportant}
-                            onOpenDetail={openGoalDetail}
-                            movingMessage={movingGoals[goal.id]}
-                            isTodayEnded={isTodayEnded()}
-                            labelColor={labelColor}
-                          />
-                        </div>
-                      ))}
-                    </SwipeableList>
+                    {goalsInLabel.map((goal, index) => (
+                      <div key={goal.id} className={index > 0 ? "mt-2" : ""}>
+                        <SwipeableGoalItem
+                          goal={goal}
+                          selectedDay={selectedDay}
+                          onToggleComplete={toggleComplete}
+                          onEdit={openEditDialog}
+                          onDelete={deleteGoal}
+                          onMoveToToday={moveToTodaySingle}
+                          onMoveToTomorrow={rescheduleForTomorrow}
+                          onMoveToBacklog={moveToBacklog}
+                          onToggleImportant={toggleImportant}
+                          onOpenDetail={openGoalDetail}
+                          movingMessage={movingGoals[goal.id]}
+                          isTodayEnded={isTodayEnded()}
+                          labelColor={labelColor}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )

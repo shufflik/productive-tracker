@@ -403,9 +403,9 @@ export class SyncService {
             console.log('[SyncService] Received goals from backend:',
               response.changes.goals.map(g => ({
                 id: g.id,
-                title: g.title,
-                version: g._version,
-                deleted: 'deleted' in g,
+                title: 'title' in g ? g.title : undefined,
+                version: '_version' in g ? g._version : undefined,
+                deleted: 'deleted' in g && g.deleted === true,
                 isConflicted: conflictedGoalIds.has(g.id)
               })))
 
@@ -512,7 +512,7 @@ export class SyncService {
       const retryCount = this.retryManager.getRetryCount()
 
       console.warn(`[SyncService] Sync failed, will retry (attempt ${retryCount}/5)`)
-      this.showErrorToast(`Ошибка синхронизации (попытка ${retryCount}/5)`)
+      // Toast будет показан только на последнем retry
 
       // Polling will automatically retry with exponential backoff
     } else {

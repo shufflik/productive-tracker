@@ -31,6 +31,7 @@ type BaseItem = {
   title: string
   completed: boolean
   important?: boolean
+  deleted?: boolean
 } & LocalSyncMeta
 
 // Goal (temporary task with deadline)

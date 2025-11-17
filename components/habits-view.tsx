@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import { SwipeableList, Type } from "react-swipeable-list"
-import "react-swipeable-list/dist/styles.css"
 import { Target, Plus } from "lucide-react"
 import { HabitDetailDialog } from "@/components/habit-detail-dialog"
 import { HabitDialog } from "@/components/habit-dialog"
@@ -154,21 +152,19 @@ export function HabitsView() {
             </div>
           ) : (
             <div className="space-y-2">
-              <SwipeableList type={Type.IOS} threshold={0.25}>
-                {selectedDateHabits.map((habit, index) => (
-                  <div key={habit.id} className={index > 0 ? "mt-2" : ""}>
-                    <SwipeableHabitItem
-                      habit={habit}
-                      isCompleted={isHabitCompletedForDate(habit.id, selectedDate)}
-                      streak={calculateStreak(habit.id)}
-                      isCurrentDate={isSelectedDateToday()}
-                      onToggle={() => toggleHabitCompletion(habit.id)}
-                      onEdit={() => openEditDialog(habit)}
-                      onOpenDetail={() => handleHabitClick(habit)}
-                    />
-                  </div>
-                ))}
-              </SwipeableList>
+              {selectedDateHabits.map((habit, index) => (
+                <div key={habit.id} className={index > 0 ? "mt-2" : ""}>
+                  <SwipeableHabitItem
+                    habit={habit}
+                    isCompleted={isHabitCompletedForDate(habit.id, selectedDate)}
+                    streak={calculateStreak(habit.id)}
+                    isCurrentDate={isSelectedDateToday()}
+                    onToggle={() => toggleHabitCompletion(habit.id)}
+                    onEdit={() => openEditDialog(habit)}
+                    onOpenDetail={() => handleHabitClick(habit)}
+                  />
+                </div>
+              ))}
             </div>
           )}
         </div>

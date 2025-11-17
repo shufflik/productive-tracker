@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { SwipeableListItem, SwipeAction, TrailingActions, LeadingActions, Type } from "react-swipeable-list"
-import "react-swipeable-list/dist/styles.css"
+import { useState, useRef } from "react"
+import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion"
 import { Pencil, Trash2, Check, Star } from "lucide-react"
 import { GoalMoveMenu } from "@/components/goal-move-menu"
 import type { Goal } from "@/lib/types"
@@ -38,16 +37,14 @@ export function SwipeableGoalItem({
   isTodayEnded = false,
   labelColor,
 }: SwipeableGoalItemProps) {
-  const [swipeKey, setSwipeKey] = useState(0)
-
-  const resetSwipe = () => {
-    setSwipeKey(prev => prev + 1)
-  }
+  const [isOpen, setIsOpen] = useState<'left' | 'right' | null>(null)
+  const dragX = useMotionValue(0)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Convert Tailwind color class to border color
   const getBorderColor = () => {
     if (!labelColor) return undefined
-    
+
     const colorMap: Record<string, string> = {
       'bg-blue-500': 'rgb(59, 130, 246)',
       'bg-green-500': 'rgb(34, 197, 94)',
@@ -60,7 +57,7 @@ export function SwipeableGoalItem({
       'bg-indigo-500': 'rgb(99, 102, 241)',
       'bg-teal-500': 'rgb(20, 184, 166)',
     }
-    
+
     return colorMap[labelColor]
   }
 
@@ -77,63 +74,119 @@ export function SwipeableGoalItem({
         return []
     }
   }
-  const trailingActions = () => (
-    <TrailingActions>
-      <div className="flex h-full overflow-hidden rounded-lg">
-        <SwipeAction onClick={() => { onEdit(goal); resetSwipe() }}>
-          <div className="h-full bg-blue-500 flex items-center justify-center px-6 text-white">
-            <Pencil className="w-5 h-5" />
-          </div>
-        </SwipeAction>
-        <SwipeAction destructive onClick={() => { onDelete(goal.id); resetSwipe() }}>
-          <div className="h-full bg-red-500 flex items-center justify-center px-6 text-white">
-            <Trash2 className="w-5 h-5" />
-          </div>
-        </SwipeAction>
-      </div>
-    </TrailingActions>
-  )
 
-  const leadingActions = () => (
-    <LeadingActions>
-      <div className="flex h-full overflow-hidden rounded-lg">
-        <SwipeAction onClick={() => { onToggleImportant(goal.id); resetSwipe() }}>
-          <div
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const offset = info.offset.x
+    const velocity = info.velocity.x
+
+    // Threshold for opening the swipe actions - более низкий порог для snap
+    const swipeThreshold = 10
+    const velocityThreshold = 300
+
+    // Всегда снапим в одно из состояний: открыто или закрыто
+    if (offset > swipeThreshold || velocity > velocityThreshold) {
+      setIsOpen('left')
+    } else if (offset < -swipeThreshold || velocity < -velocityThreshold) {
+      setIsOpen('right')
+    } else {
+      setIsOpen(null)
+    }
+  }
+
+  const closeSwipe = () => {
+    setIsOpen(null)
+  }
+
+  const handleAction = (action: () => void) => {
+    action()
+    closeSwipe()
+  }
+
+  // Transform for opacity of actions based on drag position
+  const leftActionOpacity = useTransform(dragX, [0, 100], [0, 1])
+  const rightActionOpacity = useTransform(dragX, [-100, 0], [1, 0])
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden rounded-lg"
+    >
+      {/* Leading Actions (Left Swipe - appears on right) */}
+      <motion.div
+        className="absolute right-0 top-0 bottom-0 flex items-center"
+        style={{ opacity: rightActionOpacity }}
+      >
+        <div className="flex h-full overflow-hidden rounded-lg">
+          <button
+            onClick={() => handleAction(() => onEdit(goal))}
+            className="h-full bg-blue-500 flex items-center justify-center px-6 text-white"
+          >
+            <Pencil className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => handleAction(() => onDelete(goal.id))}
+            className="h-full bg-red-500 flex items-center justify-center px-6 text-white"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Trailing Actions (Right Swipe - appears on left) */}
+      <motion.div
+        className="absolute left-0 top-0 bottom-0 flex items-center"
+        style={{ opacity: leftActionOpacity }}
+      >
+        <div className="flex h-full overflow-hidden rounded-lg">
+          <button
+            onClick={() => handleAction(() => onToggleImportant(goal.id))}
             className={`h-full flex items-center justify-center px-6 text-white ${
               goal.important ? "bg-amber-500" : "bg-gray-500"
             }`}
           >
             <Star className={`w-5 h-5 ${goal.important ? "fill-white" : ""}`} />
+          </button>
+          <div className="h-full">
+            <GoalMoveMenu
+              onMoveToToday={() => handleAction(() => onMoveToToday(goal.id))}
+              onMoveToTomorrow={() => handleAction(() => onMoveToTomorrow(goal.id))}
+              onMoveToBacklog={() => handleAction(() => onMoveToBacklog(goal.id))}
+              availableOptions={getMoveOptions()}
+              isTodayEnded={isTodayEnded}
+            />
           </div>
-        </SwipeAction>
-        <div className="h-full">
-          <GoalMoveMenu
-            onMoveToToday={() => { onMoveToToday(goal.id); resetSwipe() }}
-            onMoveToTomorrow={() => { onMoveToTomorrow(goal.id); resetSwipe() }}
-            onMoveToBacklog={() => { onMoveToBacklog(goal.id); resetSwipe() }}
-            availableOptions={getMoveOptions()}
-            isTodayEnded={isTodayEnded}
-          />
         </div>
-      </div>
-    </LeadingActions>
-  )
+      </motion.div>
 
-  return (
-    <SwipeableListItem
-      key={swipeKey}
-      listType={Type.IOS}
-      leadingActions={leadingActions()}
-      trailingActions={trailingActions()}
-      threshold={0.25}
-      blockSwipe={!!movingMessage}
-      maxSwipe={0.4}
-    >
-      <div className="relative w-full">
-        <div 
+      {/* Main Content */}
+      <motion.div
+        drag={movingMessage ? false : "x"}
+        dragConstraints={{ left: -140, right: 140 }}
+        dragElastic={0.01}
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
+        animate={{
+          x: isOpen === 'left' ? 140 : isOpen === 'right' ? -140 : 0
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 20,
+          mass: 0.5
+        }}
+        style={{ x: dragX }}
+        className="relative"
+      >
+        <div
           className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
           style={labelColor ? { borderLeftWidth: '3px', borderLeftColor: getBorderColor() } : undefined}
-          onClick={() => onOpenDetail(goal)}
+          onClick={() => {
+            if (isOpen) {
+              closeSwipe()
+            } else {
+              onOpenDetail(goal)
+            }
+          }}
         >
           {selectedDay === "today" && (
             <button
@@ -161,7 +214,7 @@ export function SwipeableGoalItem({
             </div>
           </div>
         </div>
-        
+
         {movingMessage && (
           <div className="absolute inset-0 flex items-center justify-center rounded-lg">
             <p className="text-sm font-medium text-foreground px-4 py-2 bg-card border border-border rounded-md shadow-lg z-10">
@@ -169,7 +222,7 @@ export function SwipeableGoalItem({
             </p>
           </div>
         )}
-      </div>
-    </SwipeableListItem>
+      </motion.div>
+    </div>
   )
 }
