@@ -287,9 +287,6 @@ export const useHabitsStore = create<HabitsStore>()(
 // Зарегистрировать обработчики применения данных о привычках от backend
 // Выполняет merge локальных и серверных данных по _version
 syncService.registerHabitsApplyHandler((serverHabits) => {
-  console.log('[HabitsStore] applyHabits handler called with server habits:',
-    serverHabits.map(h => ({ id: h.id, title: h.title, version: h._version })))
-
   useHabitsStore.setState((state) => {
     const localHabits = state.habits || []
     const serverHabitsMap = new Map(serverHabits.map(h => [h.id, h]))
@@ -345,7 +342,6 @@ syncService.registerHabitsApplyHandler((serverHabits) => {
 })
 
 syncService.registerHabitsDeleteHandler((habitIds) => {
-  console.log('[HabitsStore] deleteHabits called:', habitIds)
   useHabitsStore.setState((state) => ({
     habits: state.habits.filter(h => !habitIds.includes(h.id)),
   }))

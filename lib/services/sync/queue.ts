@@ -56,32 +56,9 @@ export class SyncQueueManager {
    * Clear queue items by IDs (used after successful sync)
    */
   clearSentItems(goalIds: Set<string>, habitIds: Set<string>): void {
-    console.log('[SyncQueueManager] clearSentItems called:', {
-      goalIdsToRemove: Array.from(goalIds),
-      habitIdsToRemove: Array.from(habitIds),
-      queueBeforeClear: {
-        goals: this.queue.goals.map(g => ({ id: g.id, op: g.operation })),
-        habits: this.queue.habits.map(h => ({ id: h.id, op: h.operation })),
-      },
-    })
-
-    const goalsBeforeCount = this.queue.goals.length
-    const habitsBeforeCount = this.queue.habits.length
-
     this.queue.goals = this.queue.goals.filter(g => !goalIds.has(g.id))
     this.queue.habits = this.queue.habits.filter(h => !habitIds.has(h.id))
-
-    console.log('[SyncQueueManager] clearSentItems result:', {
-      goalsRemoved: goalsBeforeCount - this.queue.goals.length,
-      habitsRemoved: habitsBeforeCount - this.queue.habits.length,
-      queueAfterClear: {
-        goals: this.queue.goals.map(g => ({ id: g.id, op: g.operation })),
-        habits: this.queue.habits.map(h => ({ id: h.id, op: h.operation })),
-      },
-    })
-
     this.storage.saveQueue(this.queue)
-    console.log('[SyncQueueManager] Queue saved to storage')
   }
 
   /**
@@ -157,13 +134,6 @@ export class SyncQueueManager {
    * 4. Store updates _version from backend response (via applyGoals handler)
    */
   enqueueGoalChange(operation: LocalSyncOperation, goal: Goal): void {
-    console.log(`[SyncQueueManager] enqueueGoalChange called:`, {
-      operation,
-      goalId: goal.id,
-      goalTitle: goal.title,
-      currentQueueSize: this.queue.goals.length,
-    })
-
     // Check queue size before adding
     this.checkQueueSizeAndSync()
 
@@ -174,18 +144,11 @@ export class SyncQueueManager {
     // Remove metadata from payload
     const { _localUpdatedAt, _localOp, _version, ...payload } = goal
 
-    console.log(`[SyncQueueManager] Goal payload being queued:`, {
-      id: goal.id,
-      title: goal.title,
-      targetDate: goal.targetDate,
-    })
-
     // Send current version (backend will check it for conflicts)
     const version = _version || 0
 
     if (idx === -1) {
       // New change
-      console.log(`[SyncQueueManager] Adding NEW goal to queue:`, goal.id)
       list.push({
         id: goal.id,
         clientUpdatedAt: now,
@@ -194,11 +157,6 @@ export class SyncQueueManager {
         payload,
       })
     } else {
-      console.log(`[SyncQueueManager] Updating EXISTING goal in queue:`, {
-        goalId: goal.id,
-        prevOperation: list[idx].operation,
-        newOperation: operation,
-      })
       const prev = list[idx].operation
 
       // create + delete before sync → remove from queue (backend shouldn't know)
@@ -228,11 +186,6 @@ export class SyncQueueManager {
       }
     }
 
-    console.log(`[SyncQueueManager] Queue after enqueue:`, {
-      totalGoals: this.queue.goals.length,
-      goalIds: this.queue.goals.map(g => ({ id: g.id, op: g.operation })),
-    })
-
     this.storage.saveQueue(this.queue)
   }
 
@@ -248,13 +201,6 @@ export class SyncQueueManager {
    * 4. Store updates _version from backend response (via applyHabits handler)
    */
   enqueueHabitChange(operation: LocalSyncOperation, habit: Habit): void {
-    console.log(`[SyncQueueManager] enqueueHabitChange called:`, {
-      operation,
-      habitId: habit.id,
-      habitTitle: habit.title,
-      currentQueueSize: this.queue.habits.length,
-    })
-
     // Check queue size before adding
     this.checkQueueSizeAndSync()
 
@@ -268,7 +214,6 @@ export class SyncQueueManager {
     const version = _version || 0
 
     if (idx === -1) {
-      console.log(`[SyncQueueManager] Adding NEW habit to queue:`, habit.id)
       list.push({
         id: habit.id,
         clientUpdatedAt: now,
@@ -277,11 +222,6 @@ export class SyncQueueManager {
         payload,
       })
     } else {
-      console.log(`[SyncQueueManager] Updating EXISTING habit in queue:`, {
-        habitId: habit.id,
-        prevOperation: list[idx].operation,
-        newOperation: operation,
-      })
       const prev = list[idx].operation
 
       if (prev === "create" && operation === "delete") {
@@ -307,11 +247,6 @@ export class SyncQueueManager {
         }
       }
     }
-
-    console.log(`[SyncQueueManager] Queue after enqueue:`, {
-      totalHabits: this.queue.habits.length,
-      habitIds: this.queue.habits.map(h => ({ id: h.id, op: h.operation })),
-    })
 
     this.storage.saveQueue(this.queue)
   }

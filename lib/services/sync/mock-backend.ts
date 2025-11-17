@@ -25,7 +25,6 @@ export async function mockBackendSync(request: SyncRequest): Promise<SyncRespons
  * Real backend implementation
  */
 async function realBackendSync(request: SyncRequest): Promise<SyncResponse> {
-  console.log("[RealBackend] Sending sync request to", BACKEND_URL)
 
   try {
     const response = await fetch(`${BACKEND_URL}/api/sync`, {
@@ -54,17 +53,6 @@ async function realBackendSync(request: SyncRequest): Promise<SyncResponse> {
     }
 
     const data = await response.json()
-    console.log("[RealBackend] Received sync response:", {
-      success: data.success,
-      conflicts: {
-        goals: data.conflicts?.goals?.length || 0,
-        habits: data.conflicts?.habits?.length || 0,
-      },
-      changes: {
-        goals: data.changes?.goals?.length || 0,
-        habits: data.changes?.habits?.length || 0,
-      },
-    })
 
     return data
   } catch (error: any) {
@@ -89,18 +77,6 @@ async function mockBackendSyncImpl(request: SyncRequest): Promise<SyncResponse> 
   const serverTimestamp = Date.now()
   const clockSkew = serverTimestamp - request.clientTimestamp
 
-  console.log("[MockBackend] Received sync request:", {
-    userId: request.userId,
-    deviceId: request.deviceId,
-    lastSyncAt: request.lastSyncAt,
-    clientTimestamp: request.clientTimestamp,
-    clientTimezone: request.clientTimezone,
-    clockSkew: `${Math.round(clockSkew / 1000)}s`,
-    goalsChanges: request.changes.goals.length,
-    habitsChanges: request.changes.habits.length,
-    pendingReviews: request.review.pendingReviewDates.length,
-    lastActiveDate: request.review.lastActiveDate,
-  })
 
   // Simulate backend processing
   // Real backend would:

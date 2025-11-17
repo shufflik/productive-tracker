@@ -178,7 +178,6 @@ export class SyncService {
     }
     this.storage.savePendingConflicts(this.pendingConflicts)
 
-    console.log(`[SyncService] Conflict ${conflictId} resolved with ${chosenVersion} version`)
   }
 
   onConflictsResolved(): void {
@@ -232,12 +231,10 @@ export class SyncService {
   async sync(): Promise<void> {
     // If already syncing - wait for current sync to complete
     if (this.currentSyncPromise) {
-      console.log("[SyncService] Sync already in progress, waiting for completion...")
       try {
         await this.currentSyncPromise
       } catch (error) {
         // Ignore errors from previous sync
-        console.log("[SyncService] Previous sync failed, continuing with new sync")
       }
     }
 
@@ -246,7 +243,6 @@ export class SyncService {
 
     // If no changes and not first sync - skip
     if (!isFirstSync && !hasChanges) {
-      console.log("[SyncService] No local changes, skipping sync")
       return
     }
 
@@ -268,12 +264,6 @@ export class SyncService {
     this.isSyncing = true
     const queue = this.queueManager.getQueue()
 
-    console.log("[SyncService] Starting sync...", {
-      goals: queue.goals.length,
-      habits: queue.habits.length,
-      isFirstSync: this.meta.lastSyncAt === 0,
-      goalDetails: queue.goals.map(g => ({ id: g.id, op: g.operation, title: g.payload.title })),
-    })
 
     // CRITICAL: Take snapshot of changes that will be sent
     // This protects from losing changes added during sync request
@@ -315,25 +305,9 @@ export class SyncService {
           console.warn(`[SyncService] Clock skew detected: ${skewMinutes} minutes`)
         }
 
-        console.log("[SyncService] Sync completed successfully", {
-          timestamp: response.newLastSyncAt,
-          conflicts: {
-            goals: response.conflicts.goals.length,
-            habits: response.conflicts.habits.length,
-          },
-          serverChanges: {
-            goals: response.changes?.goals?.length || 0,
-            habits: response.changes?.habits?.length || 0,
-          },
-          clockSkew: response.clockSkew,
-        })
 
         // CRITICAL: Only update lastSyncAt and clear queue if NO conflicts
         if (!hasConflicts) {
-          console.log('[SyncService] No conflicts detected, clearing queue', {
-            snapshotGoalIds: Array.from(snapshotGoalIds),
-            snapshotHabitIds: Array.from(snapshotHabitIds),
-          })
 
           this.lastSyncTimestamp = response.newLastSyncAt
           this.meta.lastSyncAt = response.newLastSyncAt
@@ -345,7 +319,6 @@ export class SyncService {
           // Save metadata only if no conflicts
           this.storage.saveMeta(this.meta)
 
-          console.log('[SyncService] lastSyncAt updated to:', response.newLastSyncAt)
 
           // Reset retry count on successful sync
           this.retryManager.reset()
@@ -364,18 +337,6 @@ export class SyncService {
         const conflictedHabitIds = new Set<string>()
 
         if (hasConflicts) {
-          console.log('[SyncService] Conflicts detected:', {
-            goals: response.conflicts.goals.map(c => ({
-              id: c.id,
-              localVersion: c.localEntity?._version,
-              serverVersion: c.serverEntity?._version,
-            })),
-            habits: response.conflicts.habits.map(c => ({
-              id: c.id,
-              localVersion: c.localEntity?._version,
-              serverVersion: c.serverEntity?._version,
-            }))
-          })
 
           response.conflicts.goals.forEach(conflict => {
             conflictedGoalIds.add(conflict.id)
@@ -385,43 +346,20 @@ export class SyncService {
             conflictedHabitIds.add(conflict.id)
           })
 
-          console.log('[SyncService] Conflicted IDs:', {
-            goals: Array.from(conflictedGoalIds),
-            habits: Array.from(conflictedHabitIds),
-          })
         }
 
         // BIDIRECTIONAL SYNC: Apply changes from backend (changes from other devices)
-        console.log('[SyncService] Processing response.changes:', {
-          hasChanges: !!response.changes,
-          goalsCount: response.changes?.goals?.length || 0,
-          habitsCount: response.changes?.habits?.length || 0,
-        })
 
         if (response.changes) {
           if (response.changes.goals && response.changes.goals.length > 0) {
-            console.log('[SyncService] Received goals from backend:',
-              response.changes.goals.map(g => ({
-                id: g.id,
-                title: 'title' in g ? g.title : undefined,
-                version: '_version' in g ? g._version : undefined,
-                deleted: 'deleted' in g && g.deleted === true,
-                isConflicted: conflictedGoalIds.has(g.id)
-              })))
 
             // Filter deleted goals and regular goals
             // IMPORTANT: Exclude conflicted goals (they're processed separately)
             // Check VALUE of deleted field, not just presence of key
             const goalsBeforeDeleteFilter = response.changes.goals.filter((g): g is Goal => g.deleted !== true)
-            console.log('[SyncService] Goals after delete filter:', goalsBeforeDeleteFilter.length,
-              'removed:', response.changes.goals.length - goalsBeforeDeleteFilter.length)
 
             const goalsToApply = goalsBeforeDeleteFilter.filter(g => !conflictedGoalIds.has(g.id))
-            console.log('[SyncService] Goals after conflict filter:', goalsToApply.length,
-              'removed:', goalsBeforeDeleteFilter.length - goalsToApply.length)
 
-            console.log('[SyncService] Final goals to apply:',
-              goalsToApply.map(g => ({ id: g.id, title: g.title, version: g._version })))
 
             const goalsToDelete = response.changes.goals
               .filter((g): g is { id: string; deleted: true } => g.deleted === true)
@@ -429,13 +367,10 @@ export class SyncService {
               .filter(id => !conflictedGoalIds.has(id))  // ← Exclude conflicts
 
             if (goalsToApply.length > 0 && this.applyGoals) {
-              console.log(`[SyncService] Applying ${goalsToApply.length} goals from server`,
-                goalsToApply.map(g => ({ id: g.id, title: g.title, version: g._version })))
               this.applyGoals(goalsToApply)
             }
 
             if (goalsToDelete.length > 0) {
-              console.log(`[SyncService] Deleting ${goalsToDelete.length} goals requested by server:`, goalsToDelete)
               if (this.deleteGoals) {
                 this.deleteGoals(goalsToDelete)
               } else {
@@ -457,12 +392,10 @@ export class SyncService {
               .filter(id => !conflictedHabitIds.has(id))  // ← Exclude conflicts
 
             if (habitsToApply.length > 0 && this.applyHabits) {
-              console.log(`[SyncService] Applying ${habitsToApply.length} habits from server`)
               this.applyHabits(habitsToApply)
             }
 
             if (habitsToDelete.length > 0) {
-              console.log(`[SyncService] Deleting ${habitsToDelete.length} habits requested by server:`, habitsToDelete)
               if (this.deleteHabits) {
                 this.deleteHabits(habitsToDelete)
               } else {

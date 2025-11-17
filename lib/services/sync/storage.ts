@@ -73,7 +73,6 @@ export class SyncStorage {
     try {
       const raw = window.localStorage.getItem(SYNC_QUEUE_STORAGE_KEY)
       if (!raw) {
-        console.log('[SyncStorage] loadQueue: No queue in localStorage, returning empty')
         return { goals: [], habits: [] }
       }
 
@@ -83,11 +82,6 @@ export class SyncStorage {
         habits: parsed.habits || [],
       }
 
-      console.log('[SyncStorage] loadQueue:', {
-        goalsCount: result.goals.length,
-        habitsCount: result.habits.length,
-        goalIds: result.goals.map(g => ({ id: g.id, op: g.operation })),
-      })
 
       return result
     } catch (error) {
@@ -103,11 +97,6 @@ export class SyncStorage {
     if (typeof window === "undefined") return
 
     try {
-      console.log('[SyncStorage] saveQueue:', {
-        goalsCount: queue.goals.length,
-        habitsCount: queue.habits.length,
-        goalIds: queue.goals.map(g => ({ id: g.id, op: g.operation })),
-      })
 
       window.localStorage.setItem(SYNC_QUEUE_STORAGE_KEY, JSON.stringify(queue))
     } catch (error) {

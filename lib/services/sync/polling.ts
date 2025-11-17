@@ -31,13 +31,11 @@ export class PollingManager {
   ): void {
     // If polling already running - don't create a new one
     if (this.isRunning_) {
-      console.log("[PollingManager] Polling already running")
       return
     }
 
     this.isRunning_ = true
     this.getIntervalCallback = getIntervalCallback
-    console.log(`[PollingManager] Starting polling (base interval: ${this.baseIntervalMs}ms)`)
 
     // Start first tick
     this.scheduleTick(checkCallback, syncCallback)
@@ -63,14 +61,12 @@ export class PollingManager {
       const hasPendingChanges = checkCallback()
 
       if (hasPendingChanges) {
-        console.log("[PollingManager] Polling tick - found pending changes, triggering sync")
         try {
           await syncCallback()
         } catch (error) {
           console.error("[PollingManager] Polling sync failed:", error)
         }
       } else {
-        console.log("[PollingManager] Polling tick - no pending changes, skipping")
       }
 
       // Schedule next tick after sync completes
@@ -83,7 +79,6 @@ export class PollingManager {
    */
   stop(): void {
     if (this.isRunning_) {
-      console.log("[PollingManager] Stopping polling")
       if (this.timeoutId !== null) {
         clearTimeout(this.timeoutId)
         this.timeoutId = null

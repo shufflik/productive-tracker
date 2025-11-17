@@ -10,7 +10,7 @@ import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
-import { DotLottieReact } from '@lottiefiles/dotlottie-react'
+import { DotLottieReact } from "@lottiefiles/dotlottie-react"
 import type { Goal } from "@/lib/types"
 
 // Re-export Goal type for backward compatibility
@@ -30,10 +30,6 @@ export function GoalsView() {
 
   // Day state store
   const isTodayEnded = useDayStateStore((state) => state.isTodayEnded)
-
-  // Debug: Log when component re-renders with goals
-  console.log('[GoalsView] Component render - goals count:', goals.length,
-    'goals:', goals.map(g => ({ id: g.id, title: g.title, targetDate: g.targetDate })))
 
   // Local UI state
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -184,16 +180,6 @@ export function GoalsView() {
       const todayDate = targetDay.toDateString()
       const matches = goalDate === todayDate
 
-      console.log('[GoalsView] Filter check:', {
-        goalId: goal.id,
-        goalTitle: goal.title,
-        goalTargetDate: goal.targetDate,
-        goalDateParsed: goalDate,
-        todayDate: todayDate,
-        matches: matches,
-        selectedDay: selectedDay,
-      })
-
       return matches
     },
     [selectedDay]
@@ -202,12 +188,6 @@ export function GoalsView() {
   const displayGoals = useMemo(
     () => {
       const filtered = goals.filter(shouldShowForSelectedDay)
-      console.log('[GoalsView] displayGoals updated:', {
-        totalGoals: goals.length,
-        filteredGoals: filtered.length,
-        selectedDay: selectedDay,
-        filtered: filtered.map(g => ({ id: g.id, title: g.title })),
-      })
       return filtered
     },
     [goals, shouldShowForSelectedDay, selectedDay]

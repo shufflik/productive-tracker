@@ -12,7 +12,7 @@ const baseItemSchema = z
   .object({
     id: z.string(),
     title: z.string().min(1),
-    completed: z.boolean(),
+    completed: z.boolean().default(false),
     important: z.boolean().nullish(),
   })
   .merge(localSyncMetaSchema)
@@ -26,10 +26,10 @@ const goalSchema = baseItemSchema.extend({
 
 // Habit schema (no description)
 const habitSchema = baseItemSchema.extend({
-  repeatType: z.enum(["daily", "weekly"]),
+  repeatType: z.enum(["daily", "weekly"]).default("daily"),
   repeatDays: z.array(z.number().min(0).max(6)).nullish(),
-  currentStreak: z.number(),
-  maxStreak: z.number(),
+  currentStreak: z.number().default(0),
+  maxStreak: z.number().default(0),
   lastCompletedDate: z.string().nullish(),
   completions: z.record(z.string(), z.boolean()).nullish(),
 })

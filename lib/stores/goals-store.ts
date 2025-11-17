@@ -74,12 +74,6 @@ export const useGoalsStore = create<GoalsStore>()(
           const goal = state.goals.find((g) => g.id === id)
           if (!goal) return state
 
-          console.log('[GoalsStore] updateGoal - current goal:', {
-            id: goal.id,
-            title: goal.title,
-            version: goal._version,
-            localUpdatedAt: goal._localUpdatedAt,
-          })
 
           updatedGoal = {
             ...goal,
@@ -88,12 +82,6 @@ export const useGoalsStore = create<GoalsStore>()(
             description: description || undefined,
           }
 
-          console.log('[GoalsStore] updateGoal - updated goal:', {
-            id: updatedGoal.id,
-            title: updatedGoal.title,
-            version: updatedGoal._version,
-            localUpdatedAt: updatedGoal._localUpdatedAt,
-          })
 
           return {
             goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
@@ -319,15 +307,9 @@ export const useGoalsStore = create<GoalsStore>()(
 // Зарегистрировать обработчик применения целей от backend
 // Выполняет merge локальных и серверных данных по _version
 syncService.registerGoalsApplyHandler((serverGoals) => {
-  console.log('[GoalsStore] applyGoals handler called with server goals:',
-    serverGoals.map(g => ({ id: g.id, title: g.title, version: g._version })))
 
-  console.log('[GoalsStore] Current goals BEFORE setState:',
-    useGoalsStore.getState().goals.map(g => ({ id: g.id, title: g.title })))
 
   useGoalsStore.setState((state) => {
-    console.log('[GoalsStore] Inside setState callback - current state.goals:',
-      state.goals.map(g => ({ id: g.id, title: g.title, version: g._version })))
 
     const localGoals = state.goals || []
     const serverGoalsMap = new Map(serverGoals.map(g => [g.id, g]))
@@ -348,13 +330,6 @@ syncService.registerGoalsApplyHandler((serverGoals) => {
         let selectedGoal: Goal
         if (serverVersion > localVersion) {
           // Серверная версия новее - берем её
-          console.log(`[GoalsStore] Selecting server version for goal ${localGoal.id}:`, {
-            localTargetDate: localGoal.targetDate,
-            serverTargetDate: serverGoal.targetDate,
-            serverTargetDateType: typeof serverGoal.targetDate,
-            localVersion,
-            serverVersion,
-          })
 
           // CRITICAL: Check if targetDate exists and is in correct format
           if (!serverGoal.targetDate) {
@@ -401,34 +376,25 @@ syncService.registerGoalsApplyHandler((serverGoals) => {
       }
     }
 
-    console.log('[GoalsStore] Merged goals result (about to return):',
-      mergedGoals.map(g => ({ id: g.id, title: g.title, version: g._version, targetDate: g.targetDate })))
 
     const newState = {
       goals: mergedGoals,
       isLoaded: true,
     }
 
-    console.log('[GoalsStore] Returning new state with goals count:', newState.goals.length)
     return newState
   })
 
   // Проверяем сразу после setState (синхронно)
   const goalsAfterSetState = useGoalsStore.getState().goals
-  console.log('[GoalsStore] Goals IMMEDIATELY after setState:',
-    goalsAfterSetState.map(g => ({ id: g.id, title: g.title, version: g._version })))
-  console.log('[GoalsStore] Total goals count after setState:', goalsAfterSetState.length)
 
   // Проверяем что сохранилось после setState (async)
   setTimeout(() => {
     const currentGoals = useGoalsStore.getState().goals
-    console.log('[GoalsStore] Goals in store after merge (100ms verification):',
-      currentGoals.map(g => ({ id: g.id, title: g.title, version: g._version })))
   }, 100)
 })
 
 syncService.registerGoalsDeleteHandler((goalIds) => {
-  console.log('[GoalsStore] deleteGoals called:', goalIds)
   useGoalsStore.setState((state) => ({
     goals: state.goals.filter(g => !goalIds.includes(g.id)),
   }))

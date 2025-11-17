@@ -98,7 +98,6 @@ export class RetryManager {
       this.maxDelay
     )
 
-    console.log(`[RetryManager] Retry #${this.retryCount + 1} after ${delay}ms`)
     return delay
   }
 
@@ -114,7 +113,6 @@ export class RetryManager {
    */
   reset(): void {
     if (this.retryCount > 0) {
-      console.log(`[RetryManager] Reset after ${this.retryCount} retries`)
       this.retryCount = 0
     }
   }
