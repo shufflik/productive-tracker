@@ -29,9 +29,13 @@ export function GoalsView() {
   const toggleImportantInStore = useGoalsStore((state) => state.toggleImportant)
   const moveToTodayInStore = useGoalsStore((state) => state.moveToToday)
   const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
-  
+
   // Day state store
   const isTodayEnded = useDayStateStore((state) => state.isTodayEnded)
+
+  // Debug: Log when component re-renders with goals
+  console.log('[GoalsView] Component render - goals count:', goals.length,
+    'goals:', goals.map(g => ({ id: g.id, title: g.title, targetDate: g.targetDate })))
 
   // Local UI state
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -170,9 +174,6 @@ export function GoalsView() {
 
   const shouldShowForSelectedDay = useCallback(
     (goal: Goal): boolean => {
-      // Only show temporary goals, not habits
-      if (goal.type !== "goal") return false
-
       if (selectedDay === "backlog") {
         return goal.targetDate === "backlog"
       }
@@ -180,14 +181,38 @@ export function GoalsView() {
       const targetDay = selectedDay === "tomorrow" ? new Date(Date.now() + 86400000) : new Date()
 
       if (!goal.targetDate || goal.targetDate === "backlog") return false
-      return new Date(goal.targetDate).toDateString() === targetDay.toDateString()
+
+      const goalDate = new Date(goal.targetDate).toDateString()
+      const todayDate = targetDay.toDateString()
+      const matches = goalDate === todayDate
+
+      console.log('[GoalsView] Filter check:', {
+        goalId: goal.id,
+        goalTitle: goal.title,
+        goalTargetDate: goal.targetDate,
+        goalDateParsed: goalDate,
+        todayDate: todayDate,
+        matches: matches,
+        selectedDay: selectedDay,
+      })
+
+      return matches
     },
     [selectedDay]
   )
 
   const displayGoals = useMemo(
-    () => goals.filter(shouldShowForSelectedDay),
-    [goals, shouldShowForSelectedDay]
+    () => {
+      const filtered = goals.filter(shouldShowForSelectedDay)
+      console.log('[GoalsView] displayGoals updated:', {
+        totalGoals: goals.length,
+        filteredGoals: filtered.length,
+        selectedDay: selectedDay,
+        filtered: filtered.map(g => ({ id: g.id, title: g.title })),
+      })
+      return filtered
+    },
+    [goals, shouldShowForSelectedDay, selectedDay]
   )
 
   const groupedGoals = useMemo(
@@ -262,14 +287,12 @@ export function GoalsView() {
         if (goal.completed !== originalGoal.completed) {
           toggleCompleteInStore(goal.id)
         }
-        
+
         // Обновляем основные поля если изменились
-        if (goal.type === "goal" && originalGoal.type === "goal") {
-          if (goal.title !== originalGoal.title || 
-              goal.description !== originalGoal.description || 
-              goal.label !== originalGoal.label) {
-            updateGoalInStore(goal.id, goal.title, goal.label || "", goal.description || "")
-          }
+        if (goal.title !== originalGoal.title ||
+            goal.description !== originalGoal.description ||
+            goal.label !== originalGoal.label) {
+          updateGoalInStore(goal.id, goal.title, goal.label || "", goal.description || "")
         }
       }
     })

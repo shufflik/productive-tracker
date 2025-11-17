@@ -3,9 +3,9 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import type { Goal, Habit, RepeatType } from "@/lib/types"
-import { goalsArraySchema } from "@/lib/schemas/goal.schema"
+import { habitsArraySchema } from "@/lib/schemas/common.schema"
 import { generateId } from "@/lib/utils/id"
-import { syncService } from "@/lib/services/sync-service"
+import { syncService } from "@/lib/services/sync"
 
 type HabitsState = {
   habits: Habit[]
@@ -27,11 +27,8 @@ type HabitsActions = {
   calculateStreak: (habitId: string) => number
   calculateMaxStreak: (habitId: string) => number
   getHabitsForDate: (date: Date) => Habit[]
-  
-  // Sync with goals store (legacy, для совместимости)
-  syncWithGoalsStore: (goals: Array<Goal | Habit>) => void
   getAllHabits: () => Habit[]
-  
+
   // Batch operations
   setHabits: (habits: Habit[]) => void
 }
@@ -48,7 +45,6 @@ export const useHabitsStore = create<HabitsStore>()(
         const newHabit: Habit = {
           id: generateId(),
           title,
-          type: "habit",
           completed: false,
           repeatType,
           repeatDays: repeatType === "weekly" ? repeatDays : undefined,
@@ -56,6 +52,7 @@ export const useHabitsStore = create<HabitsStore>()(
           maxStreak: 0,
           lastCompletedDate: undefined,
           completions: {},
+          _version: 0, // Начальная версия для новой привычки
         }
 
         set((state) => ({
@@ -100,7 +97,6 @@ export const useHabitsStore = create<HabitsStore>()(
 
         // enqueueHabitChange схлопнет create+delete или отправит delete для существующей
         syncService.enqueueHabitChange("delete", habitToDelete)
-        syncService.sync()
       },
 
       toggleHabitCompletion: (habitId, date) => {
@@ -220,12 +216,6 @@ export const useHabitsStore = create<HabitsStore>()(
         return habits.filter((h) => get().isHabitScheduledForDate(h, date))
       },
 
-      syncWithGoalsStore: (goals) => {
-        // Only keep habits from the goals list (legacy method for compatibility)
-        const habits = goals.filter((g): g is Habit => g.type === "habit")
-        set({ habits })
-      },
-
       getAllHabits: () => {
         return get().habits
       },
@@ -254,7 +244,7 @@ export const useHabitsStore = create<HabitsStore>()(
               }
               
               if (parsed.state?.habits) {
-                const habitsResult = goalsArraySchema.safeParse(parsed.state.habits)
+                const habitsResult = habitsArraySchema.safeParse(parsed.state.habits)
                 if (!habitsResult.success) {
                   console.error("Invalid habits data in localStorage:", habitsResult.error)
                   parsed.state.habits = []
@@ -295,8 +285,11 @@ export const useHabitsStore = create<HabitsStore>()(
 )
 
 // Зарегистрировать обработчики применения данных о привычках от backend
-// Выполняет merge локальных и серверных данных по _localUpdatedAt
+// Выполняет merge локальных и серверных данных по _version
 syncService.registerHabitsApplyHandler((serverHabits) => {
+  console.log('[HabitsStore] applyHabits handler called with server habits:',
+    serverHabits.map(h => ({ id: h.id, title: h.title, version: h._version })))
+
   useHabitsStore.setState((state) => {
     const localHabits = state.habits || []
     const serverHabitsMap = new Map(serverHabits.map(h => [h.id, h]))
@@ -306,18 +299,29 @@ syncService.registerHabitsApplyHandler((serverHabits) => {
     // Обрабатываем локальные привычки
     for (const localHabit of localHabits) {
       const serverHabit = serverHabitsMap.get(localHabit.id)
-      
+
       if (serverHabit) {
         // Сущность есть и локально, и на сервере - делаем merge
-        const localUpdatedAt = localHabit._localUpdatedAt || 0
-        const serverUpdatedAt = serverHabit._localUpdatedAt || 0
-        
-        // Берем более новую версию
-        if (localUpdatedAt > serverUpdatedAt) {
-          mergedHabits.push(localHabit)
+        const localVersion = localHabit._version || 0
+        const serverVersion = serverHabit._version || 0
+
+        // КРИТИЧНО: Берем версию с большим _version (backend авторитетен)
+        // Если версии равны, сравниваем по _localUpdatedAt (для оффлайн изменений)
+        let selectedHabit: Habit
+        if (serverVersion > localVersion) {
+          // Серверная версия новее - берем её
+          selectedHabit = serverHabit
+        } else if (serverVersion === localVersion) {
+          // Версии равны - сравниваем по времени изменения
+          const localUpdatedAt = localHabit._localUpdatedAt || 0
+          const serverUpdatedAt = serverHabit._localUpdatedAt || 0
+          selectedHabit = localUpdatedAt > serverUpdatedAt ? localHabit : serverHabit
         } else {
-          mergedHabits.push(serverHabit)
+          // Локальная версия новее (не должно быть в норме, но возможно при оффлайн изменениях)
+          selectedHabit = localHabit
         }
+
+        mergedHabits.push(selectedHabit)
         processedIds.add(localHabit.id)
       } else {
         // Сущность есть только локально - оставляем локальную
@@ -334,10 +338,17 @@ syncService.registerHabitsApplyHandler((serverHabits) => {
     }
 
     return {
-    ...state,
+      ...state,
       habits: mergedHabits,
     }
   })
+})
+
+syncService.registerHabitsDeleteHandler((habitIds) => {
+  console.log('[HabitsStore] deleteHabits called:', habitIds)
+  useHabitsStore.setState((state) => ({
+    habits: state.habits.filter(h => !habitIds.includes(h.id)),
+  }))
 })
 
 

@@ -5,7 +5,7 @@ import { GoalsView } from "@/components/goals-view"
 import { StatisticsView } from "@/components/statistics-view"
 import { HabitsView } from "@/components/habits-view"
 import { CheckSquare, BarChart3, Target } from "lucide-react"
-import { syncService } from "@/lib/services/sync-service"
+import { syncService } from "@/lib/services/sync"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"goals" | "statistics" | "habits">("goals")
@@ -42,9 +42,12 @@ export default function Home() {
       }
     }
     
-    // FULL SYNC при открытии WebApp
-    // Это покрывает все несинхронизированные изменения
-    syncService.sync()
+    // // FULL SYNC при открытии WebApp
+    // // Это покрывает все несинхронизированные изменения
+    // syncService.sync()
+
+    // Запускаем polling для автоматической синхронизации
+    syncService.startPolling()
   }, [])
 
   return (

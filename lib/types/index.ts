@@ -17,6 +17,12 @@ export type LocalSyncMeta = {
    * Может присутствовать в данных, пришедших с backend или в старых данных
    */
   _localOp?: LocalSyncOperation
+  /**
+   * Версия сущности для оптимистичной блокировки (optimistic locking)
+   * Инкрементируется при каждом изменении
+   * Используется для обнаружения конфликтов при синхронизации
+   */
+  _version?: number
 }
 
 // Base type for common properties
@@ -29,7 +35,6 @@ type BaseItem = {
 
 // Goal (temporary task with deadline)
 export type Goal = BaseItem & {
-  type: "goal"
   description?: string
   targetDate?: string
   label?: string
@@ -37,7 +42,6 @@ export type Goal = BaseItem & {
 
 // Habit (recurring task with streak tracking, no description)
 export type Habit = BaseItem & {
-  type: "habit"
   repeatType: RepeatType
   repeatDays?: number[] // 0-6, where 0 is Sunday
   currentStreak: number

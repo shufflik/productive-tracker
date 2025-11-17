@@ -3,7 +3,7 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { getTodayLocalISO } from "@/lib/utils/date"
-import { syncService } from "@/lib/services/sync-service"
+import { syncService } from "@/lib/services/sync"
 
 type DayState = {
   date: string // ISO date format "2025-11-10"
@@ -23,7 +23,7 @@ type DayStateStore = {
   isTodayEnded: () => boolean
   
   // Новые методы для автоматического закрытия дней
-  checkMissedDays: (goals: Array<{ targetDate?: string; type: string }>) => void
+  checkMissedDays: (goals: Array<{ targetDate?: string }>) => void
   markDayForReview: (date: string) => void
   completePendingReview: (date: string) => void
   updateLastActiveDate: () => void
@@ -47,9 +47,6 @@ export const useDayStateStore = create<DayStateStore>()(
             },
           },
         }))
-        
-        // CRITICAL EVENT: синхронизируем сразу
-        syncService.sync()
       },
 
       cancelDayEnd: (date) => {
@@ -123,7 +120,7 @@ export const useDayStateStore = create<DayStateStore>()(
           
           // Проверяем, были ли goals для этого дня
           const hasGoals = goals.some(
-            (g) => g.type === "goal" && g.targetDate === missedDateAsDateString
+            (g) => g.targetDate === missedDateAsDateString
           )
           
           if (hasGoals) {
@@ -163,9 +160,6 @@ export const useDayStateStore = create<DayStateStore>()(
         set((state) => ({
           pendingReviewDates: state.pendingReviewDates.filter((d) => d !== date),
         }))
-        
-        // CRITICAL EVENT: синхронизируем сразу
-        syncService.sync()
       },
 
       updateLastActiveDate: () => {

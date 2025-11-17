@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { DayReviewDialog, type TaskAction } from "@/components/day-review-dialog"
-import { syncService } from "@/lib/services/sync-service"
+import { syncService } from "@/lib/services/sync"
 import type { Goal } from "@/lib/types"
 
 /**
@@ -59,7 +59,7 @@ export function PendingDayReviewsManager() {
       
       // Загружаем goals для этой даты
       const dateGoals = goalsFromStore.filter(
-        (g) => g.type === "goal" && g.targetDate === nextDateAsDateString
+        (g) => g.targetDate === nextDateAsDateString
       ) as Goal[]
       setCurrentDateGoals(dateGoals)
     }
@@ -103,14 +103,12 @@ export function PendingDayReviewsManager() {
         if (goal.completed !== originalGoal.completed) {
           toggleComplete(goal.id)
         }
-        
+
         // Обновляем основные поля если изменились
-        if (goal.type === "goal" && originalGoal.type === "goal") {
-          if (goal.title !== originalGoal.title || 
-              goal.description !== originalGoal.description || 
-              goal.label !== originalGoal.label) {
-            updateGoal(goal.id, goal.title, goal.label || "", goal.description || "")
-          }
+        if (goal.title !== originalGoal.title ||
+            goal.description !== originalGoal.description ||
+            goal.label !== originalGoal.label) {
+          updateGoal(goal.id, goal.title, goal.label || "", goal.description || "")
         }
       }
     })

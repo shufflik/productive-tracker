@@ -3,9 +3,9 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import type { Goal } from "@/lib/types"
-import { goalsArraySchema } from "@/lib/schemas/goal.schema"
+import { goalsArraySchema } from "@/lib/schemas/common.schema"
 import { generateId } from "@/lib/utils/id"
-import { syncService } from "@/lib/services/sync-service"
+import { syncService } from "@/lib/services/sync"
 
 type GoalsState = {
   goals: Goal[]
@@ -54,10 +54,10 @@ export const useGoalsStore = create<GoalsStore>()(
           id: generateId(),
           title,
           description: description || undefined,
-          type: "goal",
           completed: false,
           targetDate: finalTargetDate,
           label: label ? label.toUpperCase() : label,
+          _version: 0, // Начальная версия для новой цели
         }
 
         set((state) => ({
@@ -74,12 +74,26 @@ export const useGoalsStore = create<GoalsStore>()(
           const goal = state.goals.find((g) => g.id === id)
           if (!goal) return state
 
+          console.log('[GoalsStore] updateGoal - current goal:', {
+            id: goal.id,
+            title: goal.title,
+            version: goal._version,
+            localUpdatedAt: goal._localUpdatedAt,
+          })
+
           updatedGoal = {
             ...goal,
             title,
             label: label ? label.toUpperCase() : label,
             description: description || undefined,
           }
+
+          console.log('[GoalsStore] updateGoal - updated goal:', {
+            id: updatedGoal.id,
+            title: updatedGoal.title,
+            version: updatedGoal._version,
+            localUpdatedAt: updatedGoal._localUpdatedAt,
+          })
 
           return {
             goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
@@ -88,7 +102,6 @@ export const useGoalsStore = create<GoalsStore>()(
 
         if (updatedGoal) {
           syncService.enqueueGoalChange("update", updatedGoal)
-          syncService.sync()
         }
       },
 
@@ -103,7 +116,6 @@ export const useGoalsStore = create<GoalsStore>()(
 
         // enqueueGoalChange схлопнет create+delete или отправит delete для существующей
         syncService.enqueueGoalChange("delete", goalToDelete)
-        syncService.sync()
       },
 
       toggleComplete: (id) => {
@@ -160,7 +172,7 @@ export const useGoalsStore = create<GoalsStore>()(
 
           updatedGoal = {
             ...goal,
-            targetDate: goal.type === "goal" ? tomorrow : goal.targetDate,
+            targetDate: tomorrow,
             completed: false,
           }
 
@@ -171,7 +183,6 @@ export const useGoalsStore = create<GoalsStore>()(
 
         if (updatedGoal) {
           syncService.enqueueGoalChange("update", updatedGoal)
-          syncService.sync()
         }
       },
 
@@ -236,18 +247,18 @@ export const useGoalsStore = create<GoalsStore>()(
       getGoalsForDate: (date) => {
         const dateString = date.toDateString()
         return get().goals.filter(
-          (g) => g.type === "goal" && g.targetDate === dateString
+          (g) => g.targetDate === dateString
         )
       },
 
       getBacklogGoals: () => {
         return get().goals.filter(
-          (g) => g.type === "goal" && g.targetDate === "backlog"
+          (g) => g.targetDate === "backlog"
         )
       },
 
       getTemporaryGoals: () => {
-        return get().goals.filter((g) => g.type === "goal")
+        return get().goals
       },
     }),
     {
@@ -306,9 +317,18 @@ export const useGoalsStore = create<GoalsStore>()(
 )
 
 // Зарегистрировать обработчик применения целей от backend
-// Выполняет merge локальных и серверных данных по _localUpdatedAt
+// Выполняет merge локальных и серверных данных по _version
 syncService.registerGoalsApplyHandler((serverGoals) => {
+  console.log('[GoalsStore] applyGoals handler called with server goals:',
+    serverGoals.map(g => ({ id: g.id, title: g.title, version: g._version })))
+
+  console.log('[GoalsStore] Current goals BEFORE setState:',
+    useGoalsStore.getState().goals.map(g => ({ id: g.id, title: g.title })))
+
   useGoalsStore.setState((state) => {
+    console.log('[GoalsStore] Inside setState callback - current state.goals:',
+      state.goals.map(g => ({ id: g.id, title: g.title, version: g._version })))
+
     const localGoals = state.goals || []
     const serverGoalsMap = new Map(serverGoals.map(g => [g.id, g]))
     const mergedGoals: Goal[] = []
@@ -317,14 +337,45 @@ syncService.registerGoalsApplyHandler((serverGoals) => {
     // Обрабатываем локальные цели
     for (const localGoal of localGoals) {
       const serverGoal = serverGoalsMap.get(localGoal.id)
-      
+
       if (serverGoal) {
         // Сущность есть и локально, и на сервере - делаем merge
-        const localUpdatedAt = localGoal._localUpdatedAt || 0
-        const serverUpdatedAt = serverGoal._localUpdatedAt || 0
-        
-        // Берем более новую версию
-        const selectedGoal = localUpdatedAt > serverUpdatedAt ? localGoal : serverGoal
+        const localVersion = localGoal._version || 0
+        const serverVersion = serverGoal._version || 0
+
+        // КРИТИЧНО: Берем версию с большим _version (backend авторитетен)
+        // Если версии равны, сравниваем по _localUpdatedAt (для оффлайн изменений)
+        let selectedGoal: Goal
+        if (serverVersion > localVersion) {
+          // Серверная версия новее - берем её
+          console.log(`[GoalsStore] Selecting server version for goal ${localGoal.id}:`, {
+            localTargetDate: localGoal.targetDate,
+            serverTargetDate: serverGoal.targetDate,
+            serverTargetDateType: typeof serverGoal.targetDate,
+            localVersion,
+            serverVersion,
+          })
+
+          // CRITICAL: Check if targetDate exists and is in correct format
+          if (!serverGoal.targetDate) {
+            console.warn(`[GoalsStore] WARNING: Server goal missing targetDate! Using local:`, localGoal.targetDate)
+            selectedGoal = {
+              ...serverGoal,
+              targetDate: localGoal.targetDate, // Keep local targetDate
+            }
+          } else {
+            selectedGoal = serverGoal
+          }
+        } else if (serverVersion === localVersion) {
+          // Версии равны - сравниваем по времени изменения
+          const localUpdatedAt = localGoal._localUpdatedAt || 0
+          const serverUpdatedAt = serverGoal._localUpdatedAt || 0
+          selectedGoal = localUpdatedAt > serverUpdatedAt ? localGoal : serverGoal
+        } else {
+          // Локальная версия новее (не должно быть в норме, но возможно при оффлайн изменениях)
+          selectedGoal = localGoal
+        }
+
         mergedGoals.push({
           ...selectedGoal,
           label: selectedGoal.label?.toUpperCase() || selectedGoal.label,
@@ -350,10 +401,36 @@ syncService.registerGoalsApplyHandler((serverGoals) => {
       }
     }
 
-    return {
+    console.log('[GoalsStore] Merged goals result (about to return):',
+      mergedGoals.map(g => ({ id: g.id, title: g.title, version: g._version, targetDate: g.targetDate })))
+
+    const newState = {
       goals: mergedGoals,
-    isLoaded: true,
+      isLoaded: true,
     }
+
+    console.log('[GoalsStore] Returning new state with goals count:', newState.goals.length)
+    return newState
   })
+
+  // Проверяем сразу после setState (синхронно)
+  const goalsAfterSetState = useGoalsStore.getState().goals
+  console.log('[GoalsStore] Goals IMMEDIATELY after setState:',
+    goalsAfterSetState.map(g => ({ id: g.id, title: g.title, version: g._version })))
+  console.log('[GoalsStore] Total goals count after setState:', goalsAfterSetState.length)
+
+  // Проверяем что сохранилось после setState (async)
+  setTimeout(() => {
+    const currentGoals = useGoalsStore.getState().goals
+    console.log('[GoalsStore] Goals in store after merge (100ms verification):',
+      currentGoals.map(g => ({ id: g.id, title: g.title, version: g._version })))
+  }, 100)
+})
+
+syncService.registerGoalsDeleteHandler((goalIds) => {
+  console.log('[GoalsStore] deleteGoals called:', goalIds)
+  useGoalsStore.setState((state) => ({
+    goals: state.goals.filter(g => !goalIds.includes(g.id)),
+  }))
 })
 
