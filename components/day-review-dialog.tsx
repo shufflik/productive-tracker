@@ -14,6 +14,10 @@ import type { Goal } from "@/lib/types"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import confetti from "canvas-confetti"
 import { getTodayLocalISO } from "@/lib/utils/date"
+import { syncService } from "@/lib/services/sync"
+import { clearStatsCache } from "@/lib/services/stats-cache"
+import { toast } from "sonner"
+import { endDayApi } from "@/lib/services/api-client"
 
 type DayStatus = "good" | "average" | "poor" | "bad"
 
@@ -51,8 +55,20 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       setLocalGoals([...goals])
       setStep("confirmation")
       setDistractionLevel("little")
+
+      // Stop polling when dialog opens (Step 1: Confirmation)
+      syncService.stopPolling()
+      console.log('[DayReview] Polling stopped')
     }
-  }, [goals, open])
+
+    // Cleanup: resume polling when dialog closes (regardless of how it closes)
+    return () => {
+      if (open) {
+        syncService.startPolling()
+        console.log('[DayReview] Polling resumed (cleanup)')
+      }
+    }
+  }, [open])
 
   const toggleGoalCompletion = (id: string) => {
     setLocalGoals(
@@ -115,94 +131,150 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     }
   }
 
-  const handleSave = () => {
-    // Update goals
-    onUpdateGoals(localGoals)
+  const handleSave = async () => {
+    try {
+      // Calculate day status
+      const completedCount = localGoals.filter((g) => g.completed).length
+      const totalCount = localGoals.length
+      const completionRate = totalCount > 0 ? completedCount / totalCount : 0
 
-    // Calculate and save day status
-    const completedCount = localGoals.filter((g) => g.completed).length
-    const totalCount = localGoals.length
-    const completionRate = totalCount > 0 ? completedCount / totalCount : 0
+      let status: DayStatus
+      if (completionRate >= 0.7) status = "good"
+      else if (completionRate >= 0.4) status = "average"
+      else if (completionRate >= 0.2) status = "poor"
+      else status = "bad"
 
-    let status: DayStatus
-    if (completionRate >= 0.7) status = "good"
-    else if (completionRate >= 0.4) status = "average"
-    else if (completionRate >= 0.2) status = "poor"
-    else status = "bad"
+      // Используем переданную дату или текущую
+      const reviewDate = date || getTodayLocalISO()
+      const incompleteGoals = localGoals.filter((g) => !g.completed)
+      const completedGoals = localGoals.filter((g) => g.completed)
 
-    // Используем переданную дату или текущую
-    const reviewDate = date || getTodayLocalISO()
-    const incompleteGoals = localGoals.filter((g) => !g.completed)
-    const completedGoals = localGoals.filter((g) => g.completed)
+      // Prepare request data for backend
+      const requestData = {
+        date: reviewDate,
+        dayReview: {
+          completedGoals: completedGoals.map((g) => ({
+            id: g.id,
+            title: g.title,
+            label: g.label || "",
+          })),
+          dayStatus: status,
+          distractions: distractionLevel,
+        },
+        incompleteReasons: incompleteGoals
+          .filter((g) => g.reason)
+          .map((g) => ({
+            goalId: g.id,
+            goalTitle: g.title,
+            reason: g.reason!,
+            customReason: g.customReason,
+            action: g.action!,
+            percentReady: g.percentReady || 0,
+            note: g.note,
+          })),
+        deviceId: syncService.getDeviceId(),
+      }
 
-    // Save completed goals
-    const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
-    const existingReviewIndex = dayReviews.findIndex((r: any) => r.date === reviewDate)
-    
-    const reviewData = {
-      date: reviewDate,
-      completedGoals: completedGoals.map((g) => ({
-        id: g.id,
-        title: g.title,
-        label: g.label,
-      })),
+      // POST to backend
+      const data = await endDayApi(requestData)
+
+      if (data.success || data.error === 'DAY_ALREADY_ENDED') {
+        // Success (or already ended - same UX)
+
+        // Update goals in store
+        onUpdateGoals(localGoals)
+
+        // Mark day as ended locally
+        markDayAsEnded(reviewDate)
+
+        // Optional: Save to localStorage for offline viewing
+        saveToLocalStorage(reviewDate, requestData)
+
+        // Clear stats cache
+        clearStatsCache()
+
+        // Resume polling
+        syncService.startPolling()
+
+        // Close dialog
+        onClose()
+
+        // Show success feedback
+        setTimeout(() => {
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#22c55e', '#16a34a', '#15803d', '#84cc16', '#eab308']
+          })
+
+          // Haptic feedback for success in Telegram
+          if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success')
+          }
+
+          // Different message for already ended
+          if (data.error === 'DAY_ALREADY_ENDED') {
+            toast.info("Day was already completed on another device")
+          }
+        }, 100)
+
+      } else {
+        // Unexpected error
+        toast.error(data.message || "Failed to save day review")
+        syncService.startPolling()  // Resume polling on error
+      }
+
+    } catch (error) {
+      console.error("[DayReview] End day error:", error)
+      toast.error("Network error. Please try again.")
+      syncService.startPolling()  // Resume polling on error
     }
-    
-    if (existingReviewIndex >= 0) {
-      dayReviews[existingReviewIndex] = reviewData
-    } else {
-      dayReviews.push(reviewData)
-    }
-    localStorage.setItem("dayReviews", JSON.stringify(dayReviews))
+  }
 
-    if (incompleteGoals.length > 0) {
-      const reasonsData = JSON.parse(localStorage.getItem("reasons") || "[]")
-      incompleteGoals.forEach((goal) => {
-        if (goal.reason) {
+  // Helper function to save data to localStorage for offline viewing
+  const saveToLocalStorage = (reviewDate: string, requestData: any) => {
+    try {
+      // Save completed goals
+      const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
+      const existingReviewIndex = dayReviews.findIndex((r: any) => r.date === reviewDate)
+
+      const reviewData = {
+        date: reviewDate,
+        completedGoals: requestData.dayReview.completedGoals,
+      }
+
+      if (existingReviewIndex >= 0) {
+        dayReviews[existingReviewIndex] = reviewData
+      } else {
+        dayReviews.push(reviewData)
+      }
+      localStorage.setItem("dayReviews", JSON.stringify(dayReviews))
+
+      // Save incomplete reasons
+      if (requestData.incompleteReasons.length > 0) {
+        const reasonsData = JSON.parse(localStorage.getItem("reasons") || "[]")
+        requestData.incompleteReasons.forEach((reason: any) => {
           reasonsData.push({
             date: reviewDate,
-            goalId: goal.id,
-            goalTitle: goal.title,
-            reason: goal.reason,
-            customReason: goal.customReason,
-            action: goal.action,
-            percentReady: goal.percentReady || 0,
-            note: goal.note,
+            ...reason,
           })
-        }
-      })
-      localStorage.setItem("reasons", JSON.stringify(reasonsData))
-    }
-
-    const distractionData = JSON.parse(localStorage.getItem("distractions") || "{}")
-    distractionData[reviewDate] = distractionLevel
-    localStorage.setItem("distractions", JSON.stringify(distractionData))
-
-    // Save to calendar
-    const calendar = JSON.parse(localStorage.getItem("calendar") || "{}")
-    calendar[reviewDate] = status
-    localStorage.setItem("calendar", JSON.stringify(calendar))
-
-    // Mark day as ended
-    markDayAsEnded(reviewDate)
-
-    // Close dialog first
-    onClose()
-
-    // Show confetti animation and haptic feedback after a small delay
-    setTimeout(() => {
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#22c55e', '#16a34a', '#15803d', '#84cc16', '#eab308']
-      })
-
-      // Haptic feedback for success in Telegram
-      if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success')
+        })
+        localStorage.setItem("reasons", JSON.stringify(reasonsData))
       }
-    }, 100)
+
+      // Save distractions
+      const distractionData = JSON.parse(localStorage.getItem("distractions") || "{}")
+      distractionData[reviewDate] = requestData.dayReview.distractions
+      localStorage.setItem("distractions", JSON.stringify(distractionData))
+
+      // Save to calendar
+      const calendar = JSON.parse(localStorage.getItem("calendar") || "{}")
+      calendar[reviewDate] = requestData.dayReview.dayStatus
+      localStorage.setItem("calendar", JSON.stringify(calendar))
+    } catch (error) {
+      console.error("[DayReview] Failed to save to localStorage:", error)
+    }
   }
 
   const completedCount = localGoals.filter((g) => g.completed).length
@@ -250,7 +322,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   const distractionLevels: DistractionLevel[] = ["no", "little", "sometimes", "often", "constantly"]
 
   // Форматируем дату для отображения
-  const formattedDate = date 
+  const formattedDate = date
     ? new Date(date + "T00:00:00").toLocaleDateString("en-US", {
         weekday: "long",
         month: "long",
@@ -258,8 +330,15 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       })
     : null
 
+  // Handle dialog close - resume polling
+  const handleDialogClose = () => {
+    syncService.startPolling()
+    console.log('[DayReview] Polling resumed (dialog closed)')
+    onClose()
+  }
+
   return (
-    <Dialog open={open} onOpenChange={allowCancel ? onClose : undefined}>
+    <Dialog open={open} onOpenChange={allowCancel ? handleDialogClose : undefined}>
       <DialogContent className="max-w-[90%] sm:max-w-md" showCloseButton={allowCancel}>
         <DialogHeader>
           <DialogTitle>
@@ -352,9 +431,6 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                     : dayStatus === "poor"
                       ? "Keep Trying!"
                       : "Keep Going!"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                You completed {completedCount} out of {totalCount} goals
               </p>
             </div>
 
@@ -534,7 +610,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
         <div className="flex gap-2">
           {allowCancel && (
-            <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+            <Button variant="outline" onClick={handleDialogClose} className="flex-1 bg-transparent">
               Cancel
             </Button>
           )}

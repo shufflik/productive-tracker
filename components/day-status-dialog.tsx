@@ -3,10 +3,15 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Check, X, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import type { IncompleteReason } from "@/components/day-review-dialog"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { getTodayLocalISO } from "@/lib/utils/date"
+import type { DayDetailData } from "@/lib/services/stats-cache"
+import { clearStatsCache } from "@/lib/services/stats-cache"
+import { syncService } from "@/lib/services/sync"
+import { toast } from "sonner"
+import { cancelEndDayApi } from "@/lib/services/api-client"
 
 type DayStatus = "good" | "average" | "poor" | "bad" | null
 
@@ -16,6 +21,8 @@ type DayStatusDialogProps = {
   date: string | null
   currentStatus: DayStatus
   onUpdateStatus: (date: string, status: DayStatus) => void
+  dayDetail?: DayDetailData | null
+  isLoadingDetail?: boolean
 }
 
 type Goal = {
@@ -25,51 +32,74 @@ type Goal = {
 }
 
 type ReasonData = {
-  date: string
+  date?: string  // Optional for API data
   goalId: string
   goalTitle: string
   reason: IncompleteReason
   customReason?: string
   percentReady?: number
+  action?: string
+  note?: string
 }
 
-export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateStatus }: DayStatusDialogProps) {
+export function DayStatusDialog({
+  open,
+  onClose,
+  date,
+  currentStatus,
+  onUpdateStatus,
+  dayDetail,
+  isLoadingDetail = false
+}: DayStatusDialogProps) {
   const isDayEnded = useDayStateStore((state) => state.isDayEnded)
   const cancelDayEnd = useDayStateStore((state) => state.cancelDayEnd)
   const [completedGoals, setCompletedGoals] = useState<Goal[]>([])
   const [incompleteGoals, setIncompleteGoals] = useState<ReasonData[]>([])
+  const [distractions, setDistractions] = useState<string | null>(null)
   const [showIncomplete, setShowIncomplete] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
-  
+  const [isCancelling, setIsCancelling] = useState(false)
+
   const isSelectedDayEnded = date ? isDayEnded(date) : false
-  
+
   // Проверяем, является ли выбранный день сегодняшним
   const isToday = date === getTodayLocalISO()
 
   useEffect(() => {
     if (date) {
-      // Load goals for this date
-      const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
-      const reasons: ReasonData[] = JSON.parse(localStorage.getItem("reasons") || "[]")
-
-      // Find review for this date
-      const review = dayReviews.find((r: any) => r.date === date)
-
-      if (review && review.completedGoals) {
-        setCompletedGoals(review.completedGoals)
+      // If API data is provided, use it
+      if (dayDetail) {
+        setCompletedGoals(dayDetail.completedGoals || [])
+        setIncompleteGoals((dayDetail.incompleteReasons || []) as ReasonData[])
+        setDistractions(dayDetail.distractions || null)
       } else {
-        setCompletedGoals([])
+        // Fallback to localStorage (backward compatibility)
+        const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
+        const reasons: ReasonData[] = JSON.parse(localStorage.getItem("reasons") || "[]")
+        const distractionsData = JSON.parse(localStorage.getItem("distractions") || "{}")
+
+        // Find review for this date
+        const review = dayReviews.find((r: any) => r.date === date)
+
+        if (review && review.completedGoals) {
+          setCompletedGoals(review.completedGoals)
+        } else {
+          setCompletedGoals([])
+        }
+
+        // Get incomplete goals with reasons
+        const incomplete = reasons.filter((r) => r.date === date)
+        setIncompleteGoals(incomplete)
+
+        // Get distractions
+        setDistractions(distractionsData[date] || null)
       }
 
-      // Get incomplete goals with reasons
-      const incomplete = reasons.filter((r) => r.date === date)
-      setIncompleteGoals(incomplete)
-      
       // Сбрасываем состояния при открытии диалога
       setShowCompleted(false)
       setShowIncomplete(false)
     }
-  }, [date])
+  }, [date, dayDetail])
 
   if (!date) return null
 
@@ -89,6 +119,30 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
       other: "Other",
     }
     return labels[reason]
+  }
+
+  const getDistractionsLabel = (distractions: string | null) => {
+    if (!distractions) return null
+    const labels: Record<string, string> = {
+      "no": "No distractions",
+      "little": "Little distractions",
+      "sometimes": "Sometimes distracted",
+      "often": "Often distracted",
+      "constantly": "Constantly distracted",
+    }
+    return labels[distractions] || distractions
+  }
+
+  const getDistractionsColor = (distractions: string | null) => {
+    if (!distractions) return "bg-muted"
+    const colors: Record<string, string> = {
+      "no": "bg-green-100 text-green-700",
+      "little": "bg-green-50 text-green-600",
+      "sometimes": "bg-yellow-100 text-yellow-700",
+      "often": "bg-orange-100 text-orange-700",
+      "constantly": "bg-red-100 text-red-700",
+    }
+    return colors[distractions] || "bg-muted"
   }
 
   const getStatusLabel = (status: DayStatus) => {
@@ -129,25 +183,41 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[80vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Day Summary</DialogTitle>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-4 overflow-y-auto flex-1 scrollbar-hide">
           <p className="text-sm text-muted-foreground">{formattedDate}</p>
 
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Productivity Status</h3>
-            <div
-              className={`${getStatusColor(currentStatus)} text-white rounded-lg p-4 flex items-center justify-between`}
-            >
-              <span className="font-semibold">{getStatusLabel(currentStatus)}</span>
-              {totalGoals > 0 && (
-                <span className="text-sm font-medium opacity-90">{productivityPercentage}%</span>
-              )}
+          {isLoadingDetail ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading day details...</span>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Productivity Status</h3>
+                <div
+                  className={`${getStatusColor(currentStatus)} text-white rounded-lg p-4 flex items-center justify-between`}
+                >
+                  <span className="font-semibold">{getStatusLabel(currentStatus)}</span>
+                  {totalGoals > 0 && (
+                    <span className="text-sm font-medium opacity-90">{productivityPercentage}%</span>
+                  )}
+                </div>
+              </div>
+
+              {distractions && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">Focus Level</h3>
+                  <div className={`${getDistractionsColor(distractions)} rounded-lg p-3 text-sm font-medium`}>
+                    {getDistractionsLabel(distractions)}
+                  </div>
+                </div>
+              )}
 
           {completedGoals.length > 0 && (
             <div className="space-y-2">
@@ -236,51 +306,84 @@ export function DayStatusDialog({ open, onClose, date, currentStatus, onUpdateSt
             </div>
           )}
 
-          {completedGoals.length === 0 && incompleteGoals.length === 0 && (
-            <div className="text-center py-6">
-              <p className="text-sm text-muted-foreground">No goals data for this day</p>
-            </div>
+              {completedGoals.length === 0 && incompleteGoals.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-sm text-muted-foreground">No goals data for this day</p>
+                </div>
+              )}
+            </>
           )}
-        </div>
 
-        {isSelectedDayEnded ? (
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              if (date) {
-                // Отменяем завершение дня
+          {isSelectedDayEnded ? (
+            <Button
+              variant="outline"
+              onClick={async () => {
+              if (!date || isCancelling) return
+
+              setIsCancelling(true)
+
+              try {
+                // STEP 1: Call backend to delete the record FIRST
+                const deviceId = syncService.getDeviceId()
+                const result = await cancelEndDayApi({ date, deviceId })
+
+                if (!result.success) {
+                  throw new Error(result.message || 'Failed to cancel day')
+                }
+
+                // STEP 2: After successful backend response, execute local logic
+
+                // Clear stats cache for this day
+                clearStatsCache()
+
+                // Отменяем завершение дня в локальном стейте (переносит goals обратно в today)
                 cancelDayEnd(date)
-                
+
                 // Очищаем данные в календаре stats
                 onUpdateStatus(date, null)
-                
+
                 // Очищаем dayReviews для этого дня
                 const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
                 const filteredReviews = dayReviews.filter((r: any) => r.date !== date)
                 localStorage.setItem("dayReviews", JSON.stringify(filteredReviews))
-                
+
                 // Очищаем reasons для этого дня
                 const reasons = JSON.parse(localStorage.getItem("reasons") || "[]")
                 const filteredReasons = reasons.filter((r: any) => r.date !== date)
                 localStorage.setItem("reasons", JSON.stringify(filteredReasons))
-                
+
                 // Очищаем distractions для этого дня
                 const distractions = JSON.parse(localStorage.getItem("distractions") || "{}")
                 delete distractions[date]
                 localStorage.setItem("distractions", JSON.stringify(distractions))
+
+                // Close dialog (no toast on success)
+                onClose()
+              } catch (error) {
+                console.error('[DayStatusDialog] Failed to cancel day:', error)
+                toast.error("Failed to cancel day completion")
+              } finally {
+                setIsCancelling(false)
               }
-              onClose()
-            }} 
-            disabled={!isToday}
+            }}
+            disabled={!isToday || isCancelling}
             className={`w-full ${isToday ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' : 'bg-muted text-muted-foreground border-muted cursor-not-allowed'}`}
           >
-            Cancel End Day {!isToday && "(Only Today)"}
+            {isCancelling ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Cancelling...
+              </>
+            ) : (
+              <>Cancel End Day {!isToday && "(Only Today)"}</>
+            )}
           </Button>
         ) : (
           <Button variant="outline" onClick={onClose} className="w-full bg-transparent">
             Close
           </Button>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   )

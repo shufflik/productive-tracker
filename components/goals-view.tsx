@@ -82,10 +82,10 @@ export function GoalsView() {
   const rescheduleForTomorrow = useCallback(
     (id: string) => {
       const goal = goals.find((g) => g.id === id)
-      
+
       if (goal) {
         setMovingGoals(prev => ({ ...prev, [id]: "Перенесено на Tomorrow" }))
-        
+
         setTimeout(() => {
           rescheduleInStore(id)
           setMovingGoals(prev => {
@@ -109,10 +109,10 @@ export function GoalsView() {
   const moveToBacklog = useCallback(
     (id: string) => {
       const goal = goals.find((g) => g.id === id)
-      
+
       if (goal) {
         setMovingGoals(prev => ({ ...prev, [id]: "Перенесено в Backlog" }))
-        
+
         setTimeout(() => {
           moveToBacklogInStore(id)
           setMovingGoals(prev => {
@@ -240,7 +240,7 @@ export function GoalsView() {
     // Используем type assertion для доступа к полю action из GoalWithDetails
     type GoalWithAction = Goal & { action?: TaskAction }
     const goalsWithActions = updatedGoals as GoalWithAction[]
-    
+
     goalsWithActions.forEach((goal) => {
       const originalGoal = goals.find((g) => g.id === goal.id)
       if (originalGoal) {
@@ -260,7 +260,7 @@ export function GoalsView() {
           // После применения действия не нужно обновлять другие поля
           return
         }
-        
+
         // Обновляем статус завершения если изменился
         if (goal.completed !== originalGoal.completed) {
           toggleCompleteInStore(goal.id)
@@ -341,7 +341,9 @@ export function GoalsView() {
             <Plus className="w-4 h-4" />
           </Button>
           {selectedDay === "today" && !isCurrentDayEnded && (
-            <Button onClick={() => setReviewOpen(true)} variant="outline" size="sm">
+            <Button onClick={() => {
+              setReviewOpen(true)
+            }} variant="outline" size="sm">
               End Day
             </Button>
           )}
@@ -388,11 +390,6 @@ export function GoalsView() {
           <p className="text-sm text-muted-foreground mb-4">
             Great job on finishing your day.
           </p>
-          <div className="bg-muted rounded-lg p-4 max-w-xs mx-auto">
-            <p className="text-sm text-muted-foreground">
-              You completed <span className="font-bold text-primary">{displayGoals.filter((g) => g.completed).length} out of {displayGoals.length}</span> goals
-            </p>
-          </div>
         </div>
       ) : (
         <div className="space-y-3">

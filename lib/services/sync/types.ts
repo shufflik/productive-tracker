@@ -37,6 +37,11 @@ export type SyncReviewBlock = {
    * Synchronized between devices for correct merge conflict handling
    */
   lastActiveDate?: string | null
+  /**
+   * Flag indicating if the day (computed from lastActiveDate + clientTimezone) is ended
+   * Backend computes local date from lastActiveDate and clientTimezone, then checks if day is closed
+   */
+  isDayEnded?: boolean
 }
 
 export type SyncRequest = {
@@ -128,22 +133,26 @@ export type SyncResponse = {
   /**
    * New lastSyncAt that client should save
    */
-  newLastSyncAt: number
+  lastSyncAt: number
   /**
    * Server time (UTC timestamp ms)
    * Used to synchronize client clocks
    */
   serverTimestamp: number
   /**
-   * Difference between server and client time (ms)
-   * Positive value = client is behind, negative = client is ahead
-   */
-  clockSkew?: number
-  /**
    * Final list of pending review dates and lastActiveDate as seen by backend
    * (may differ from what client sent)
    */
   review?: SyncReviewBlock
+  /**
+   * Day states for auto end-day functionality
+   */
+  dayStates?: {
+    /**
+     * Dates that need review (calculated from missed days)
+     */
+    pendingReviewDates: string[]
+  }
   /**
    * BIDIRECTIONAL SYNC: Changes from backend since client's lastSyncAt
    * Backend returns all entities that were changed on other devices

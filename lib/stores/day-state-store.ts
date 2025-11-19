@@ -2,8 +2,9 @@
 
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import { getTodayLocalISO } from "@/lib/utils/date"
+import { getTodayLocalISO, getLocalDateFromUTC } from "@/lib/utils/date"
 import { syncService } from "@/lib/services/sync"
+import { useGoalsStore } from "./goals-store"
 
 type DayState = {
   date: string // ISO date format "2025-11-10"
@@ -23,7 +24,6 @@ type DayStateStore = {
   isTodayEnded: () => boolean
   
   // Новые методы для автоматического закрытия дней
-  checkMissedDays: (goals: Array<{ targetDate?: string }>) => void
   markDayForReview: (date: string) => void
   completePendingReview: (date: string) => void
   updateLastActiveDate: () => void
@@ -38,18 +38,38 @@ export const useDayStateStore = create<DayStateStore>()(
       pendingReviewDates: [],
 
       markDayAsEnded: (date) => {
-        set((state) => ({
+        // Храним только 1 день в кеше - заменяем весь кеш новой датой
+        set({
           dayStates: {
-            ...state.dayStates,
             [date]: {
               date,
               isEndDay: true,
             },
           },
-        }))
+        })
       },
 
       cancelDayEnd: (date) => {
+        // Восстанавливаем incomplete goals обратно в today если отменяется сегодняшний день
+        const today = getTodayLocalISO()
+        if (date === today) {
+          try {
+            // Читаем данные о незавершенных целях из localStorage
+            const reasons = JSON.parse(localStorage.getItem("reasons") || "[]")
+            const incompleteGoalsForDate = reasons
+              .filter((r: any) => r.date === date)
+              .map((r: any) => r.goalId)
+
+            if (incompleteGoalsForDate.length > 0) {
+              // Переносим все incomplete goals обратно в today
+              useGoalsStore.getState().moveToToday(incompleteGoalsForDate)
+              console.log(`[DayStateStore] Restored ${incompleteGoalsForDate.length} incomplete goals back to today`)
+            }
+          } catch (error) {
+            console.error("[DayStateStore] Failed to restore incomplete goals:", error)
+          }
+        }
+
         set((state) => {
           const newDayStates = { ...state.dayStates }
           delete newDayStates[date]
@@ -71,78 +91,6 @@ export const useDayStateStore = create<DayStateStore>()(
       isTodayEnded: () => {
         const today = getTodayLocalISO()
         return get().isDayEnded(today)
-      },
-
-      // Проверка пропущенных дней и автоматическое закрытие
-      checkMissedDays: (goals) => {
-        const today = getTodayLocalISO()
-        const lastActive = get().lastActiveDate
-        
-        // Если первый запуск - ничего не делаем
-        if (!lastActive) {
-          get().updateLastActiveDate()
-          return
-        }
-
-        // Парсим lastActiveDate (может быть ISO datetime или старый формат ISO date)
-        const lastActiveDate = new Date(lastActive)
-        const todayDate = new Date(today + "T00:00:00")
-        
-        // Сравниваем только даты (без времени) для определения пропущенных дней
-        const lastActiveDateOnly = new Date(lastActiveDate.getFullYear(), lastActiveDate.getMonth(), lastActiveDate.getDate())
-        const todayDateOnly = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate())
-        
-        const diffInMs = todayDateOnly.getTime() - lastActiveDateOnly.getTime()
-        let diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-
-        // Если активность была сегодня - ничего не делаем
-        if (diffInDays <= 0) {
-          get().updateLastActiveDate()
-          return
-        }
-
-      // Для каждого пропущенного дня между lastActive и today
-      // Закрываем максимум ПЕРВЫЕ 2 пропущенных дня (включая lastActive если не закрыт)
-      const missedDates: string[] = []
-      let closedCount = 0
-      
-      // Начинаем с lastActive (i=0), заканчиваем до today (i < diffInDays)
-      // Закрываем максимум 2 дня
-      for (let i = 0; i < diffInDays && closedCount < 2; i++) {
-        const missedDate = new Date(lastActiveDateOnly)
-        missedDate.setDate(missedDate.getDate() + i)
-        const missedDateISO = missedDate.toISOString().split('T')[0]
-        
-        // Проверяем, не был ли этот день уже закрыт
-        if (!get().isDayEnded(missedDateISO)) {
-          // Конвертируем ISO дату в toDateString для сравнения с goals
-          const missedDateAsDateString = new Date(missedDateISO + "T00:00:00").toDateString()
-          
-          // Проверяем, были ли goals для этого дня
-          const hasGoals = goals.some(
-            (g) => g.targetDate === missedDateAsDateString
-          )
-          
-          if (hasGoals) {
-            // Есть goals - добавляем в очередь для review
-            missedDates.push(missedDateISO)
-            // Автоматически помечаем день как завершенный
-            get().markDayAsEnded(missedDateISO)
-            closedCount++
-          }
-          // Если нет goals - просто пропускаем день (не закрываем его)
-        }
-      }
-
-        // Добавляем пропущенные даты в очередь на review
-        if (missedDates.length > 0) {
-          set((state) => ({
-            pendingReviewDates: [...missedDates, ...state.pendingReviewDates],
-          }))
-        }
-
-        // Обновляем lastActiveDate на сегодня
-        get().updateLastActiveDate()
       },
 
       markDayForReview: (date) => {
@@ -210,13 +158,11 @@ export const useDayStateStore = create<DayStateStore>()(
 )
 
 // Зарегистрировать обработчик применения review блока от backend
-// Выполняет merge локальных данных с данными от сервера
+// pendingReviewDates теперь генерируются только на бекенде
 syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
   useDayStateStore.setState((state) => {
-    // Merge pendingReviewDates: объединяем локальные и серверные, убирая дубликаты
-    const localDates = state.pendingReviewDates || []
+    // pendingReviewDates генерируются на бекенде, просто берем с сервера
     const serverDates = reviewBlock.pendingReviewDates || []
-    const mergedDates = Array.from(new Set([...localDates, ...serverDates])).sort()
 
     // Применяем lastActiveDate от сервера, если он новее локального
     // Сравниваем по точному времени (ISO datetime) для корректной обработки merge conflicts
@@ -237,10 +183,37 @@ syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
       }
     }
 
+    // Применяем isDayEnded от бекенда
+    // Вычисляем локальную дату из отправленного lastActiveDate (используем старое значение до обновления)
+    let newDayStates = { ...state.dayStates }
+    if (reviewBlock.isDayEnded !== undefined && state.lastActiveDate) {
+      try {
+        // Получаем timezone браузера
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        
+        // Вычисляем локальную дату из отправленного lastActiveDate + timezone
+        const localDate = getLocalDateFromUTC(state.lastActiveDate, timezone)
+        
+        // Если isDayEnded = true и даты нет в кеше - добавляем (заменяя весь кеш)
+        if (reviewBlock.isDayEnded && !newDayStates[localDate]) {
+          newDayStates = {
+            [localDate]: {
+              date: localDate,
+              isEndDay: true,
+            }
+          }
+        }
+        // Если isDayEnded = false или дата уже в кеше - ничего не делаем
+      } catch (error) {
+        console.error("[DayStateStore] Failed to apply isDayEnded:", error)
+      }
+    }
+
     return {
-    ...state,
-      pendingReviewDates: mergedDates,
+      ...state,
+      pendingReviewDates: serverDates,
       lastActiveDate: newLastActiveDate,
+      dayStates: newDayStates,
     }
   })
 })

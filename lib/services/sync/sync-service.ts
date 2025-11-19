@@ -19,10 +19,8 @@ import { toast } from "sonner"
 import type {
   SyncMeta,
   SyncRequest,
-  SyncResponse,
   SyncReviewBlock,
   SyncConflicts,
-  GoalConflict,
   HabitConflict,
   GoalsApplyHandler,
   HabitsApplyHandler,
@@ -35,7 +33,7 @@ import { SyncStorage } from "./storage"
 import { SyncQueueManager } from "./queue"
 import { PollingManager } from "./polling"
 import { RetryManager } from "./retry-manager"
-import { mockBackendSync } from "./mock-backend"
+import { syncApi } from "../api-client"
 
 /**
  * Core sync service
@@ -49,6 +47,7 @@ export class SyncService {
   private pollingManager: PollingManager
   private retryManager: RetryManager
   private pendingConflicts: SyncConflicts = { goals: [], habits: [] }
+  private hasPerformedInitialSync = false
 
   // Promise-based sync lock to prevent concurrent syncs
   private currentSyncPromise: Promise<void> | null = null
@@ -217,6 +216,13 @@ export class SyncService {
   }
 
   /**
+   * Get device ID
+   */
+  getDeviceId(): string {
+    return this.meta.deviceId
+  }
+
+  /**
    * Main synchronization method
    * Sends changes from queue to server
    *
@@ -228,7 +234,7 @@ export class SyncService {
    * Works asynchronously, doesn't block UI
    * Shows toast only on errors
    */
-  async sync(): Promise<void> {
+  async sync(options?: { force?: boolean }): Promise<void> {
     // If already syncing - wait for current sync to complete
     if (this.currentSyncPromise) {
       try {
@@ -240,9 +246,10 @@ export class SyncService {
 
     const hasChanges = this.queueManager.hasPendingChanges()
     const isFirstSync = this.meta.lastSyncAt === 0
+    const forceSync = options?.force === true
 
-    // If no changes and not first sync - skip
-    if (!isFirstSync && !hasChanges) {
+    // If no changes and not first sync and not forced - skip
+    if (!forceSync && !isFirstSync && !hasChanges) {
       return
     }
 
@@ -251,8 +258,20 @@ export class SyncService {
 
     try {
       await this.currentSyncPromise
+      this.hasPerformedInitialSync = true
     } finally {
       this.currentSyncPromise = null
+    }
+  }
+
+  /**
+   * Sync on app start
+   * Always performs sync once per app lifecycle, regardless of queue state
+   * This ensures we receive updates from other devices on app launch
+   */
+  async syncOnAppStart(): Promise<void> {
+    if (!this.hasPerformedInitialSync) {
+      await this.sync({ force: true })
     }
   }
 
@@ -291,26 +310,15 @@ export class SyncService {
         review: reviewBlock,
       }
 
-      // PLACEHOLDER: In real app this would be fetch to backend
-      const response = await mockBackendSync(request)
+      const response = await syncApi(request)
 
       if (response.success) {
         // Check for conflicts FIRST before updating lastSyncAt
         const hasConflicts = (response.conflicts.goals.length > 0 || response.conflicts.habits.length > 0)
 
-        // Check clock skew (only log, don't show toast)
-        if (response.clockSkew && Math.abs(response.clockSkew) > 60000) {
-          // More than 1 minute difference
-          const skewMinutes = Math.round(response.clockSkew / 60000)
-          console.warn(`[SyncService] Clock skew detected: ${skewMinutes} minutes`)
-        }
-
-
-        // CRITICAL: Only update lastSyncAt and clear queue if NO conflicts
         if (!hasConflicts) {
-
-          this.lastSyncTimestamp = response.newLastSyncAt
-          this.meta.lastSyncAt = response.newLastSyncAt
+          this.lastSyncTimestamp = response.lastSyncAt
+          this.meta.lastSyncAt = response.lastSyncAt
 
           // Remove only sent changes from queue
           // New changes added during sync stay in queue
@@ -575,6 +583,7 @@ declare global {
   interface Window {
     Telegram?: {
       WebApp?: {
+        initData?: string
         initDataUnsafe?: {
           user?: {
             id: number

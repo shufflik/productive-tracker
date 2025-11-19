@@ -6,13 +6,13 @@ import { useGoalsStore } from "@/lib/stores/goals-store"
 import { DayReviewDialog, type TaskAction } from "@/components/day-review-dialog"
 import { syncService } from "@/lib/services/sync"
 import type { Goal } from "@/lib/types"
+import { getTodayLocalISO } from "@/lib/utils/date"
 
 /**
  * Компонент для автоматического показа диалогов review для пропущенных дней
  * Монтируется в корне приложения и работает в фоне
  */
 export function PendingDayReviewsManager() {
-  const checkMissedDays = useDayStateStore((state) => state.checkMissedDays)
   const pendingReviewDates = useDayStateStore((state) => state.pendingReviewDates)
   const completePendingReview = useDayStateStore((state) => state.completePendingReview)
   
@@ -27,24 +27,18 @@ export function PendingDayReviewsManager() {
   const [currentDateGoals, setCurrentDateGoals] = useState<Goal[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Проверка пропущенных дней ПОСЛЕ синхронизации
-  // Это гарантирует, что используется синхронизированный lastActiveDate
+  // Инициализация - pendingReviewDates теперь приходят с бекенда через sync
   useEffect(() => {
     if (!isInitialized) {
-      // Сначала синхронизируемся, затем проверяем пропущенные дни
+      // Синхронизируемся, pendingReviewDates придут в ответе sync
       syncService.sync().then(() => {
-        // После синхронизации lastActiveDate обновлен с сервера
-        // Теперь можно проверить пропущенные дни с актуальными данными
-        checkMissedDays(goalsFromStore)
         setIsInitialized(true)
       }).catch((error) => {
-        // Даже если синхронизация провалилась, проверяем локально
-        console.error("[PendingDayReviewsManager] Sync failed, checking locally:", error)
-      checkMissedDays(goalsFromStore)
-      setIsInitialized(true)
+        console.error("[PendingDayReviewsManager] Sync failed:", error)
+        setIsInitialized(true)
       })
     }
-  }, [isInitialized, checkMissedDays, goalsFromStore])
+  }, [isInitialized])
 
   // Показываем диалог для первой даты из очереди
   useEffect(() => {
