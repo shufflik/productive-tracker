@@ -21,6 +21,7 @@ export function PendingDayReviewsManager() {
   const toggleComplete = useGoalsStore((state) => state.toggleComplete)
   const rescheduleForTomorrow = useGoalsStore((state) => state.rescheduleForTomorrow)
   const moveToBacklog = useGoalsStore((state) => state.moveToBacklog)
+  const moveToToday = useGoalsStore((state) => state.moveToToday)
   const deleteGoal = useGoalsStore((state) => state.deleteGoal)
   
   const [currentReviewDate, setCurrentReviewDate] = useState<string | null>(null)
@@ -47,6 +48,7 @@ export function PendingDayReviewsManager() {
       const sortedDates = [...pendingReviewDates].sort()
       const nextDate = sortedDates[0]
       setCurrentReviewDate(nextDate)
+      console.log(`[PendingDayReviewsManager] Pending review days ${sortedDates}`)
       
       // Конвертируем ISO дату в toDateString формат для сравнения с goals
       const nextDateAsDateString = new Date(nextDate + "T00:00:00").toDateString()
@@ -79,6 +81,9 @@ export function PendingDayReviewsManager() {
         // Обрабатываем действия для незавершенных задач
         if (!goal.completed && goal.action) {
           switch (goal.action) {
+            case "today":
+              moveToToday(goal.id)
+              break
             case "tomorrow":
               rescheduleForTomorrow(goal.id)
               break

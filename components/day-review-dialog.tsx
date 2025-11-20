@@ -23,7 +23,7 @@ type DayStatus = "good" | "average" | "poor" | "bad"
 
 export type IncompleteReason = "no-strength" | "worked-all-day" | "played" | "poor-time-management" | "other"
 
-export type TaskAction = "backlog" | "tomorrow" | "not-relevant"
+export type TaskAction = "backlog" | "tomorrow" | "not-relevant" | "today"
 
 export type DistractionLevel = "no" | "little" | "sometimes" | "often" | "constantly"
 
@@ -256,6 +256,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       backlog: "Move to backlog",
       tomorrow: "Move to Tomorrow",
       "not-relevant": "Not relevant",
+      today: "Move to Today",
     }
     return labels[action]
   }
@@ -477,6 +478,9 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                         <SelectValue placeholder="Select action..." />
                       </SelectTrigger>
                       <SelectContent>
+                        {date && (
+                          <SelectItem value="today">{getActionLabel("today")}</SelectItem>
+                        )}
                         <SelectItem value="backlog">{getActionLabel("backlog")}</SelectItem>
                         <SelectItem value="tomorrow" disabled={isTomorrowDisabled}>
                           {getActionLabel("tomorrow")}

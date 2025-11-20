@@ -6,10 +6,10 @@ import { StatisticsView } from "@/components/statistics-view"
 import { HabitsView } from "@/components/habits-view"
 import { CheckSquare, BarChart3, Target } from "lucide-react"
 import { syncService } from "@/lib/services/sync"
-import { useDayStateStore } from "@/lib/stores/day-state-store"
+// import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
-import { DayReviewDialog } from "@/components/day-review-dialog"
-import type { Goal } from "@/lib/types"
+// import { DayReviewDialog } from "@/components/day-review-dialog"
+// import type { Goal } from "@/lib/types"
 
 // Global flag to track app initialization
 // Resets only on full page reload, persists during component remounts
@@ -20,19 +20,19 @@ export default function Home() {
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false)
 
   // Auto End Day state
-  const [pendingReviewDate, setPendingReviewDate] = useState<string | null>(null)
-  const [pendingReviewGoals, setPendingReviewGoals] = useState<Goal[]>([])
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  // const [pendingReviewDate, setPendingReviewDate] = useState<string | null>(null)
+  // const [pendingReviewGoals, setPendingReviewGoals] = useState<Goal[]>([])
+  // const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
 
   // Store selectors
-  const pendingReviewDates = useDayStateStore((state) => state.pendingReviewDates)
-  const completePendingReview = useDayStateStore((state) => state.completePendingReview)
-  const goals = useGoalsStore((state) => state.goals)
-  const updateGoalInStore = useGoalsStore((state) => state.updateGoal)
-  const deleteGoalFromStore = useGoalsStore((state) => state.deleteGoal)
-  const toggleCompleteInStore = useGoalsStore((state) => state.toggleComplete)
-  const rescheduleInStore = useGoalsStore((state) => state.rescheduleForTomorrow)
-  const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
+  // const pendingReviewDates = useDayStateStore((state) => state.pendingReviewDates)
+  // const completePendingReview = useDayStateStore((state) => state.completePendingReview)
+  // const goals = useGoalsStore((state) => state.goals)
+  // const updateGoalInStore = useGoalsStore((state) => state.updateGoal)
+  // const deleteGoalFromStore = useGoalsStore((state) => state.deleteGoal)
+  // const toggleCompleteInStore = useGoalsStore((state) => state.toggleComplete)
+  // const rescheduleInStore = useGoalsStore((state) => state.rescheduleForTomorrow)
+  // const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
 
   useEffect(() => {
     // Only initialize once per app lifecycle (not on every component mount)
@@ -76,13 +76,13 @@ export default function Home() {
     initializeApp()
   }, [])
 
-  // Watch for pending reviews changes
-  useEffect(() => {
-    if (pendingReviewDates.length > 0 && !reviewDialogOpen) {
-      // Process next pending review
-      processNextPendingReview()
-    }
-  }, [pendingReviewDates, reviewDialogOpen])
+  // // Watch for pending reviews changes
+  // useEffect(() => {
+  //   if (pendingReviewDates.length > 0 && !reviewDialogOpen) {
+  //     // Process next pending review
+  //     processNextPendingReview()
+  //   }
+  // }, [pendingReviewDates, reviewDialogOpen])
 
   async function initializeApp() {
     // FULL SYNC при открытии/перезагрузке приложения
@@ -94,95 +94,95 @@ export default function Home() {
     syncService.startPolling()
 
     // После sync проверяем pending reviews
-    // useEffect выше автоматически обработает если есть pendingReviewDates
+    // Логика обработки pending reviews теперь в PendingDayReviewsManager (layout.tsx)
   }
 
-  function processNextPendingReview() {
-    if (pendingReviewDates.length === 0) return
+  // function processNextPendingReview() {
+  //   if (pendingReviewDates.length === 0) return
 
-    const nextDate = pendingReviewDates[0]
-    console.log(`[AutoEndDay] Processing pending review for ${nextDate}`)
+  //   const nextDate = pendingReviewDates[0]
+  //   console.log(`[AutoEndDay] Processing pending review for ${nextDate}`)
 
-    // Get goals for this date
-    const dateAsDateString = new Date(nextDate + "T00:00:00").toDateString()
-    const goalsForDate = goals.filter(
-      (g) => g.targetDate === dateAsDateString
-    )
+  //   // Get goals for this date
+  //   const dateAsDateString = new Date(nextDate + "T00:00:00").toDateString()
+  //   const goalsForDate = goals.filter(
+  //     (g) => g.targetDate === dateAsDateString
+  //   )
 
-    if (goalsForDate.length === 0) {
-      console.log(`[AutoEndDay] No goals for ${nextDate}, skipping`)
-      completePendingReview(nextDate)
-      return
-    }
+  //   if (goalsForDate.length === 0) {
+  //     console.log(`[AutoEndDay] No goals for ${nextDate}, skipping`)
+  //     completePendingReview(nextDate)
+  //     return
+  //   }
 
-    // Open review dialog
-    setPendingReviewDate(nextDate)
-    setPendingReviewGoals(goalsForDate)
-    setReviewDialogOpen(true)
-  }
+  //   // Open review dialog
+  //   setPendingReviewDate(nextDate)
+  //   setPendingReviewGoals(goalsForDate)
+  //   setReviewDialogOpen(true)
+  // }
 
-  function handleReviewClose() {
-    setReviewDialogOpen(false)
-    setPendingReviewDate(null)
-    setPendingReviewGoals([])
-  }
+  // function handleReviewClose() {
+  //   setReviewDialogOpen(false)
+  //   setPendingReviewDate(null)
+  //   setPendingReviewGoals([])
+  // }
 
-  function handleReviewComplete(updatedGoals: Goal[]) {
-    // Apply goal updates
-    updateGoalsFromReview(updatedGoals)
+  // function handleReviewComplete(updatedGoals: Goal[]) {
+  //   // Apply goal updates
+  //   updateGoalsFromReview(updatedGoals)
 
-    // Mark this review as completed
-    if (pendingReviewDate) {
-      completePendingReview(pendingReviewDate)
-    }
+  //   // Mark this review as completed
+  //   if (pendingReviewDate) {
+  //     completePendingReview(pendingReviewDate)
+  //   }
 
-    // Close dialog
-    handleReviewClose()
+  //   // Close dialog
+  //   handleReviewClose()
 
-    // Next review will be processed automatically by useEffect
-  }
+  //   // Next review will be processed automatically by useEffect
+  // }
 
-  function updateGoalsFromReview(updatedGoals: Goal[]) {
-    // Same logic as in GoalsView
-    type GoalWithAction = Goal & { action?: "backlog" | "tomorrow" | "not-relevant" }
-    const goalsWithActions = updatedGoals as GoalWithAction[]
+  // function updateGoalsFromReview(updatedGoals: Goal[]) {
+  //   // Same logic as in GoalsView
+  //   type GoalWithAction = Goal & { action?: "backlog" | "tomorrow" | "not-relevant" }
+  //   const goalsWithActions = updatedGoals as GoalWithAction[]
 
-    goalsWithActions.forEach((goal) => {
-      const originalGoal = goals.find((g) => g.id === goal.id)
-      if (originalGoal) {
-        // Обрабатываем действия для незавершенных задач
-        if (!goal.completed && goal.action) {
-          switch (goal.action) {
-            case "tomorrow":
-              rescheduleInStore(goal.id)
-              break
-            case "backlog":
-              moveToBacklogInStore(goal.id)
-              break
-            case "not-relevant":
-              deleteGoalFromStore(goal.id)
-              break
-          }
-          // После применения действия не нужно обновлять другие поля
-          return
-        }
+  //   goalsWithActions.forEach((goal) => {
+  //     const originalGoal = goals.find((g) => g.id === goal.id)
+  //     if (originalGoal) {
+  //       // Обрабатываем действия для незавершенных задач
+  //       if (!goal.completed && goal.action) {
+  //         switch (goal.action) {
+  //           case "tomorrow":
+  //             rescheduleInStore(goal.id)
+  //             break
+  //           case "backlog":
+  //             moveToBacklogInStore(goal.id)
+  //             break
+  //           case "not-relevant":
+  //             deleteGoalFromStore(goal.id)
+  //             break
+  //         }
+  //         // После применения действия не нужно обновлять другие поля
+  //         return
+  //       }
 
-        // Обновляем статус завершения если изменился
-        if (goal.completed !== originalGoal.completed) {
-          toggleCompleteInStore(goal.id)
-        }
+  //       // Обновляем статус завершения если изменился
+  //       if (goal.completed !== originalGoal.completed) {
+  //         toggleCompleteInStore(goal.id)
+  //       }
 
-        // Обновляем основные поля если изменились
-        if (
-          goal.title !== originalGoal.title ||
-          goal.description !== originalGoal.description ||
-          goal.label !== originalGoal.label
-        ) {
-          updateGoalInStore(goal.id, goal.title, goal.label || "", goal.description || "")
-        }
-      }
-    })
-  }
+  //       // Обновляем основные поля если изменились
+  //       if (
+  //         goal.title !== originalGoal.title ||
+  //         goal.description !== originalGoal.description ||
+  //         goal.label !== originalGoal.label
+  //       ) {
+  //         updateGoalInStore(goal.id, goal.title, goal.label || "", goal.description || "")
+  //       }
+  //     }
+  //   })
+  // }
 
   return (
     <div 
@@ -239,7 +239,8 @@ export default function Home() {
       </nav>
 
       {/* Auto End Day Dialog */}
-      {pendingReviewDate && (
+      {/* Логика обработки pending reviews теперь в PendingDayReviewsManager (layout.tsx) */}
+      {/* {pendingReviewDate && (
         <DayReviewDialog
           open={reviewDialogOpen}
           onClose={handleReviewClose}
@@ -248,7 +249,7 @@ export default function Home() {
           date={pendingReviewDate}
           allowCancel={false}
         />
-      )}
+      )} */}
     </div>
   )
 }
