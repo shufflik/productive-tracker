@@ -453,7 +453,9 @@ export class SyncService {
       const retryCount = this.retryManager.getRetryCount()
 
       console.warn(`[SyncService] Sync failed, will retry (attempt ${retryCount}/5)`)
-      // Toast будет показан только на последнем retry
+      
+      // Show toast on each retry attempt
+      this.showErrorToast(`Ошибка синхронизации. Попытка ${retryCount}/5...`)
 
       // Polling will automatically retry with exponential backoff
     } else {
