@@ -334,7 +334,7 @@ export class SyncService {
           console.warn("[SyncService] Conflicts detected - NOT updating lastSyncAt and NOT clearing queue")
         }
 
-        // Apply review block from backend (merge pendingReviewDates and lastActiveDate)
+        // Apply review block from backend (merge pendingReviewDates and dayEnded status)
         if (response.review && this.applyPendingReviews) {
           this.applyPendingReviews(response.review)
         }
@@ -553,7 +553,8 @@ export class SyncService {
   }
 
   /**
-   * Collect pendingReviewDates and lastActiveDate from day-state-store
+   * Collect pendingReviewDates from day-state-store
+   * Note: lastActiveDate is no longer sent to backend
    */
   private collectReviewBlock(): SyncReviewBlock {
     if (typeof window === "undefined") {
@@ -567,7 +568,6 @@ export class SyncService {
       const dayState = JSON.parse(dayStateData).state
       return {
         pendingReviewDates: dayState?.pendingReviewDates || [],
-        lastActiveDate: dayState?.lastActiveDate || null,
       }
     } catch (error) {
       console.error("[SyncService] Failed to collect review block:", error)

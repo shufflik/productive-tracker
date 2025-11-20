@@ -8,7 +8,7 @@
 
 import type { SyncRequest, SyncResponse } from "./sync/types"
 
-const BACKEND_URL = process.env.BACKEND_URL
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL
 
 /**
  * Check if we're in production mode

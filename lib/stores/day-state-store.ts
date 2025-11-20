@@ -164,55 +164,31 @@ syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
     // pendingReviewDates генерируются на бекенде, просто берем с сервера
     const serverDates = reviewBlock.pendingReviewDates || []
 
-    // Применяем lastActiveDate от сервера, если он новее локального
-    // Сравниваем по точному времени (ISO datetime) для корректной обработки merge conflicts
-    let newLastActiveDate = state.lastActiveDate
-    if (reviewBlock.lastActiveDate) {
-      if (!state.lastActiveDate) {
-        // Если локально нет - берем с сервера
-        newLastActiveDate = reviewBlock.lastActiveDate
-      } else {
-        // Парсим ISO datetime (поддерживаем старый формат ISO date для обратной совместимости)
-        const localDate = new Date(state.lastActiveDate)
-        const serverDate = new Date(reviewBlock.lastActiveDate)
-        
-        // Сравниваем по точному времени: берем более новую
-        if (serverDate > localDate) {
-          newLastActiveDate = reviewBlock.lastActiveDate
-        }
-      }
-    }
-
-    // Применяем isDayEnded от бекенда
-    // Вычисляем локальную дату из отправленного lastActiveDate (используем старое значение до обновления)
+    // Применяем dayEnded от бекенда
+    // Бекенд теперь возвращает дату напрямую в dayEnded.date
     let newDayStates = { ...state.dayStates }
-    if (reviewBlock.isDayEnded !== undefined && state.lastActiveDate) {
+    if (reviewBlock.dayEnded) {
       try {
-        // Получаем timezone браузера
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        const { date, ended } = reviewBlock.dayEnded
         
-        // Вычисляем локальную дату из отправленного lastActiveDate + timezone
-        const localDate = getLocalDateFromUTC(state.lastActiveDate, timezone)
-        
-        // Если isDayEnded = true и даты нет в кеше - добавляем (заменяя весь кеш)
-        if (reviewBlock.isDayEnded && !newDayStates[localDate]) {
+        // Если день закрыт и даты нет в кеше - добавляем (заменяя весь кеш)
+        if (ended && !newDayStates[date]) {
           newDayStates = {
-            [localDate]: {
-              date: localDate,
+            [date]: {
+              date: date,
               isEndDay: true,
             }
           }
         }
-        // Если isDayEnded = false или дата уже в кеше - ничего не делаем
+        // Если ended = false или дата уже в кеше - ничего не делаем
       } catch (error) {
-        console.error("[DayStateStore] Failed to apply isDayEnded:", error)
+        console.error("[DayStateStore] Failed to apply dayEnded:", error)
       }
     }
 
     return {
       ...state,
       pendingReviewDates: serverDates,
-      lastActiveDate: newLastActiveDate,
       dayStates: newDayStates,
     }
   })

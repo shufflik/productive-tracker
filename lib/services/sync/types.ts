@@ -33,15 +33,14 @@ export type SyncChanges = {
 export type SyncReviewBlock = {
   pendingReviewDates: string[]
   /**
-   * Last user activity date and time (ISO datetime string "2025-01-15T14:30:00.000Z")
-   * Synchronized between devices for correct merge conflict handling
+   * Day ended status for a specific date
+   * Backend returns the date and whether it's ended
+   * null if client is new and there's no record in DB
    */
-  lastActiveDate?: string | null
-  /**
-   * Flag indicating if the day (computed from lastActiveDate + clientTimezone) is ended
-   * Backend computes local date from lastActiveDate and clientTimezone, then checks if day is closed
-   */
-  isDayEnded?: boolean
+  dayEnded?: {
+    date: string // ISO date format "2025-12-11"
+    ended: boolean
+  } | null
 }
 
 export type SyncRequest = {
@@ -67,7 +66,7 @@ export type SyncRequest = {
    */
   changes: SyncChanges
   /**
-   * Separate block for review dates and lastActiveDate
+   * Separate block for review dates and day ended status
    */
   review: SyncReviewBlock
 }
@@ -140,7 +139,7 @@ export type SyncResponse = {
    */
   serverTimestamp: number
   /**
-   * Final list of pending review dates and lastActiveDate as seen by backend
+   * Final list of pending review dates and day ended status as seen by backend
    * (may differ from what client sent)
    */
   review?: SyncReviewBlock
