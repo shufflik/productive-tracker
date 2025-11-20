@@ -8,7 +8,7 @@ import type { IncompleteReason } from "@/components/day-review-dialog"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { getTodayLocalISO } from "@/lib/utils/date"
 import type { DayDetailData } from "@/lib/services/stats-cache"
-import { clearStatsCache } from "@/lib/services/stats-cache"
+import { removeDayFromCache, getDayFromCache } from "@/lib/services/stats-cache"
 import { syncService } from "@/lib/services/sync"
 import { toast } from "sonner"
 import { cancelEndDayApi } from "@/lib/services/api-client"
@@ -67,32 +67,24 @@ export function DayStatusDialog({
 
   useEffect(() => {
     if (date) {
-      // If API data is provided, use it
+      // Priority 1: Use dayDetail from props (loaded from cache in statistics-view)
       if (dayDetail) {
         setCompletedGoals(dayDetail.completedGoals || [])
         setIncompleteGoals((dayDetail.incompleteReasons || []) as ReasonData[])
         setDistractions(dayDetail.distractions || null)
       } else {
-        // Fallback to localStorage (backward compatibility)
-        const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
-        const reasons: ReasonData[] = JSON.parse(localStorage.getItem("reasons") || "[]")
-        const distractionsData = JSON.parse(localStorage.getItem("distractions") || "{}")
-
-        // Find review for this date
-        const review = dayReviews.find((r: any) => r.date === date)
-
-        if (review && review.completedGoals) {
-          setCompletedGoals(review.completedGoals)
+        // Priority 2: Try to get from cache directly
+        const cachedDay = getDayFromCache(date)
+        if (cachedDay) {
+          setCompletedGoals(cachedDay.completedGoals || [])
+          setIncompleteGoals((cachedDay.incompleteReasons || []) as ReasonData[])
+          setDistractions(cachedDay.distractions || null)
         } else {
+          // No data available
           setCompletedGoals([])
+          setIncompleteGoals([])
+          setDistractions(null)
         }
-
-        // Get incomplete goals with reasons
-        const incomplete = reasons.filter((r) => r.date === date)
-        setIncompleteGoals(incomplete)
-
-        // Get distractions
-        setDistractions(distractionsData[date] || null)
       }
 
       // Сбрасываем состояния при открытии диалога
@@ -323,7 +315,11 @@ export function DayStatusDialog({
               setIsCancelling(true)
 
               try {
-                // STEP 1: Call backend to delete the record FIRST
+                // STEP 1: Get incomplete goals from cache BEFORE clearing it
+                const cachedDay = dayDetail || getDayFromCache(date)
+                const incompleteGoalIds = cachedDay?.incompleteReasons?.map(r => r.goalId) || []
+
+                // STEP 2: Call backend to delete the record FIRST
                 const deviceId = syncService.getDeviceId()
                 const result = await cancelEndDayApi({ date, deviceId })
 
@@ -331,31 +327,16 @@ export function DayStatusDialog({
                   throw new Error(result.message || 'Failed to cancel day')
                 }
 
-                // STEP 2: After successful backend response, execute local logic
+                // STEP 3: After successful backend response, execute local logic
 
-                // Clear stats cache for this day
-                clearStatsCache()
+                // Remove this day from stats cache (not full clear)
+                removeDayFromCache(date)
 
                 // Отменяем завершение дня в локальном стейте (переносит goals обратно в today)
-                cancelDayEnd(date)
+                cancelDayEnd(date, incompleteGoalIds)
 
                 // Очищаем данные в календаре stats
                 onUpdateStatus(date, null)
-
-                // Очищаем dayReviews для этого дня
-                const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
-                const filteredReviews = dayReviews.filter((r: any) => r.date !== date)
-                localStorage.setItem("dayReviews", JSON.stringify(filteredReviews))
-
-                // Очищаем reasons для этого дня
-                const reasons = JSON.parse(localStorage.getItem("reasons") || "[]")
-                const filteredReasons = reasons.filter((r: any) => r.date !== date)
-                localStorage.setItem("reasons", JSON.stringify(filteredReasons))
-
-                // Очищаем distractions для этого дня
-                const distractions = JSON.parse(localStorage.getItem("distractions") || "{}")
-                delete distractions[date]
-                localStorage.setItem("distractions", JSON.stringify(distractions))
 
                 // Close dialog (no toast on success)
                 onClose()

@@ -18,7 +18,7 @@ type DayStateStore = {
   
   // Actions
   markDayAsEnded: (date: string) => void
-  cancelDayEnd: (date: string) => void
+  cancelDayEnd: (date: string, incompleteGoalIds?: string[]) => void
   isDayEnded: (date: string) => boolean
   getTodayState: () => DayState
   isTodayEnded: () => boolean
@@ -49,22 +49,14 @@ export const useDayStateStore = create<DayStateStore>()(
         })
       },
 
-      cancelDayEnd: (date) => {
+      cancelDayEnd: (date, incompleteGoalIds: string[] = []) => {
         // Восстанавливаем incomplete goals обратно в today если отменяется сегодняшний день
         const today = getTodayLocalISO()
-        if (date === today) {
+        if (date === today && incompleteGoalIds.length > 0) {
           try {
-            // Читаем данные о незавершенных целях из localStorage
-            const reasons = JSON.parse(localStorage.getItem("reasons") || "[]")
-            const incompleteGoalsForDate = reasons
-              .filter((r: any) => r.date === date)
-              .map((r: any) => r.goalId)
-
-            if (incompleteGoalsForDate.length > 0) {
               // Переносим все incomplete goals обратно в today
-              useGoalsStore.getState().moveToToday(incompleteGoalsForDate)
-              console.log(`[DayStateStore] Restored ${incompleteGoalsForDate.length} incomplete goals back to today`)
-            }
+            useGoalsStore.getState().moveToToday(incompleteGoalIds)
+            console.log(`[DayStateStore] Restored ${incompleteGoalIds.length} incomplete goals back to today`)
           } catch (error) {
             console.error("[DayStateStore] Failed to restore incomplete goals:", error)
           }

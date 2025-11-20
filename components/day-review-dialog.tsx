@@ -187,9 +187,6 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
         // Mark day as ended locally
         markDayAsEnded(reviewDate)
 
-        // Optional: Save to localStorage for offline viewing
-        saveToLocalStorage(reviewDate, requestData)
-
         // Clear stats cache
         clearStatsCache()
 
@@ -229,51 +226,6 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       console.error("[DayReview] End day error:", error)
       toast.error("Network error. Please try again.")
       syncService.startPolling()  // Resume polling on error
-    }
-  }
-
-  // Helper function to save data to localStorage for offline viewing
-  const saveToLocalStorage = (reviewDate: string, requestData: any) => {
-    try {
-      // Save completed goals
-      const dayReviews = JSON.parse(localStorage.getItem("dayReviews") || "[]")
-      const existingReviewIndex = dayReviews.findIndex((r: any) => r.date === reviewDate)
-
-      const reviewData = {
-        date: reviewDate,
-        completedGoals: requestData.dayReview.completedGoals,
-      }
-
-      if (existingReviewIndex >= 0) {
-        dayReviews[existingReviewIndex] = reviewData
-      } else {
-        dayReviews.push(reviewData)
-      }
-      localStorage.setItem("dayReviews", JSON.stringify(dayReviews))
-
-      // Save incomplete reasons
-      if (requestData.incompleteReasons.length > 0) {
-        const reasonsData = JSON.parse(localStorage.getItem("reasons") || "[]")
-        requestData.incompleteReasons.forEach((reason: any) => {
-          reasonsData.push({
-            date: reviewDate,
-            ...reason,
-          })
-        })
-        localStorage.setItem("reasons", JSON.stringify(reasonsData))
-      }
-
-      // Save distractions
-      const distractionData = JSON.parse(localStorage.getItem("distractions") || "{}")
-      distractionData[reviewDate] = requestData.dayReview.distractions
-      localStorage.setItem("distractions", JSON.stringify(distractionData))
-
-      // Save to calendar
-      const calendar = JSON.parse(localStorage.getItem("calendar") || "{}")
-      calendar[reviewDate] = requestData.dayReview.dayStatus
-      localStorage.setItem("calendar", JSON.stringify(calendar))
-    } catch (error) {
-      console.error("[DayReview] Failed to save to localStorage:", error)
     }
   }
 

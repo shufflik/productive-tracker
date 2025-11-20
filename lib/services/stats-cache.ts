@@ -10,22 +10,11 @@
  */
 
 /**
- * Month overview data (lightweight)
- * Used for calendar coloring
+ * Day stats data (full information)
+ * Now cached - fetched via /stats/range endpoint
  */
-export type MonthStatsData = {
-  days: Array<{
+export type DayStatsData = {
     date: string  // "2025-01-15"
-    dayStatus: "good" | "average" | "poor" | "bad"
-  }>
-}
-
-/**
- * Day detail data (full information)
- * NOT cached - fetched on demand
- */
-export type DayDetailData = {
-  date: string
   dayStatus: "good" | "average" | "poor" | "bad"
   distractions: "no" | "little" | "sometimes" | "often" | "constantly"
   completedGoals: Array<{
@@ -45,11 +34,13 @@ export type DayDetailData = {
 }
 
 // Backward compatibility alias
-export type StatsData = MonthStatsData
+export type DayDetailData = DayStatsData
 
 export type StatsCache = {
-  data: StatsData
+  data: DayStatsData[]  // Array of days with full information
   cachedAt: number
+  startDate: string  // Range start date for cache validation
+  endDate: string    // Range end date for cache validation
 }
 
 const CACHE_KEY = 'stats-cache'
@@ -75,12 +66,14 @@ export function getStatsCache(): StatsCache | null {
 /**
  * Save stats to cache
  */
-export function setStatsCache(data: StatsData): void {
+export function setStatsCache(data: DayStatsData[], startDate: string, endDate: string): void {
   if (typeof window === 'undefined') return
 
   const cache: StatsCache = {
     data,
     cachedAt: Date.now(),
+    startDate,
+    endDate,
   }
 
   try {
@@ -91,6 +84,16 @@ export function setStatsCache(data: StatsData): void {
 }
 
 /**
+ * Get day data from cache by date
+ */
+export function getDayFromCache(date: string): DayStatsData | null {
+  const cache = getStatsCache()
+  if (!cache) return null
+
+  return cache.data.find(day => day.date === date) || null
+}
+
+/**
  * Clear stats cache
  */
 export function clearStatsCache(): void {
@@ -98,6 +101,28 @@ export function clearStatsCache(): void {
 
   localStorage.removeItem(CACHE_KEY)
   console.log('[StatsCache] Cache cleared')
+}
+
+/**
+ * Remove specific day from cache
+ */
+export function removeDayFromCache(date: string): void {
+  if (typeof window === 'undefined') return
+
+  const cache = getStatsCache()
+  if (!cache) return
+
+  const filteredData = cache.data.filter(day => day.date !== date)
+  
+  // If no days left, clear entire cache
+  if (filteredData.length === 0) {
+    clearStatsCache()
+    return
+  }
+
+  // Update cache with filtered data
+  setStatsCache(filteredData, cache.startDate, cache.endDate)
+  console.log(`[StatsCache] Day ${date} removed from cache`)
 }
 
 /**

@@ -12,13 +12,6 @@ export function CalendarView() {
   const [calendar, setCalendar] = useState<Record<string, DayStatus>>({})
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  useEffect(() => {
-    const saved = localStorage.getItem("calendar")
-    if (saved) {
-      setCalendar(JSON.parse(saved))
-    }
-  }, [])
-
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
@@ -68,7 +61,6 @@ export function CalendarView() {
       newCalendar[date] = status
     }
     setCalendar(newCalendar)
-    localStorage.setItem("calendar", JSON.stringify(newCalendar))
   }
 
   const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })

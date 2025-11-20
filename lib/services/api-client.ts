@@ -163,29 +163,25 @@ export async function cancelEndDayApi(request: { date: string; deviceId: string 
 }
 
 /**
- * Get stats API (GET)
+ * Get stats range API (GET /stats/range)
+ * Returns array of days with full information
  */
-export async function getStatsApi(params: {
-  year: number
-  month: number
-  day?: number
+export async function getStatsRangeApi(params: {
+  start_date: string  // "2025-01-01"
+  end_date: string     // "2025-01-31"
 }): Promise<any> {
   const queryParams = new URLSearchParams({
-    year: String(params.year),
-    month: String(params.month),
+    start_date: params.start_date,
+    end_date: params.end_date,
   })
   
-  if (params.day !== undefined) {
-    queryParams.append('day', String(params.day))
-  }
-  
-  const response = await fetchBackend(`/api/stats?${queryParams.toString()}`, {
+  const response = await fetchBackend(`/api/stats/range?${queryParams.toString()}`, {
     method: 'GET',
   })
   
   if (!response.ok) {
     if (response.status === 404) {
-      return null
+      return []
     }
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
