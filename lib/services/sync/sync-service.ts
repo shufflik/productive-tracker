@@ -41,6 +41,7 @@ import { syncApi } from "../api-client"
 export class SyncService {
   private isSyncing = false
   private lastSyncTimestamp = 0
+  private lastSuccessfulSyncTime = 0 // Time of last successful sync (ms since epoch)
   private meta: SyncMeta
   private storage: SyncStorage
   private queueManager: SyncQueueManager
@@ -51,6 +52,9 @@ export class SyncService {
 
   // Promise-based sync lock to prevent concurrent syncs
   private currentSyncPromise: Promise<void> | null = null
+
+  // Minimum interval between forced syncs (30 seconds)
+  private readonly FORCE_SYNC_INTERVAL_MS = 30000
 
   // Handlers for applying server data back into stores
   private applyGoals?: GoalsApplyHandler
@@ -223,6 +227,18 @@ export class SyncService {
   }
 
   /**
+   * Check if sync should be forced based on time since last successful sync
+   * Returns true if more than 30 seconds passed since last successful sync
+   */
+  private shouldForceSyncByTime(): boolean {
+    if (this.lastSuccessfulSyncTime === 0) {
+      return false // First sync hasn't happened yet
+    }
+    const timeSinceLastSync = Date.now() - this.lastSuccessfulSyncTime
+    return timeSinceLastSync >= this.FORCE_SYNC_INTERVAL_MS
+  }
+
+  /**
    * Main synchronization method
    * Sends changes from queue to server
    *
@@ -247,9 +263,10 @@ export class SyncService {
     const hasChanges = this.queueManager.hasPendingChanges()
     const isFirstSync = this.meta.lastSyncAt === 0
     const forceSync = options?.force === true
+    const shouldForceSyncByTime = this.shouldForceSyncByTime()
 
-    // If no changes and not first sync and not forced - skip
-    if (!forceSync && !isFirstSync && !hasChanges) {
+    // If no changes and not first sync and not forced and not time-based force - skip
+    if (!forceSync && !isFirstSync && !hasChanges && !shouldForceSyncByTime) {
       return
     }
 
@@ -319,6 +336,7 @@ export class SyncService {
         if (!hasConflicts) {
           this.lastSyncTimestamp = response.lastSyncAt
           this.meta.lastSyncAt = response.lastSyncAt
+          this.lastSuccessfulSyncTime = Date.now() // Update time of last successful sync
 
           // Remove only sent changes from queue
           // New changes added during sync stay in queue
@@ -487,11 +505,19 @@ export class SyncService {
 
   /**
    * Start polling for automatic sync
+   * Checks both queue state and time since last sync
    */
   startPolling(): void {
     this.pollingManager.start(
-      () => this.queueManager.hasPendingChanges(),
-      () => this.sync(),
+      () => {
+        const hasChanges = this.queueManager.hasPendingChanges()
+        const shouldSyncByTime = this.shouldForceSyncByTime()
+        return hasChanges || shouldSyncByTime
+      },
+      () => {
+        const shouldForceSyncByTime = this.shouldForceSyncByTime()
+        return this.sync(shouldForceSyncByTime ? { force: true } : undefined)
+      },
       () => this.retryManager.getPollingDelay(5000) // Dynamic interval with exponential backoff
     )
   }

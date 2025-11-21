@@ -66,7 +66,7 @@ export function ConflictsDialog({ open, conflicts, onResolve }: ConflictsDialogP
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden" showCloseButton={false}>
+      <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden" showCloseButton={false}>
         {/* Фиксированный header */}
         <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 flex-shrink-0 border-b border-border text-center">
           <DialogTitle className="flex items-center justify-center gap-2 text-base sm:text-lg">
