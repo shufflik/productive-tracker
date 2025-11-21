@@ -33,7 +33,7 @@ export function SwipeableHabitItem({
     const velocity = info.velocity.x
 
     // Threshold for opening the swipe actions - более низкий порог для snap
-    const swipeThreshold = 10
+    const swipeThreshold = 1
     const velocityThreshold = 300
 
     // Всегда снапим в одно из состояний: открыто или закрыто

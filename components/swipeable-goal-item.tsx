@@ -4,6 +4,8 @@ import { useState, useRef } from "react"
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion"
 import { Pencil, Trash2, Check, Star } from "lucide-react"
 import { GoalMoveMenu } from "@/components/goal-move-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import type { Goal } from "@/lib/types"
 
 interface SwipeableGoalItemProps {
@@ -38,6 +40,7 @@ export function SwipeableGoalItem({
   labelColor,
 }: SwipeableGoalItemProps) {
   const [isOpen, setIsOpen] = useState<'left' | 'right' | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const dragX = useMotionValue(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -80,7 +83,7 @@ export function SwipeableGoalItem({
     const velocity = info.velocity.x
 
     // Threshold for opening the swipe actions - более низкий порог для snap
-    const swipeThreshold = 10
+    const swipeThreshold = 1
     const velocityThreshold = 300
 
     // Всегда снапим в одно из состояний: открыто или закрыто
@@ -100,6 +103,20 @@ export function SwipeableGoalItem({
   const handleAction = (action: () => void) => {
     action()
     closeSwipe()
+  }
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true)
+    closeSwipe()
+  }
+
+  const handleDeleteConfirm = () => {
+    onDelete(goal.id)
+    setShowDeleteConfirm(false)
+  }
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false)
   }
 
   // Transform for opacity of actions based on drag position
@@ -124,7 +141,7 @@ export function SwipeableGoalItem({
             <Pencil className="w-5 h-5" />
           </button>
           <button
-            onClick={() => handleAction(() => onDelete(goal.id))}
+            onClick={() => handleAction(() => handleDelete())}
             className="h-full bg-red-500 flex items-center justify-center px-6 text-white"
           >
             <Trash2 className="w-5 h-5" />
@@ -223,6 +240,29 @@ export function SwipeableGoalItem({
           </div>
         )}
       </motion.div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-[90%] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Goal</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{goal.title}"?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDeleteCancel}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              className="bg-red-500 hover:bg-red-600 text-white border-red-500"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

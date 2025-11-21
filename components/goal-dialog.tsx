@@ -19,6 +19,8 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
   const [title, setTitle] = useState("")
   const [label, setLabel] = useState("")
   const [description, setDescription] = useState("")
+  const [titleError, setTitleError] = useState("")
+  const [labelError, setLabelError] = useState("")
 
   useEffect(() => {
     if (goal) {
@@ -32,8 +34,34 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
     }
   }, [goal, open])
 
+  const handleTitleChange = (value: string) => {
+    if (value.length > 50) {
+      setTitleError("Title must not exceed 50 characters")
+      return
+    }
+    setTitle(value)
+    setTitleError("")
+  }
+
+  const handleLabelChange = (value: string) => {
+    if (value.length > 25) {
+      setLabelError("Label must not exceed 25 characters")
+      return
+    }
+    setLabel(value)
+    setLabelError("")
+  }
+
   const handleSave = () => {
     if (!title.trim() || !label.trim()) return // Both fields required
+    if (title.length > 50) {
+      setTitleError("Title must not exceed 50 characters")
+      return
+    }
+    if (label.length > 25) {
+      setLabelError("Label must not exceed 25 characters")
+      return
+    }
 
     onSave(title, label, description)
     onClose()
@@ -47,14 +75,23 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Goal Title</Label>
+            <Label htmlFor="title">
+              Title <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="title"
               placeholder="e.g., Complete project proposal"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              maxLength={50}
               onKeyDown={(e) => e.key === "Enter" && label.trim() && handleSave()}
             />
+            {titleError && (
+              <p className="text-xs text-destructive">{titleError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {title.length}/50 characters
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -65,8 +102,15 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               id="label"
               placeholder="e.g., Work, Personal, Health"
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(e) => handleLabelChange(e.target.value)}
+              maxLength={25}
             />
+            {labelError && (
+              <p className="text-xs text-destructive">{labelError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {label.length}/25 characters
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -85,7 +129,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
           <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !label.trim()} className="flex-1">
+          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25} className="flex-1">
             {goal ? "Update" : "Add"} Goal
           </Button>
         </div>
