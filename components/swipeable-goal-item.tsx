@@ -181,6 +181,7 @@ export function SwipeableGoalItem({
         dragConstraints={{ left: -140, right: 140 }}
         dragElastic={0.01}
         dragMomentum={false}
+        dragDirectionLock={true}
         onDragEnd={handleDragEnd}
         animate={{
           x: isOpen === 'left' ? 140 : isOpen === 'right' ? -140 : 0
