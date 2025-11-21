@@ -41,6 +41,7 @@ export function SwipeableGoalItem({
 }: SwipeableGoalItemProps) {
   const [isOpen, setIsOpen] = useState<'left' | 'right' | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [canDrag, setCanDrag] = useState(false)
   const dragX = useMotionValue(0)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +79,13 @@ export function SwipeableGoalItem({
     }
   }
 
+  const handlePanStart = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Проверяем, что движение горизонтальное (не вертикальное)
+    if (Math.abs(info.delta.x) > Math.abs(info.delta.y)) {
+      setCanDrag(true)
+    }
+  }
+
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const offset = info.offset.x
     const velocity = info.velocity.x
@@ -94,6 +102,9 @@ export function SwipeableGoalItem({
     } else {
       setIsOpen(null)
     }
+
+    // Сбрасываем canDrag после завершения drag
+    setCanDrag(false)
   }
 
   const closeSwipe = () => {
@@ -177,11 +188,12 @@ export function SwipeableGoalItem({
 
       {/* Main Content */}
       <motion.div
-        drag={movingMessage ? false : "x"}
+        drag={movingMessage ? false : (canDrag ? "x" : false)}
         dragConstraints={{ left: -140, right: 140 }}
         dragElastic={0.01}
         dragMomentum={false}
         dragDirectionLock={true}
+        onPanStart={handlePanStart}
         onDragEnd={handleDragEnd}
         animate={{
           x: isOpen === 'left' ? 140 : isOpen === 'right' ? -140 : 0
