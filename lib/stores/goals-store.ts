@@ -80,6 +80,7 @@ export const useGoalsStore = create<GoalsStore>()(
             title,
             label: label ? label.toUpperCase() : label,
             description: description || undefined,
+            meta: goal.meta,
           }
 
 
@@ -162,6 +163,7 @@ export const useGoalsStore = create<GoalsStore>()(
             ...goal,
             targetDate: tomorrow,
             completed: false,
+            meta: goal.meta,
           }
 
           return {
@@ -186,6 +188,7 @@ export const useGoalsStore = create<GoalsStore>()(
                 ...g,
                 targetDate: todayDate,
                 completed: false,
+                meta: g.meta,
               }
               updatedGoals.push(updated)
               return updated
@@ -212,6 +215,7 @@ export const useGoalsStore = create<GoalsStore>()(
             ...goal,
             targetDate: "backlog",
             completed: false,
+            meta: goal.meta,
           }
 
           return {

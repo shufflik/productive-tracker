@@ -34,11 +34,19 @@ type BaseItem = {
   deleted?: boolean
 } & LocalSyncMeta
 
+// Goal meta (filled only for incomplete goals when day is ended)
+export type GoalMeta = {
+  percent?: number
+  delta?: number
+  isPostponed?: boolean
+}
+
 // Goal (temporary task with deadline)
 export type Goal = BaseItem & {
   description?: string
   targetDate?: string
   label?: string
+  meta?: GoalMeta
 }
 
 // Habit (recurring task with streak tracking, no description)

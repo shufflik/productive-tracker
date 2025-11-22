@@ -10,6 +10,7 @@ import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
+import { syncService } from "@/lib/services/sync"
 import { DotLottieReact } from "@lottiefiles/dotlottie-react"
 import type { Goal } from "@/lib/types"
 
@@ -246,6 +247,9 @@ export function GoalsView() {
       if (originalGoal) {
         // Обрабатываем действия для незавершенных задач
         if (!goal.completed && goal.action) {
+          // Сохраняем meta перед применением действия, чтобы она не потерялась
+          const metaToPreserve = goal.meta
+          
           switch (goal.action) {
             case "tomorrow":
               rescheduleInStore(goal.id)
@@ -257,8 +261,42 @@ export function GoalsView() {
               deleteGoalFromStore(goal.id)
               break
           }
+          
+          // Обновляем meta после применения действия, чтобы она сохранилась
+          if (metaToPreserve) {
+            const currentGoal = useGoalsStore.getState().goals.find((g) => g.id === goal.id)
+            if (currentGoal) {
+              const updatedGoal = {
+                ...currentGoal,
+                meta: metaToPreserve,
+              }
+              useGoalsStore.getState().setGoals(
+                useGoalsStore.getState().goals.map((g) => (g.id === goal.id ? updatedGoal : g))
+              )
+              syncService.enqueueGoalChange("update", updatedGoal)
+            }
+          }
+          
           // После применения действия не нужно обновлять другие поля
           return
+        }
+
+        // Обновляем meta если оно есть (для incomplete goals без action)
+        if (goal.meta && !goal.completed) {
+          // Обновляем goal с meta через прямое обновление в store
+          const currentGoal = useGoalsStore.getState().goals.find((g) => g.id === goal.id)
+          if (currentGoal) {
+            const updatedGoal = {
+              ...currentGoal,
+              meta: goal.meta,
+            }
+            // Обновляем store
+            useGoalsStore.getState().setGoals(
+              useGoalsStore.getState().goals.map((g) => (g.id === goal.id ? updatedGoal : g))
+            )
+            // Ставим в очередь синхронизации
+            syncService.enqueueGoalChange("update", updatedGoal)
+          }
         }
 
         // Обновляем статус завершения если изменился

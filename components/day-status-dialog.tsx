@@ -29,12 +29,14 @@ type Goal = {
   id: string
   title: string
   label?: string
+  isAdditionalAdded?: boolean
 }
 
 type ReasonData = {
   date?: string  // Optional for API data
   goalId: string
   goalTitle: string
+  label?: string
   reason: IncompleteReason
   customReason?: string
   percentReady?: number
@@ -226,16 +228,23 @@ export function DayStatusDialog({
                 )}
               </button>
               {showCompleted && (
-                <div className="bg-card border border-border rounded-lg p-3 space-y-2">
+                <div className="bg-card border border-border rounded-lg p-3 space-y-2 min-w-0 overflow-x-hidden">
                   {completedGoals.map((goal) => (
-                    <div key={goal.id} className="flex items-center gap-2 text-sm">
-                      <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
+                    <div key={goal.id} className="flex items-center gap-2 text-sm min-w-0">
+                      <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                         <Check className="w-3 h-3 text-green-600" />
                       </div>
-                      <span className="text-foreground">{goal.title}</span>
+                      <span className={`text-foreground min-w-0 break-words flex-1 ${goal.isAdditionalAdded ? 'italic' : ''}`}>
+                        {goal.title}
+                      </span>
                       {goal.label && (
-                        <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                        <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0">
                           {goal.label}
+                        </span>
+                      )}
+                      {goal.isAdditionalAdded && (
+                        <span className="text-xs text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                          Additional
                         </span>
                       )}
                     </div>
@@ -263,12 +272,19 @@ export function DayStatusDialog({
                 <div className="bg-card border border-border rounded-lg p-3 space-y-3">
                   {incompleteGoals.map((item, index) => (
                     <div key={index} className="space-y-2">
-                      <div className="flex items-start gap-2">
-                        <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center mt-0.5 flex-shrink-0">
                           <X className="w-3 h-3 text-red-600" />
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-foreground font-medium">{item.goalTitle}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm text-foreground font-medium min-w-0 break-words">{item.goalTitle}</p>
+                            {item.label && (
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0">
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             Reason: <span className="font-medium">{getReasonLabel(item.reason)}</span>
                             {item.customReason && <span className="italic"> - {item.customReason}</span>}

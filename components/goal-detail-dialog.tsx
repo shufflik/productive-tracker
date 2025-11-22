@@ -17,26 +17,26 @@ export function GoalDetailDialog({ open, onClose, goal }: GoalDetailDialogProps)
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[90%] sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Goal Details</DialogTitle>
+          <DialogTitle className="break-words">Goal Details</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto max-h-[60vh]">
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Title</p>
-            <p className="text-base text-foreground">{goal.title}</p>
+            <p className="text-base text-foreground break-words">{goal.title}</p>
           </div>
 
           {goal.description && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Description</p>
-              <p className="text-base text-foreground whitespace-pre-wrap">{goal.description}</p>
+              <p className="text-base text-foreground whitespace-pre-wrap break-words">{goal.description}</p>
             </div>
           )}
 
           {goal.label && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Label</p>
-              <p className="text-base text-foreground">{goal.label}</p>
+              <p className="text-base text-foreground break-words">{goal.label}</p>
             </div>
           )}
         </div>

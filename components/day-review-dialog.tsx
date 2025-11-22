@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Check, AlertCircle } from "lucide-react"
+import { Check, AlertCircle, Plus, X } from "lucide-react"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
@@ -18,6 +17,7 @@ import { syncService } from "@/lib/services/sync"
 import { clearStatsCache } from "@/lib/services/stats-cache"
 import { toast } from "sonner"
 import { endDayApi } from "@/lib/services/api-client"
+import { generateId } from "@/lib/utils/id"
 
 type DayStatus = "good" | "average" | "poor" | "bad"
 
@@ -33,6 +33,7 @@ type GoalWithDetails = Goal & {
   action?: TaskAction
   percentReady?: number
   note?: string
+  isAdditionalAdded?: boolean // Флаг для дополнительно добавленных задач
 }
 
 type DayReviewDialogProps = {
@@ -47,14 +48,27 @@ type DayReviewDialogProps = {
 export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, allowCancel = true }: DayReviewDialogProps) {
   const markDayAsEnded = useDayStateStore((state) => state.markDayAsEnded)
   const [localGoals, setLocalGoals] = useState<GoalWithDetails[]>([])
-  const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "focus">("confirmation")
-  const [distractionLevel, setDistractionLevel] = useState<DistractionLevel>("little")
+  const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "retro">("confirmation")
+  const [distractionLevel, setDistractionLevel] = useState<DistractionLevel | "">("")
+  const [dayReflection, setDayReflection] = useState<string>("")
+  const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
+  const [newTaskTitle, setNewTaskTitle] = useState("")
+  const [newTaskLabel, setNewTaskLabel] = useState("")
 
   useEffect(() => {
     if (open) {
-      setLocalGoals([...goals])
+      // Восстанавливаем percentReady из meta.percent, если оно есть
+      const goalsWithRestoredPercent = goals.map((g) => ({
+        ...g,
+        percentReady: g.meta?.percent !== undefined ? g.meta.percent : undefined,
+      }))
+      setLocalGoals(goalsWithRestoredPercent)
       setStep("confirmation")
-      setDistractionLevel("little")
+      setDistractionLevel("")
+      setDayReflection("")
+      setShowAddTaskDialog(false)
+      setNewTaskTitle("")
+      setNewTaskLabel("")
 
       // Stop polling when dialog opens (Step 1: Confirmation)
       syncService.stopPolling()
@@ -68,7 +82,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
         console.log('[DayReview] Polling resumed (cleanup)')
       }
     }
-  }, [open])
+  }, [open, goals])
 
   const toggleGoalCompletion = (id: string) => {
     setLocalGoals(
@@ -105,11 +119,47 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   }
 
   const setGoalPercentReady = (id: string, percentReady: number) => {
-    setLocalGoals(localGoals.map((g) => (g.id === id ? { ...g, percentReady } : g)))
+    setLocalGoals(
+      localGoals.map((g) => {
+        if (g.id === id) {
+          // Если у goal есть meta.percent, запрещаем уменьшение значения
+          const minPercent = g.meta?.percent !== undefined ? g.meta.percent : 0
+          const newPercent = Math.max(minPercent, percentReady)
+          return { ...g, percentReady: newPercent }
+        }
+        return g
+      })
+    )
   }
 
   const setGoalNote = (id: string, note: string) => {
     setLocalGoals(localGoals.map((g) => (g.id === id ? { ...g, note } : g)))
+  }
+
+  const handleAddAdditionalTask = () => {
+    if (!newTaskTitle.trim() || !newTaskLabel.trim()) return
+
+    const reviewDate = date || getTodayLocalISO()
+    const reviewDateAsDateString = new Date(reviewDate + "T00:00:00").toDateString()
+
+    const newGoal: GoalWithDetails = {
+      id: generateId(),
+      title: newTaskTitle.trim(),
+      label: newTaskLabel.trim().toUpperCase(),
+      completed: true, // Дополнительные задачи всегда выполнены
+      targetDate: reviewDateAsDateString,
+      isAdditionalAdded: true, // Помечаем как дополнительно добавленную
+      _version: 0,
+    }
+
+    setLocalGoals([...localGoals, newGoal])
+    setNewTaskTitle("")
+    setNewTaskLabel("")
+    setShowAddTaskDialog(false)
+  }
+
+  const handleRemoveAdditionalTask = (id: string) => {
+    setLocalGoals(localGoals.filter((g) => g.id !== id))
   }
 
   const handleContinue = () => {
@@ -122,11 +172,11 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       if (incompleteGoals.length > 0) {
         setStep("details")
       } else {
-        setStep("focus")
+        setStep("retro")
       }
     } else if (step === "details") {
-      setStep("focus")
-    } else if (step === "focus") {
+      setStep("retro")
+    } else if (step === "retro") {
       handleSave()
     }
   }
@@ -152,20 +202,21 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       // Prepare request data for backend
       const requestData = {
         date: reviewDate,
-        dayReview: {
-          completedGoals: completedGoals.map((g) => ({
-            id: g.id,
-            title: g.title,
-            label: g.label || "",
-          })),
-          dayStatus: status,
-          distractions: distractionLevel,
-        },
+        completedGoals: completedGoals.map((g) => ({
+          id: g.id,
+          title: g.title,
+          label: g.label || "",
+          isAdditionalAdded: g.isAdditionalAdded || false,
+        })),
+        dayStatus: status,
+        distractions: distractionLevel as DistractionLevel,
+        dayReflection: dayReflection.trim(),
         incompleteReasons: incompleteGoals
           .filter((g) => g.reason)
           .map((g) => ({
             goalId: g.id,
             goalTitle: g.title,
+            label: g.label ?? "",
             reason: g.reason!,
             customReason: g.customReason,
             action: g.action!,
@@ -181,8 +232,39 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       if (data.success || data.error === 'DAY_ALREADY_ENDED') {
         // Success (or already ended - same UX)
 
-        // Update goals in store
-        onUpdateGoals(localGoals)
+        // Подготавливаем goals с meta для incomplete goals
+        const originalGoals = localGoals
+          .filter((g) => !g.isAdditionalAdded)
+          .map((goal) => {
+            // Добавляем meta только для incomplete goals
+            if (!goal.completed) {
+              const isPostponed = goal.action === "tomorrow" || goal.action === "today" || goal.action === "backlog"
+              const percent = goal.percentReady || 0
+              
+              // delta - изменение процента готовности
+              // Если у goal уже есть meta, вычисляем разницу между старым и новым percent
+              // Если meta нет, delta = percent (первое создание)
+              let delta: number
+              if (goal.meta && goal.meta.percent !== undefined) {
+                const oldPercent = goal.meta.percent
+                delta = percent - oldPercent
+              } else {
+                delta = percent
+              }
+
+              return {
+                ...goal,
+                meta: {
+                  percent,
+                  delta,
+                  isPostponed,
+                }
+              }
+            }
+            return goal
+          })
+
+        onUpdateGoals(originalGoals)
 
         // Mark day as ended locally
         markDayAsEnded(reviewDate)
@@ -291,6 +373,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={allowCancel ? handleDialogClose : undefined}>
       <DialogContent className="max-w-[90%] sm:max-w-md" showCloseButton={allowCancel}>
         <DialogHeader>
@@ -299,7 +382,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             {step === "completion" && "Mark Completed Goals"}
             {step === "summary" && "Day Summary"}
             {step === "details" && "Unfinished Tasks Details"}
-            {step === "focus" && "Focus Assessment"}
+            {step === "retro" && "Day Retrospective"}
           </DialogTitle>
         </DialogHeader>
 
@@ -318,35 +401,71 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
         )}
 
         {step === "completion" && (
-          <div className="py-4 space-y-4">
+          <div className="py-4 space-y-4 min-w-0 overflow-x-hidden">
             <p className="text-sm text-muted-foreground">Mark which goals you completed today:</p>
 
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto overflow-x-hidden min-w-0">
               {localGoals.map((goal) => (
-                <button
+                <div
                   key={goal.id}
-                  onClick={() => toggleGoalCompletion(goal.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    goal.completed ? "bg-primary/10 border-primary" : "bg-card border-border hover:border-primary/50"
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors min-w-0 ${
+                    goal.completed ? "bg-primary/10 border-primary" : "bg-card border-border"
                   }`}
                 >
-                  <div
-                    className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center ${
-                      goal.completed ? "bg-primary border-primary" : "border-border"
-                    }`}
-                  >
-                    {goal.completed && <Check className="w-4 h-4 text-primary-foreground" />}
-                  </div>
-                  <span
-                    className={`flex-1 text-left text-sm ${
-                      goal.completed ? "text-foreground font-medium" : "text-foreground"
-                    }`}
-                  >
-                    {goal.title}
-                  </span>
-                </button>
+                  {!goal.isAdditionalAdded ? (
+                    <button
+                      onClick={() => toggleGoalCompletion(goal.id)}
+                      className="flex items-center gap-3 flex-1 min-w-0"
+                    >
+                      <div
+                        className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center ${
+                          goal.completed ? "bg-primary border-primary" : "border-border"
+                        }`}
+                      >
+                        {goal.completed && <Check className="w-4 h-4 text-primary-foreground" />}
+                      </div>
+                      <span
+                        className={`flex-1 text-left text-sm min-w-0 break-words ${
+                          goal.completed ? "text-foreground font-medium" : "text-foreground"
+                        }`}
+                      >
+                        {goal.title}
+                      </span>
+                    </button>
+                  ) : (
+                    <>
+                      <div className="flex-shrink-0 w-6 h-6 rounded-md bg-primary border-primary flex items-center justify-center">
+                        <Check className="w-4 h-4 text-primary-foreground" />
+                      </div>
+                      <span className="flex-1 text-left text-sm text-foreground font-medium min-w-0 break-words">
+                        {goal.title}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveAdditionalTask(goal.id)}
+                        className="flex-shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Remove task"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
               ))}
             </div>
+
+            {/* Кнопка добавления дополнительной задачи - только для автоматического закрытия */}
+            {!allowCancel && (
+              <div className="pt-2 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddTaskDialog(true)}
+                  className="w-full bg-transparent"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Additional Completed Task
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -497,16 +616,22 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                       <Label className="text-xs text-muted-foreground">% Ready (optional)</Label>
                       <Input
                         type="number"
-                        min="0"
+                        min={goal.meta?.percent !== undefined ? goal.meta.percent : 0}
                         max="100"
                         value={goal.percentReady || 0}
                         onChange={(e) => setGoalPercentReady(goal.id, Math.min(100, Math.max(0, Number(e.target.value))))}
                         className="w-16 h-8 text-sm text-center"
                       />
                     </div>
+                    {goal.meta?.percent !== undefined && (
+                      <p className="text-xs text-muted-foreground">
+                        Minimum: {goal.meta.percent}% (cannot be decreased)
+                      </p>
+                    )}
                     <Slider
                       value={[goal.percentReady || 0]}
                       onValueChange={(value) => setGoalPercentReady(goal.id, value[0])}
+                      min={goal.meta?.percent !== undefined ? goal.meta.percent : 0}
                       max={100}
                       step={5}
                       className="w-full"
@@ -520,7 +645,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                       placeholder="Add any additional notes..."
                       value={goal.note || ""}
                       onChange={(e) => setGoalNote(goal.id, e.target.value)}
-                      className="min-h-[60px] text-sm"
+                      className="min-h-[60px] max-h-[120px] text-sm overflow-y-auto overflow-x-hidden resize-none break-words"
                     />
                   </div>
                 </div>
@@ -529,44 +654,57 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
           </div>
         )}
 
-        {step === "focus" && (
-          <div className="py-4 space-y-6">
-            <div>
-              <p className="text-base font-medium text-foreground mb-2">How often were you distracted today?</p>
-              <p className="text-sm text-muted-foreground">Reflect on your focus throughout the day</p>
-            </div>
-
+        {step === "retro" && (
+          <div className="py-4 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
             <div className="space-y-4">
-              <RadioGroup
-                value={distractionLevel}
-                onValueChange={(value) => setDistractionLevel(value as DistractionLevel)}
-              >
-                {distractionLevels.map((level) => (
-                  <div key={level} className="flex items-center space-x-3">
-                    <RadioGroupItem value={level} id={`distraction-${level}`} />
-                    <Label htmlFor={`distraction-${level}`} className="text-sm cursor-pointer flex-1">
-                      {getDistractionLabel(level)}
-                    </Label>
+              {/* Focus Assessment */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">How often were you distracted today? *</Label>
+                <Select
+                  value={distractionLevel || undefined}
+                  onValueChange={(value) => setDistractionLevel(value as DistractionLevel)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select distraction level..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {distractionLevels.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {getDistractionLabel(level)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {distractionLevel && (
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">
+                      {distractionLevel === "no" && "Excellent focus! You stayed on track throughout the day."}
+                      {distractionLevel === "little" && "Great job! Minor distractions are normal."}
+                      {distractionLevel === "sometimes" && "Good effort. Consider strategies to minimize distractions."}
+                      {distractionLevel === "often" && "Try to identify and eliminate common distractions."}
+                      {distractionLevel === "constantly" && "Consider reviewing your environment and work habits."}
+                    </p>
                   </div>
-                ))}
-              </RadioGroup>
+                )}
+              </div>
 
-              <div className="bg-muted rounded-lg p-4">
-                <p className="text-xs text-muted-foreground">
-                  {distractionLevel === "no" && "Excellent focus! You stayed on track throughout the day."}
-                  {distractionLevel === "little" && "Great job! Minor distractions are normal."}
-                  {distractionLevel === "sometimes" && "Good effort. Consider strategies to minimize distractions."}
-                  {distractionLevel === "often" && "Try to identify and eliminate common distractions."}
-                  {distractionLevel === "constantly" && "Consider reviewing your environment and work habits."}
-                </p>
+              {/* Day Reflection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">How did your day go? *</Label>
+                <Textarea
+                  placeholder="Share your thoughts about today, what went well, what could be improved..."
+                  value={dayReflection}
+                  onChange={(e) => setDayReflection(e.target.value)}
+                  className="min-h-[120px] max-h-[200px] text-sm overflow-y-auto overflow-x-hidden resize-none break-words"
+                />
               </div>
             </div>
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 min-w-0 overflow-x-hidden">
           {allowCancel && (
-            <Button variant="outline" onClick={handleDialogClose} className="flex-1 bg-transparent">
+            <Button variant="outline" onClick={handleDialogClose} className="flex-1 bg-transparent min-w-0">
               Cancel
             </Button>
           )}
@@ -576,32 +714,99 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
               onClick={() => {
                 if (step === "summary") setStep("completion")
                 else if (step === "details") setStep("summary")
-                else if (step === "focus") {
+                else if (step === "retro") {
                   if (incompleteGoals.length > 0) setStep("details")
                   else setStep("summary")
                 }
               }}
-              className="flex-1"
+              className="flex-1 min-w-0"
             >
               Back
             </Button>
           )}
           <Button
             onClick={handleContinue}
-            className="flex-1"
+            className="flex-1 min-w-0"
             disabled={
-              step === "details" &&
-              incompleteGoals.some((g) => !g.reason || (g.reason === "other" && !g.customReason?.trim()) || !g.action)
+              (step === "details" &&
+                incompleteGoals.some((g) => !g.reason || (g.reason === "other" && !g.customReason?.trim()) || !g.action)) ||
+              (step === "retro" && (!dayReflection.trim() || !distractionLevel))
             }
           >
             {step === "confirmation" && "Start Review"}
             {step === "completion" && "Continue"}
             {step === "summary" && (incompleteGoals.length > 0 ? "Continue" : "Next")}
             {step === "details" && "Continue"}
-            {step === "focus" && "Finish"}
+            {step === "retro" && "Finish"}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Диалог добавления дополнительной задачи */}
+    {!allowCancel && (
+      <Dialog open={showAddTaskDialog} onOpenChange={setShowAddTaskDialog}>
+        <DialogContent className="max-w-[90%] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Additional Completed Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="additional-task-title">
+                Task Title <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="additional-task-title"
+                placeholder="Enter task title..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                maxLength={50}
+                onKeyDown={(e) => e.key === "Enter" && newTaskLabel.trim() && handleAddAdditionalTask()}
+              />
+              <p className="text-xs text-muted-foreground">
+                {newTaskTitle.length}/50 characters
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="additional-task-label">
+                Label <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="additional-task-label"
+                placeholder="Enter label..."
+                value={newTaskLabel}
+                onChange={(e) => setNewTaskLabel(e.target.value)}
+                maxLength={25}
+                onKeyDown={(e) => e.key === "Enter" && newTaskTitle.trim() && handleAddAdditionalTask()}
+              />
+              <p className="text-xs text-muted-foreground">
+                {newTaskLabel.length}/25 characters
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddTaskDialog(false)
+                setNewTaskTitle("")
+                setNewTaskLabel("")
+              }}
+              className="flex-1 bg-transparent"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddAdditionalTask}
+              disabled={!newTaskTitle.trim() || !newTaskLabel.trim()}
+              className="flex-1"
+            >
+              Add
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   )
 }

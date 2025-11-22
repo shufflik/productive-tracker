@@ -67,6 +67,8 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
     onClose()
   }
 
+  const isPostponed = goal?.meta?.isPostponed === true
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[90%] sm:max-w-md">
@@ -85,9 +87,16 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               onChange={(e) => handleTitleChange(e.target.value)}
               maxLength={50}
               onKeyDown={(e) => e.key === "Enter" && label.trim() && handleSave()}
+              disabled={isPostponed}
+              className={isPostponed ? "bg-muted cursor-not-allowed" : ""}
             />
             {titleError && (
               <p className="text-xs text-destructive">{titleError}</p>
+            )}
+            {isPostponed && (
+              <p className="text-xs text-muted-foreground">
+                Title cannot be changed for postponed tasks
+              </p>
             )}
             <p className="text-xs text-muted-foreground">
               {title.length}/50 characters
@@ -104,9 +113,16 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               value={label}
               onChange={(e) => handleLabelChange(e.target.value)}
               maxLength={25}
+              disabled={isPostponed}
+              className={isPostponed ? "bg-muted cursor-not-allowed" : ""}
             />
             {labelError && (
               <p className="text-xs text-destructive">{labelError}</p>
+            )}
+            {isPostponed && (
+              <p className="text-xs text-muted-foreground">
+                Label cannot be changed for postponed tasks
+              </p>
             )}
             <p className="text-xs text-muted-foreground">
               {label.length}/25 characters

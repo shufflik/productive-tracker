@@ -17,14 +17,17 @@ export type DayStatsData = {
     date: string  // "2025-01-15"
   dayStatus: "good" | "average" | "poor" | "bad"
   distractions: "no" | "little" | "sometimes" | "often" | "constantly"
+  dayReflection: string
   completedGoals: Array<{
     id: string
     title: string
     label: string
+    isAdditionalAdded?: boolean
   }>
   incompleteReasons: Array<{
     goalId: string
     goalTitle: string
+    label?: string
     reason: string
     customReason?: string
     action: string

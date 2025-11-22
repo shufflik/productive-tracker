@@ -17,11 +17,19 @@ const baseItemSchema = z
   })
   .merge(localSyncMetaSchema)
 
+// Goal meta schema
+const goalMetaSchema = z.object({
+  percent: z.number().nullish(),
+  delta: z.number().nullish(),
+  isPostponed: z.boolean().nullish(),
+})
+
 // Goal schema (temporary task with deadline)
 const goalSchema = baseItemSchema.extend({
   description: z.string().nullish(),
   targetDate: z.string().nullish(),
   label: z.string().nullish(),
+  meta: goalMetaSchema.nullish(),
 })
 
 // Habit schema (no description)
