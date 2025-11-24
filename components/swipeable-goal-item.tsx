@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion"
 import { Pencil, Trash2, Check, Star, Clock } from "lucide-react"
 import { GoalMoveMenu } from "@/components/goal-move-menu"
@@ -44,6 +44,8 @@ export function SwipeableGoalItem({
   const [canDrag, setCanDrag] = useState(false)
   const dragX = useMotionValue(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLParagraphElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   // Convert Tailwind color class to border color
   const getBorderColor = () => {
@@ -134,6 +136,27 @@ export function SwipeableGoalItem({
   const leftActionOpacity = useTransform(dragX, [0, 100], [0, 1])
   const rightActionOpacity = useTransform(dragX, [-100, 0], [1, 0])
 
+  // Автоматическое уменьшение шрифта при переносе текста
+  useEffect(() => {
+    const titleElement = titleRef.current
+    const contentElement = contentRef.current
+    if (!titleElement || !contentElement) return
+
+    let fontSize = 16
+    const minFontSize = 11
+    const targetHeight = 64
+
+    const checkFit = () => {
+      titleElement.style.fontSize = `${fontSize}px`
+      if (contentElement.scrollHeight > targetHeight && fontSize > minFontSize) {
+        fontSize = Math.max(minFontSize, fontSize - 0.5)
+        setTimeout(checkFit, 0)
+      }
+    }
+
+    setTimeout(checkFit, 10)
+  }, [goal.title])
+
   return (
     <div
       ref={containerRef}
@@ -208,8 +231,12 @@ export function SwipeableGoalItem({
         className="relative"
       >
         <div
-          className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
-          style={labelColor ? { borderLeftWidth: '3px', borderLeftColor: getBorderColor() } : undefined}
+          ref={contentRef}
+          className={`bg-card border border-border rounded-lg p-4 flex items-center gap-3 w-full transition-all duration-300 cursor-pointer overflow-hidden ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
+          style={{
+            ...(labelColor ? { borderLeftWidth: '3px', borderLeftColor: getBorderColor() } : {}),
+            height: '4rem',
+          }}
           onClick={() => {
             if (isOpen) {
               closeSwipe()
@@ -233,18 +260,20 @@ export function SwipeableGoalItem({
             </button>
           )}
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex items-center">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               {goal.important && <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0" />}
               <p
-                className={`font-medium min-w-0 break-words ${goal.completed && selectedDay === "today" ? "line-through text-muted-foreground" : "text-foreground"}`}
+                ref={titleRef}
+                className={`font-medium min-w-0 break-words flex-1 ${goal.completed && selectedDay === "today" ? "line-through text-muted-foreground" : "text-foreground"}`}
+                style={{ fontSize: '16px', lineHeight: '1.5' }}
               >
                 {goal.title}
               </p>
-              {goal.meta?.isPostponed && (
-                <Clock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-label="Postponed task" />
-              )}
             </div>
+            {goal.meta?.isPostponed && (
+              <Clock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0 ml-auto" aria-label="Postponed task" />
+            )}
           </div>
         </div>
 

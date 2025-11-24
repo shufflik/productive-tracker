@@ -230,23 +230,27 @@ export function DayStatusDialog({
               {showCompleted && (
                 <div className="bg-card border border-border rounded-lg p-3 space-y-2 min-w-0 overflow-x-hidden">
                   {completedGoals.map((goal) => (
-                    <div key={goal.id} className="flex items-center gap-2 text-sm min-w-0">
-                      <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <div key={goal.id} className="flex items-start gap-2 text-sm min-w-0">
+                      <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center mt-0.5 flex-shrink-0">
                         <Check className="w-3 h-3 text-green-600" />
                       </div>
-                      <span className={`text-foreground min-w-0 break-words flex-1 ${goal.isAdditionalAdded ? 'italic' : ''}`}>
-                        {goal.title}
-                      </span>
-                      {goal.label && (
-                        <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0">
-                          {goal.label}
-                        </span>
-                      )}
-                      {goal.isAdditionalAdded && (
-                        <span className="text-xs text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full flex-shrink-0">
-                          Additional
-                        </span>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-foreground min-w-0 break-words ${goal.isAdditionalAdded ? 'italic' : ''}`}>
+                            {goal.title}
+                          </span>
+                          {goal.label && (
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0">
+                              {goal.label}
+                            </span>
+                          )}
+                          {goal.isAdditionalAdded && (
+                            <span className="text-xs text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                              Additional
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -322,7 +326,7 @@ export function DayStatusDialog({
             </>
           )}
 
-          {isSelectedDayEnded ? (
+          {isSelectedDayEnded && isToday ? (
             <Button
               variant="outline"
               onClick={async () => {
@@ -363,8 +367,8 @@ export function DayStatusDialog({
                 setIsCancelling(false)
               }
             }}
-            disabled={!isToday || isCancelling}
-            className={`w-full ${isToday ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' : 'bg-muted text-muted-foreground border-muted cursor-not-allowed'}`}
+            disabled={isCancelling}
+            className="w-full bg-red-500 hover:bg-red-600 text-white border-red-500"
           >
             {isCancelling ? (
               <>
@@ -372,7 +376,7 @@ export function DayStatusDialog({
                 Cancelling...
               </>
             ) : (
-              <>Cancel End Day {!isToday && "(Only Today)"}</>
+              <>Cancel End Day</>
             )}
           </Button>
         ) : (
