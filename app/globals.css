@@ -107,6 +107,16 @@
   }
   html {
     overflow: hidden;
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Prevent iOS zoom on input focus - font-size must be >= 16px */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+    touch-action: manipulation;
   }
 }
 

@@ -16,8 +16,16 @@ type HabitDetailDialogProps = {
 export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: HabitDetailDialogProps) {
   if (!habit) return null
 
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  const selectedDays = habit.repeatDays?.map((d) => daysOfWeek[d]).join(", ")
+  // Days in Monday-first order with JS day index (0=Sun, 1=Mon, etc.)
+  const daysOfWeek = [
+    { label: "Mon", value: 1 },
+    { label: "Tue", value: 2 },
+    { label: "Wed", value: 3 },
+    { label: "Thu", value: 4 },
+    { label: "Fri", value: 5 },
+    { label: "Sat", value: 6 },
+    { label: "Sun", value: 0 },
+  ]
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -72,16 +80,16 @@ export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: H
                 <span>Schedule</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {daysOfWeek.map((day, index) => (
+                {daysOfWeek.map((day) => (
                   <div
-                    key={day}
+                    key={day.label}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium ${
-                      habit.repeatDays?.includes(index)
+                      habit.repeatDays?.includes(day.value)
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {day}
+                    {day.label}
                   </div>
                 ))}
               </div>
