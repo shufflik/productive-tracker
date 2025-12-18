@@ -195,7 +195,9 @@ export function StatisticsView() {
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
   const daysInMonth = lastDay.getDate()
-  const startingDayOfWeek = firstDay.getDay()
+  // Sunday (0) becomes 6, Monday (1) becomes 0, etc.
+  const dayOfWeek = firstDay.getDay()
+  const startingDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
 
   const previousMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1))
@@ -428,7 +430,7 @@ export function StatisticsView() {
 
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="grid grid-cols-7 gap-2 mb-2">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
                 <div key={day} className="text-center text-xs font-medium text-muted-foreground">
                   {day}
                 </div>

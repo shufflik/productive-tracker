@@ -12,12 +12,18 @@ export function WeekNavigator({ selectedDate, onDateChange }: WeekNavigatorProps
   const getWeekDays = (date: Date) => {
     const days = []
     const current = new Date(date)
-    const day = current.getDay()
-    const diff = current.getDate() - day
+    
+    // Find Monday of current week
+    const monday = new Date(current)
+    const dayOfWeek = current.getDay()
+    // If Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    monday.setDate(current.getDate() - daysToSubtract)
 
+    // Generate all 7 days starting from Monday
     for (let i = 0; i < 7; i++) {
-      const weekDay = new Date(current)
-      weekDay.setDate(diff + i)
+      const weekDay = new Date(monday)
+      weekDay.setDate(monday.getDate() + i)
       days.push(weekDay)
     }
 
@@ -25,7 +31,7 @@ export function WeekNavigator({ selectedDate, onDateChange }: WeekNavigatorProps
   }
 
   const weekDays = getWeekDays(selectedDate)
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
   const goToPreviousWeek = () => {
     const newDate = new Date(selectedDate)
