@@ -43,7 +43,7 @@ export function GoalsView() {
   const [movingGoals, setMovingGoals] = useState<Record<string, string>>({})
 
   const addGoal = useCallback(
-    (title: string, label: string, description: string) => {
+    (title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => {
       let targetDate: string
 
       if (selectedDay === "backlog") {
@@ -54,14 +54,14 @@ export function GoalsView() {
         targetDate = new Date().toDateString()
       }
 
-      addGoalToStore(title, label, description, targetDate)
+      addGoalToStore(title, label, description, targetDate, globalGoalId, milestoneId)
     },
     [selectedDay, addGoalToStore]
   )
 
   const updateGoal = useCallback(
-    (id: string, title: string, label: string, description: string) => {
-      updateGoalInStore(id, title, label, description)
+    (id: string, title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => {
+      updateGoalInStore(id, title, label, description, globalGoalId, milestoneId)
     },
     [updateGoalInStore]
   )
@@ -514,7 +514,10 @@ export function GoalsView() {
       <GoalDialog
         open={dialogOpen}
         onClose={closeDialog}
-        onSave={editingGoal ? (title: string, label: string, description: string) => updateGoal(editingGoal.id, title, label, description) : addGoal}
+        onSave={editingGoal 
+          ? (title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => updateGoal(editingGoal.id, title, label, description, globalGoalId, milestoneId) 
+          : addGoal
+        }
         goal={editingGoal}
       />
 

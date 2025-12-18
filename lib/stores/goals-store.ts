@@ -14,8 +14,9 @@ type GoalsState = {
 
 type GoalsActions = {
   // Goal CRUD operations
-  addGoal: (title: string, label: string, description: string, targetDate?: string) => void
-  updateGoal: (id: string, title: string, label: string, description: string) => void
+  addGoal: (title: string, label: string, description: string, targetDate?: string, globalGoalId?: string, milestoneId?: string) => void
+  updateGoal: (id: string, title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => void
+  linkToGlobalGoal: (goalId: string, globalGoalId: string | undefined, milestoneId?: string) => void
   deleteGoal: (id: string) => void
   toggleComplete: (id: string) => void
   toggleImportant: (id: string) => void
@@ -41,7 +42,7 @@ export const useGoalsStore = create<GoalsStore>()(
       goals: [],
       isLoaded: false,
 
-      addGoal: (title, label, description, targetDate) => {
+      addGoal: (title, label, description, targetDate, globalGoalId, milestoneId) => {
         let finalTargetDate: string
 
         if (targetDate) {
@@ -57,6 +58,8 @@ export const useGoalsStore = create<GoalsStore>()(
           completed: false,
           targetDate: finalTargetDate,
           label: label ? label.toUpperCase() : label,
+          globalGoalId: globalGoalId || undefined,
+          milestoneId: milestoneId || undefined,
           _version: 0, // Начальная версия для новой цели
         }
 
@@ -67,7 +70,7 @@ export const useGoalsStore = create<GoalsStore>()(
         syncService.enqueueGoalChange("create", newGoal)
       },
 
-      updateGoal: (id, title, label, description) => {
+      updateGoal: (id, title, label, description, globalGoalId, milestoneId) => {
         let updatedGoal: Goal | undefined
 
         set((state) => {
@@ -80,12 +83,37 @@ export const useGoalsStore = create<GoalsStore>()(
             title,
             label: label ? label.toUpperCase() : label,
             description: description || undefined,
+            globalGoalId: globalGoalId,
+            milestoneId: milestoneId,
             meta: goal.meta,
           }
 
 
           return {
             goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
+          }
+        })
+
+        if (updatedGoal) {
+          syncService.enqueueGoalChange("update", updatedGoal)
+        }
+      },
+
+      linkToGlobalGoal: (goalId, globalGoalId, milestoneId) => {
+        let updatedGoal: Goal | undefined
+
+        set((state) => {
+          const goal = state.goals.find((g) => g.id === goalId)
+          if (!goal) return state
+
+          updatedGoal = {
+            ...goal,
+            globalGoalId: globalGoalId,
+            milestoneId: milestoneId,
+          }
+
+          return {
+            goals: state.goals.map((g) => (g.id === goalId ? updatedGoal! : g)),
           }
         })
 

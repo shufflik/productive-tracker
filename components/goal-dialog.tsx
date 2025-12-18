@@ -1,38 +1,89 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import type { Goal } from "@/lib/types"
+import { ChevronDown, Target, X, Flag, TrendingUp, Layers } from "lucide-react"
+import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
+import type { Goal, GlobalGoal, Milestone } from "@/lib/types"
 
 type GoalDialogProps = {
   open: boolean
   onClose: () => void
-  onSave: (title: string, label: string, description: string) => void
+  onSave: (title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => void
   goal?: Goal | null
 }
 
+const TYPE_ICONS = {
+  outcome: Flag,
+  process: TrendingUp,
+  hybrid: Layers,
+}
+
 export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
+  const globalGoals = useGlobalGoalsStore((state) => state.globalGoals)
+  const getMilestonesForGoal = useGlobalGoalsStore((state) => state.getMilestonesForGoal)
+  
+  // Filter only active goals
+  const activeGlobalGoals = useMemo(() => 
+    globalGoals.filter((g) => 
+      g.status === "in_progress" || g.status === "not_started"
+    ),
+    [globalGoals]
+  )
+
   const [title, setTitle] = useState("")
   const [label, setLabel] = useState("")
   const [description, setDescription] = useState("")
+  const [globalGoalId, setGlobalGoalId] = useState<string | undefined>(undefined)
+  const [milestoneId, setMilestoneId] = useState<string | undefined>(undefined)
+  const [showGoalSelector, setShowGoalSelector] = useState(false)
+  const [showMilestoneSelector, setShowMilestoneSelector] = useState(false)
   const [titleError, setTitleError] = useState("")
   const [labelError, setLabelError] = useState("")
+
+  const selectedGlobalGoal = useMemo(() => 
+    globalGoals.find((g) => g.id === globalGoalId),
+    [globalGoals, globalGoalId]
+  )
+
+  const milestones = useMemo(() => {
+    if (!globalGoalId || selectedGlobalGoal?.type !== "outcome") return []
+    return getMilestonesForGoal(globalGoalId)
+  }, [globalGoalId, selectedGlobalGoal, getMilestonesForGoal])
+
+  const selectedMilestone = useMemo(() => 
+    milestones.find((m) => m.id === milestoneId),
+    [milestones, milestoneId]
+  )
 
   useEffect(() => {
     if (goal) {
       setTitle(goal.title)
       setLabel(goal.label || "")
       setDescription(goal.description || "")
+      setGlobalGoalId(goal.globalGoalId)
+      setMilestoneId(goal.milestoneId)
     } else {
       setTitle("")
       setLabel("")
       setDescription("")
+      setGlobalGoalId(undefined)
+      setMilestoneId(undefined)
     }
+    setShowGoalSelector(false)
+    setShowMilestoneSelector(false)
   }, [goal, open])
+
+  // Clear milestone when global goal changes
+  useEffect(() => {
+    if (selectedGlobalGoal?.type !== "outcome") {
+      setMilestoneId(undefined)
+    }
+  }, [globalGoalId, selectedGlobalGoal])
 
   const handleTitleChange = (value: string) => {
     if (value.length > 50) {
@@ -53,7 +104,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
   }
 
   const handleSave = () => {
-    if (!title.trim() || !label.trim()) return // Both fields required
+    if (!title.trim() || !label.trim()) return
     if (title.length > 50) {
       setTitleError("Title must not exceed 50 characters")
       return
@@ -63,15 +114,20 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
       return
     }
 
-    onSave(title, label, description)
+    onSave(title, label, description, globalGoalId, milestoneId)
     onClose()
+  }
+
+  const handleClearGlobalGoal = () => {
+    setGlobalGoalId(undefined)
+    setMilestoneId(undefined)
   }
 
   const isPostponed = goal?.meta?.isPostponed === true
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{goal ? "Edit Goal" : "New Goal"}</DialogTitle>
         </DialogHeader>
@@ -128,6 +184,144 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               {label.length}/25 characters
             </p>
           </div>
+
+          {/* Global Goal Link */}
+          {activeGlobalGoals.length > 0 && (
+            <div className="space-y-2">
+              <Label>Link to Global Goal</Label>
+              {selectedGlobalGoal ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+                    <span className="text-lg">{selectedGlobalGoal.icon || "🎯"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {selectedGlobalGoal.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {selectedGlobalGoal.type} goal
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearGlobalGoal}
+                      className="p-1 hover:bg-muted rounded"
+                    >
+                      <X className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                  
+                  {/* Milestone selector for outcome goals */}
+                  {selectedGlobalGoal.type === "outcome" && milestones.length > 0 && (
+                    <div className="relative ml-4">
+                      {selectedMilestone ? (
+                        <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                          <Flag className="w-3.5 h-3.5 text-purple-500" />
+                          <span className="text-sm text-foreground flex-1 truncate">
+                            {selectedMilestone.title}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setMilestoneId(undefined)}
+                            className="p-0.5 hover:bg-purple-500/20 rounded"
+                          >
+                            <X className="w-3.5 h-3.5 text-purple-500" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setShowMilestoneSelector(!showMilestoneSelector)}
+                            className="w-full flex items-center justify-between p-2 bg-background border border-dashed border-purple-500/50 rounded-lg text-left hover:border-purple-500 transition-colors"
+                          >
+                            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <Flag className="w-3.5 h-3.5" />
+                              Link to milestone (recommended)
+                            </span>
+                            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showMilestoneSelector ? "rotate-180" : ""}`} />
+                          </button>
+                          
+                          {showMilestoneSelector && (
+                            <div className="absolute z-10 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-36 overflow-y-auto">
+                              {milestones.map((m) => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setMilestoneId(m.id)
+                                    setShowMilestoneSelector(false)
+                                  }}
+                                  className={`w-full flex items-center gap-2 p-2 hover:bg-muted text-left transition-colors text-sm ${
+                                    m.isActive ? "bg-purple-500/5" : ""
+                                  }`}
+                                >
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    m.isCompleted 
+                                      ? "bg-green-500" 
+                                      : m.isActive 
+                                        ? "bg-purple-500" 
+                                        : "bg-muted-foreground"
+                                  }`} />
+                                  <span className={m.isCompleted ? "text-muted-foreground" : ""}>
+                                    {m.title}
+                                  </span>
+                                  {m.isActive && (
+                                    <span className="text-xs text-purple-500 ml-auto">active</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowGoalSelector(!showGoalSelector)}
+                    className="w-full flex items-center justify-between p-3 bg-background border border-border rounded-lg text-left hover:border-primary/50 transition-colors"
+                  >
+                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Link to global goal (optional)
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showGoalSelector ? "rotate-180" : ""}`} />
+                  </button>
+                  
+                  {showGoalSelector && (
+                    <div className="absolute z-10 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {activeGlobalGoals.map((g) => {
+                        const TypeIcon = TYPE_ICONS[g.type]
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => {
+                              setGlobalGoalId(g.id)
+                              setShowGoalSelector(false)
+                            }}
+                            className="w-full flex items-center gap-2 p-3 hover:bg-muted text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
+                          >
+                            <span className="text-lg">{g.icon || "🎯"}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{g.title}</p>
+                              <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                                <TypeIcon className="w-3 h-3" />
+                                {g.type}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
