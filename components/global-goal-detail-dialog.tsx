@@ -1,15 +1,14 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { motion } from "framer-motion"
+import { useMemo, useState, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { 
-  Pencil, 
+import {
+  Pencil,
   Trash2,
-  ChevronDown, 
+  ChevronDown,
   ChevronUp,
   Plus,
   Check,
@@ -49,17 +48,35 @@ type GlobalGoalDetailDialogProps = {
   goal: GlobalGoal | null
 }
 
-function OutcomeDetailView({ goal, progress }: { goal: GlobalGoal; progress: OutcomeProgress }) {
+function OutcomeDetailView({ goal, progress, isEditing }: { goal: GlobalGoal; progress: OutcomeProgress; isEditing?: boolean }) {
   const allMilestones = useGlobalGoalsStore((state) => state.milestones)
   const addMilestone = useGlobalGoalsStore((state) => state.addMilestone)
+  const updateMilestone = useGlobalGoalsStore((state) => state.updateMilestone)
   const goals = useGoalsStore((state) => state.goals)
-  
-  const milestones = useMemo(() => 
+
+  const milestones = useMemo(() =>
     allMilestones
       .filter((m) => m.globalGoalId === goal.id)
       .sort((a, b) => a.order - b.order),
     [allMilestones, goal.id]
   )
+
+  const handleMoveMilestone = useCallback(async (milestoneId: string, direction: "up" | "down") => {
+    const currentIndex = milestones.findIndex(m => m.id === milestoneId)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= milestones.length) return
+
+    const currentMilestone = milestones[currentIndex]
+    const targetMilestone = milestones[targetIndex]
+
+    // Swap orders
+    await Promise.all([
+      updateMilestone(goal.id, currentMilestone.id, { order: targetMilestone.order }),
+      updateMilestone(goal.id, targetMilestone.id, { order: currentMilestone.order })
+    ])
+  }, [milestones, goal.id, updateMilestone])
   
   const [showAddMilestone, setShowAddMilestone] = useState(false)
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("")
@@ -170,18 +187,67 @@ function OutcomeDetailView({ goal, progress }: { goal: GlobalGoal; progress: Out
                   </div>
                   
                   {/* Контент справа - кликабельный */}
-                  <button
-                    onClick={() => setSelectedMilestone(milestone)}
-                    className={`timeline-end timeline-box p-3 w-[calc(100%-0.3rem)] text-left transition-all hover:brightness-95 active:scale-[0.99] ${
-                      isActive 
-                        ? "bg-purple-500/5 border-purple-500/30" 
-                        : isCompleted 
+                  <div
+                    className={`timeline-end timeline-box p-3 w-[calc(100%-0.3rem)] text-left transition-all ${
+                      isEditing ? "" : "hover:brightness-95 active:scale-[0.99]"
+                    } ${
+                      isActive
+                        ? "bg-purple-500/5 border-purple-500/30"
+                        : isCompleted
                           ? "bg-green-500/5 border-green-500/20"
                           : "bg-muted/30 border-border/50"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
+                      {/* Кнопки перемещения в режиме редактирования (только для не начатых этапов) */}
+                      {isEditing && !isActive && !isCompleted && (() => {
+                        // Можно двигать вверх только если предыдущий этап тоже "Не начат"
+                        const prevMilestone = index > 0 ? milestones[index - 1] : null
+                        const canMoveUp = prevMilestone && !prevMilestone.isActive && !prevMilestone.isCompleted
+
+                        // Можно двигать вниз только если следующий этап тоже "Не начат"
+                        const nextMilestone = !isLast ? milestones[index + 1] : null
+                        const canMoveDown = nextMilestone && !nextMilestone.isActive && !nextMilestone.isCompleted
+
+                        return (
+                          <div className="flex flex-col gap-0.5 flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleMoveMilestone(milestone.id, "up")
+                              }}
+                              disabled={!canMoveUp}
+                              className={`p-0.5 rounded transition-colors ${
+                                !canMoveUp
+                                  ? "text-muted-foreground/30 cursor-not-allowed"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleMoveMilestone(milestone.id, "down")
+                              }}
+                              disabled={!canMoveDown}
+                              className={`p-0.5 rounded transition-colors ${
+                                !canMoveDown
+                                  ? "text-muted-foreground/30 cursor-not-allowed"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )
+                      })()}
+
+                      <button
+                        onClick={() => !isEditing && setSelectedMilestone(milestone)}
+                        disabled={isEditing}
+                        className={`flex-1 min-w-0 text-left ${isEditing ? "cursor-default" : ""}`}
+                      >
                         <p className={`font-medium truncate ${isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}>
                           {milestone.title}
                         </p>
@@ -195,8 +261,8 @@ function OutcomeDetailView({ goal, progress }: { goal: GlobalGoal; progress: Out
                             )}
                           </div>
                         )}
-                      </div>
-                      
+                      </button>
+
                       {/* Статус-индикатор */}
                       {isActive && (
                         <span className="text-xs text-purple-600 bg-purple-500/20 px-2 py-0.5 rounded flex-shrink-0">
@@ -204,7 +270,7 @@ function OutcomeDetailView({ goal, progress }: { goal: GlobalGoal; progress: Out
                         </span>
                       )}
                     </div>
-                  </button>
+                  </div>
                   
                   {/* Линия снизу (кроме последнего) */}
                   {!isLast && <hr className={isCompleted ? "bg-primary" : "bg-border"} />}
@@ -577,7 +643,7 @@ export function GlobalGoalDetailDialog({
           </div>
           
           {progress.type === "outcome" && (
-            <OutcomeDetailView goal={goal} progress={progress as OutcomeProgress} />
+            <OutcomeDetailView goal={goal} progress={progress as OutcomeProgress} isEditing={isEditingDescription} />
           )}
           {progress.type === "process" && (
             <ProcessDetailView goal={goal} progress={progress as ProcessProgress} />
