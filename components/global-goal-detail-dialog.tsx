@@ -51,7 +51,7 @@ type GlobalGoalDetailDialogProps = {
 function OutcomeDetailView({ goal, progress, isEditing }: { goal: GlobalGoal; progress: OutcomeProgress; isEditing?: boolean }) {
   const allMilestones = useGlobalGoalsStore((state) => state.milestones)
   const addMilestone = useGlobalGoalsStore((state) => state.addMilestone)
-  const updateMilestone = useGlobalGoalsStore((state) => state.updateMilestone)
+  const swapMilestoneOrders = useGlobalGoalsStore((state) => state.swapMilestoneOrders)
   const goals = useGoalsStore((state) => state.goals)
 
   const milestones = useMemo(() =>
@@ -61,7 +61,7 @@ function OutcomeDetailView({ goal, progress, isEditing }: { goal: GlobalGoal; pr
     [allMilestones, goal.id]
   )
 
-  const handleMoveMilestone = useCallback(async (milestoneId: string, direction: "up" | "down") => {
+  const handleMoveMilestone = useCallback((milestoneId: string, direction: "up" | "down") => {
     const currentIndex = milestones.findIndex(m => m.id === milestoneId)
     if (currentIndex === -1) return
 
@@ -71,12 +71,9 @@ function OutcomeDetailView({ goal, progress, isEditing }: { goal: GlobalGoal; pr
     const currentMilestone = milestones[currentIndex]
     const targetMilestone = milestones[targetIndex]
 
-    // Swap orders
-    await Promise.all([
-      updateMilestone(goal.id, currentMilestone.id, { order: targetMilestone.order }),
-      updateMilestone(goal.id, targetMilestone.id, { order: currentMilestone.order })
-    ])
-  }, [milestones, goal.id, updateMilestone])
+    // Атомарный swap - один set() в store
+    swapMilestoneOrders(goal.id, currentMilestone.id, targetMilestone.id)
+  }, [milestones, goal.id, swapMilestoneOrders])
   
   const [showAddMilestone, setShowAddMilestone] = useState(false)
   const [newMilestoneTitle, setNewMilestoneTitle] = useState("")

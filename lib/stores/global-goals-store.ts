@@ -66,6 +66,7 @@ type GlobalGoalsActions = {
     description?: string
     order?: number
   }) => Promise<void>
+  swapMilestoneOrders: (globalGoalId: string, milestoneId1: string, milestoneId2: string) => Promise<void>
   deleteMilestone: (globalGoalId: string, milestoneId: string) => Promise<void>
   activateMilestone: (globalGoalId: string, milestoneId: string) => Promise<void>
   completeMilestone: (globalGoalId: string, milestoneId: string) => Promise<void>
@@ -533,14 +534,42 @@ export const useGlobalGoalsStore = create<GlobalGoalsStore>()(
         }
       },
 
+      swapMilestoneOrders: async (globalGoalId, milestoneId1, milestoneId2) => {
+        const milestone1 = get().milestones.find((m) => m.id === milestoneId1)
+        const milestone2 = get().milestones.find((m) => m.id === milestoneId2)
+        if (!milestone1 || !milestone2) return
+
+        const order1 = milestone1.order
+        const order2 = milestone2.order
+
+        // Атомарное обновление обоих milestones за один set()
+        set((state) => ({
+          milestones: state.milestones.map((m) => {
+            if (m.id === milestoneId1) return { ...m, order: order2 }
+            if (m.id === milestoneId2) return { ...m, order: order1 }
+            return m
+          }),
+        }))
+
+        // Синхронизация с API (не блокируем UI)
+        try {
+          await Promise.all([
+            updateMilestoneApi(globalGoalId, milestoneId1, { order: order2, _version: milestone1._version || 0 }),
+            updateMilestoneApi(globalGoalId, milestoneId2, { order: order1, _version: milestone2._version || 0 }),
+          ])
+        } catch (error) {
+          console.warn('[GlobalGoalsStore] API error, keeping local swap:', error)
+        }
+      },
+
       deleteMilestone: async (globalGoalId, milestoneId) => {
         const milestone = get().milestones.find((m) => m.id === milestoneId)
         if (!milestone) return
-        
+
         set((state) => ({
           milestones: state.milestones.filter((m) => m.id !== milestoneId),
         }))
-        
+
         try {
           await deleteMilestoneApi(globalGoalId, milestoneId)
         } catch (error) {
