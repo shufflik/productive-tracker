@@ -100,23 +100,40 @@ function calculateOutcomeProgress(
   linkedGoals: Goal[]
 ): OutcomeProgress {
   const activeMilestone = milestones.find(m => m.isActive)
-  const completedMilestones = milestones.filter(m => m.isCompleted).length
+  const now = new Date()
   
   // Calculate time in current milestone
   let timeInCurrentMilestone = 0
   if (activeMilestone?.enteredAt) {
     const enteredDate = new Date(activeMilestone.enteredAt)
-    const now = new Date()
     timeInCurrentMilestone = Math.floor((now.getTime() - enteredDate.getTime()) / (1000 * 60 * 60 * 24))
   }
   
-  // Activity by milestone
+  // Build milestone history - для контекста, НЕ для прогресса
+  const milestoneHistory = milestones.map(m => {
+    let daysSpent = 0
+    if (m.enteredAt) {
+      const enteredDate = new Date(m.enteredAt)
+      const exitDate = m.exitedAt ? new Date(m.exitedAt) : (m.isActive ? now : enteredDate)
+      daysSpent = Math.floor((exitDate.getTime() - enteredDate.getTime()) / (1000 * 60 * 60 * 24))
+    }
+    
+    return {
+      id: m.id,
+      title: m.title,
+      enteredAt: m.enteredAt,
+      exitedAt: m.exitedAt,
+      daysSpent,
+      isCompleted: m.isCompleted
+    }
+  })
+  
+  // Activity by milestone - для контекста, НЕ для прогресса
   const activityByMilestone: OutcomeProgress['activityByMilestone'] = {}
   for (const milestone of milestones) {
     const goalsForMilestone = linkedGoals.filter(g => g.milestoneId === milestone.id)
     const completedGoals = goalsForMilestone.filter(g => g.completed)
     
-    // Calculate unique active days
     const activeDates = new Set<string>()
     for (const goal of goalsForMilestone) {
       if (goal.targetDate) {
@@ -135,23 +152,58 @@ function calculateOutcomeProgress(
     type: "outcome",
     currentMilestone: activeMilestone,
     timeInCurrentMilestone,
-    milestonesCompleted: completedMilestones,
-    totalMilestones: milestones.length,
+    milestoneHistory,
     activityByMilestone
   }
+}
+
+/**
+ * Определяет текстовый статус активности на основе индекса
+ */
+function getActivityStatus(activityIndex: number): import("@/lib/types").ActivityStatus {
+  if (activityIndex >= 60) return "active"
+  if (activityIndex >= 30) return "unstable"
+  return "weak"
+}
+
+/**
+ * Генерирует краткий сигнал об активности
+ */
+function getActivitySignal(
+  activityIndex: number,
+  trend: "up" | "down" | "stable",
+  streakDays: number
+): string | undefined {
+  if (trend === "up" && activityIndex >= 50) {
+    return "Активность выше обычного"
+  }
+  if (streakDays >= 7) {
+    return `Серия ${streakDays} дней`
+  }
+  if (trend === "down" && activityIndex < 40) {
+    return "Активность снижается"
+  }
+  return undefined
 }
 
 function calculateProcessProgress(
   globalGoal: GlobalGoal,
   linkedGoals: Goal[],
-  linkedHabits: Habit[]
+  linkedHabits: Habit[],
+  excludeMilestoneGoals: boolean = false
 ): ProcessProgress {
   const now = new Date()
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
   
+  // КРИТИЧНО: Исключаем goals привязанные к milestones outcome-целей
+  // Они учитываются только в контексте своего milestone
+  const goalsToCount = excludeMilestoneGoals 
+    ? linkedGoals.filter(g => !g.milestoneId)
+    : linkedGoals
+  
   // Count activity in last 7 days
-  const recentGoals = linkedGoals.filter(g => {
+  const recentGoals = goalsToCount.filter(g => {
     if (!g.targetDate) return false
     const date = new Date(g.targetDate)
     return date >= weekAgo && date <= now
@@ -172,15 +224,15 @@ function calculateProcessProgress(
     }
   }
   
-  // Calculate activity index (0-100)
+  // Calculate activity index (0-100) - внутренний показатель
   const totalRecentActivity = recentCompletedGoals + recentHabitCompletions
-  const maxExpectedActivity = 7 * (1 + linkedHabits.length) // 1 goal/day + habits
+  const maxExpectedActivity = 7 * (1 + linkedHabits.length)
   const activityIndex = maxExpectedActivity > 0 
     ? Math.min(100, Math.round((totalRecentActivity / maxExpectedActivity) * 100))
     : 0
   
-  // Calculate trend (compare last week vs previous week)
-  const previousWeekGoals = linkedGoals.filter(g => {
+  // Calculate trend
+  const previousWeekGoals = goalsToCount.filter(g => {
     if (!g.targetDate) return false
     const date = new Date(g.targetDate)
     return date >= twoWeeksAgo && date < weekAgo
@@ -201,7 +253,7 @@ function calculateProcessProgress(
   
   while (true) {
     const dateStr = checkDate.toDateString()
-    const hasGoalActivity = linkedGoals.some(g => 
+    const hasGoalActivity = goalsToCount.some(g => 
       g.targetDate === dateStr && g.completed
     )
     const hasHabitActivity = linkedHabits.some(h => 
@@ -218,7 +270,7 @@ function calculateProcessProgress(
   
   // Find last active date
   let lastActiveDate: string | undefined
-  const allDates = linkedGoals
+  const allDates = goalsToCount
     .filter(g => g.completed && g.targetDate)
     .map(g => g.targetDate!)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
@@ -227,17 +279,22 @@ function calculateProcessProgress(
     lastActiveDate = allDates[0]
   }
   
+  // Определяем текстовый статус и сигнал
+  const activityStatus = getActivityStatus(activityIndex)
+  const activitySignal = getActivitySignal(activityIndex, trend, streakDays)
+  
   return {
     type: "process",
-    activityIndex,
+    _activityIndex: activityIndex, // внутренний, не показываем в UI
+    activityStatus,
+    activitySignal,
     trend,
-    totalGoalsCompleted: linkedGoals.filter(g => g.completed).length,
-    totalHabitsCompleted: linkedHabits.reduce((sum, h) => {
-      if (!h.completions) return sum
-      return sum + Object.values(h.completions).filter(Boolean).length
-    }, 0),
     streakDays,
-    lastActiveDate
+    lastActiveDate,
+    weeklyActivity: {
+      goalsCompleted: recentCompletedGoals,
+      habitsCompleted: recentHabitCompletions
+    }
   }
 }
 
@@ -246,7 +303,8 @@ function calculateHybridProgress(
   linkedGoals: Goal[],
   linkedHabits: Habit[]
 ): HybridProgress {
-  const processProgress = calculateProcessProgress(globalGoal, linkedGoals, linkedHabits)
+  // Получаем process rhythm, исключая goals привязанные к milestones
+  const processProgress = calculateProcessProgress(globalGoal, linkedGoals, linkedHabits, true)
   
   const current = globalGoal.currentValue || 0
   const target = globalGoal.targetValue || 1
@@ -254,13 +312,19 @@ function calculateHybridProgress(
   
   return {
     type: "hybrid",
-    objectiveProgress: {
+    // Объективный результат - только факты, БЕЗ процентов
+    objectiveResult: {
       current,
       target,
-      unit,
-      percentage: Math.min(100, Math.round((current / target) * 100))
+      unit
     },
-    processProgress
+    // Процессный ритм - упрощённая версия ProcessProgress
+    processRhythm: {
+      activityStatus: processProgress.activityStatus,
+      activitySignal: processProgress.activitySignal,
+      trend: processProgress.trend,
+      streakDays: processProgress.streakDays
+    }
   }
 }
 
@@ -514,19 +578,16 @@ export const useGlobalGoalsStore = create<GlobalGoalsStore>()(
       },
 
       completeMilestone: async (globalGoalId, milestoneId) => {
-        const milestones = get().milestones.filter(m => m.globalGoalId === globalGoalId)
-        const currentIndex = milestones.findIndex(m => m.id === milestoneId)
-        const nextMilestone = milestones[currentIndex + 1]
         const now = new Date().toISOString()
         
+        // КРИТИЧНО: НЕ активируем следующий milestone автоматически
+        // Пользователь должен сам осознанно начать новый этап
         set((state) => ({
           milestones: state.milestones.map((m) => {
             if (m.globalGoalId !== globalGoalId) return m
             
             if (m.id === milestoneId) {
               return { ...m, isActive: false, isCompleted: true, exitedAt: now }
-            } else if (nextMilestone && m.id === nextMilestone.id) {
-              return { ...m, isActive: true, enteredAt: now }
             }
             return m
           }),
@@ -538,10 +599,7 @@ export const useGlobalGoalsStore = create<GlobalGoalsStore>()(
             isActive: false,
             _version: 0,
           })
-          
-          if (nextMilestone) {
-            await activateMilestoneApi(globalGoalId, nextMilestone.id)
-          }
+          // НЕ вызываем activateMilestoneApi для следующего milestone
         } catch (error) {
           console.warn('[GlobalGoalsStore] API error, keeping local completion:', error)
         }

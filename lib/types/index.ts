@@ -164,15 +164,39 @@ export type DayStatus = "productive" | "normal" | "unproductive" | null
 // ============================================
 
 /**
+ * Статус активности для process-целей
+ * Показывается вместо процентов
+ */
+export type ActivityStatus = "active" | "unstable" | "weak"
+
+/**
  * Прогресс для OUTCOME цели
- * НЕ показывает процент!
+ * 
+ * ЗАПРЕЩЕНО показывать:
+ * - процент выполнения
+ * - milestonesCompleted/totalMilestones как прогресс
+ * 
+ * РАЗРЕШЕНО показывать:
+ * - текущий активный milestone
+ * - время в текущем milestone
+ * - историю переходов
  */
 export type OutcomeProgress = {
   type: "outcome"
+  // Текущий активный этап
   currentMilestone?: Milestone
-  timeInCurrentMilestone: number  // days
-  milestonesCompleted: number
-  totalMilestones: number
+  // Дней в текущем этапе
+  timeInCurrentMilestone: number
+  // История - только для контекста, НЕ для прогресса
+  milestoneHistory: {
+    id: string
+    title: string
+    enteredAt?: string
+    exitedAt?: string
+    daysSpent: number
+    isCompleted: boolean
+  }[]
+  // Распределение активности по milestones (контекст, не прогресс)
   activityByMilestone: Record<string, {
     goalsCompleted: number
     goalsTotal: number
@@ -182,36 +206,57 @@ export type OutcomeProgress = {
 
 /**
  * Прогресс для PROCESS цели
- * Скользящий индекс, может расти и падать
+ * 
+ * Activity Index - внутренний показатель
+ * В UI показываем ТОЛЬКО текстовый статус
  */
 export type ProcessProgress = {
   type: "process"
-  // Скользящий индекс активности (0-100)
-  activityIndex: number
-  // Тренд за последнюю неделю
+  // Внутренний индекс (0-100), НЕ показываем в UI напрямую
+  _activityIndex: number
+  // Текстовый статус для UI
+  activityStatus: ActivityStatus
+  // Краткий сигнал (опционально)
+  activitySignal?: string
+  // Тренд
   trend: "up" | "down" | "stable"
-  // Статистика
-  totalGoalsCompleted: number
-  totalHabitsCompleted: number
+  // Статистика без процентов
   streakDays: number
   lastActiveDate?: string
+  // Агрегированные данные
+  weeklyActivity: {
+    goalsCompleted: number
+    habitsCompleted: number
+  }
 }
 
 /**
  * Прогресс для HYBRID цели
- * Объективный + процессный прогресс ОТДЕЛЬНО
+ * 
+ * ДВА НЕЗАВИСИМЫХ показателя:
+ * 1. Объективный результат (current/target) - БЕЗ интерпретации как прогресс цели
+ * 2. Процессный ритм - как у process цели
+ * 
+ * ЗАПРЕЩЕНО:
+ * - объединять показатели
+ * - показывать два процента
+ * - вычислять "общий прогресс"
  */
 export type HybridProgress = {
   type: "hybrid"
-  // Объективный прогресс (измеримый результат)
-  objectiveProgress: {
+  // Объективный результат - только факты, без процентов
+  objectiveResult: {
     current: number
     target: number
     unit: string
-    percentage: number  // только здесь можно показывать %
   }
-  // Процессный прогресс (как для process цели)
-  processProgress: ProcessProgress
+  // Процессный ритм - тот же формат что и ProcessProgress
+  processRhythm: {
+    activityStatus: ActivityStatus
+    activitySignal?: string
+    trend: "up" | "down" | "stable"
+    streakDays: number
+  }
 }
 
 export type GlobalGoalProgress = OutcomeProgress | ProcessProgress | HybridProgress

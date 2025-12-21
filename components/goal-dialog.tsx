@@ -17,10 +17,10 @@ type GoalDialogProps = {
   goal?: Goal | null
 }
 
-const TYPE_ICONS = {
-  outcome: Flag,
-  process: TrendingUp,
-  hybrid: Layers,
+const TYPE_INFO = {
+  outcome: { icon: Flag, color: "rgb(139, 92, 246)" },
+  process: { icon: TrendingUp, color: "rgb(34, 197, 94)" },
+  hybrid: { icon: Layers, color: "rgb(59, 130, 246)" },
 }
 
 export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
@@ -192,7 +192,15 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               {selectedGlobalGoal ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
-                    <span className="text-lg">{selectedGlobalGoal.icon || "🎯"}</span>
+                    {selectedGlobalGoal.icon && selectedGlobalGoal.icon !== "🎯" ? (
+                      <span className="text-lg">{selectedGlobalGoal.icon}</span>
+                    ) : (
+                      (() => {
+                        const typeInfo = TYPE_INFO[selectedGlobalGoal.type]
+                        const TypeIcon = typeInfo.icon
+                        return <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                      })()
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
                         {selectedGlobalGoal.title}
@@ -294,7 +302,8 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
                   {showGoalSelector && (
                     <div className="absolute z-10 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {activeGlobalGoals.map((g) => {
-                        const TypeIcon = TYPE_ICONS[g.type]
+                        const typeInfo = TYPE_INFO[g.type]
+                        const TypeIcon = typeInfo.icon
                         return (
                           <button
                             key={g.id}
@@ -305,11 +314,15 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
                             }}
                             className="w-full flex items-center gap-2 p-3 hover:bg-muted text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
                           >
-                            <span className="text-lg">{g.icon || "🎯"}</span>
+                            {g.icon && g.icon !== "🎯" ? (
+                              <span className="text-lg">{g.icon}</span>
+                            ) : (
+                              <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{g.title}</p>
                               <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">
-                                <TypeIcon className="w-3 h-3" />
+                                <TypeIcon className="w-3 h-3" style={{ color: typeInfo.color }} />
                                 {g.type}
                               </p>
                             </div>

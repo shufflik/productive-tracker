@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Target, TrendingUp, Layers, Flag, ChevronRight } from "lucide-react"
+import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GlobalGoalDialog } from "@/components/global-goal-dialog"
 import { GlobalGoalDetailDialog } from "@/components/global-goal-detail-dialog"
@@ -26,81 +26,113 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 function OutcomeProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "outcome" } }) {
-  const { currentMilestone, timeInCurrentMilestone, milestonesCompleted, totalMilestones } = progress
+  const { currentMilestone, timeInCurrentMilestone, milestoneHistory } = progress
+  
+  // ЗАПРЕЩЕНО показывать progress bar или проценты milestones
+  // Показываем только текущий этап и время в нём
+  
+  const completedCount = milestoneHistory.filter(m => m.isCompleted).length
+  const hasNoActiveMilestone = !currentMilestone && completedCount > 0
   
   return (
     <div className="space-y-1">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-purple-500 transition-all"
-            style={{ width: totalMilestones > 0 ? `${(milestonesCompleted / totalMilestones) * 100}%` : '0%' }}
-          />
+      {currentMilestone ? (
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-purple-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-foreground truncate">{currentMilestone.title}</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
+            {timeInCurrentMilestone}d
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {milestonesCompleted}/{totalMilestones}
-        </span>
-      </div>
-      {currentMilestone && (
+      ) : hasNoActiveMilestone ? (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Pause className="w-3.5 h-3.5" />
+          <span>Между этапами • Выберите следующий</span>
+        </div>
+      ) : milestoneHistory.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          📍 {currentMilestone.title} • {timeInCurrentMilestone}d
+          Добавьте этапы для отслеживания
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Активируйте первый этап
         </p>
       )}
     </div>
   )
 }
 
+// Локализация статусов активности
+const ACTIVITY_STATUS_CONFIG: Record<string, { label: string; color: string; iconColor: string }> = {
+  active: { label: "Активно", color: "text-green-600", iconColor: "text-green-500" },
+  unstable: { label: "Нестабильно", color: "text-yellow-600", iconColor: "text-yellow-500" },
+  weak: { label: "Низкая активность", color: "text-red-500", iconColor: "text-red-500" },
+}
+
+function ActivityStatusIcon({ status }: { status: string }) {
+  const config = ACTIVITY_STATUS_CONFIG[status]
+  return <Circle className={`w-3 h-3 fill-current ${config.iconColor}`} />
+}
+
+function TrendIcon({ trend }: { trend: "up" | "down" | "stable" }) {
+  if (trend === "up") return <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+  if (trend === "down") return <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+  return <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+}
+
 function ProcessProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "process" } }) {
-  const { activityIndex, trend, streakDays } = progress
+  const { activityStatus, activitySignal, trend, streakDays } = progress
   
-  const trendIcon = trend === "up" ? "📈" : trend === "down" ? "📉" : "➡️"
+  const statusConfig = ACTIVITY_STATUS_CONFIG[activityStatus]
+  
+  // ЗАПРЕЩЕНО показывать проценты Activity Index
+  // Показываем только текстовый статус
   
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-          <motion.div 
-            className="h-full bg-green-500"
-            initial={{ width: 0 }}
-            animate={{ width: `${activityIndex}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-        <span className="text-xs font-medium text-green-600">{activityIndex}%</span>
+        <ActivityStatusIcon status={activityStatus} />
+        <span className={`text-sm font-medium ${statusConfig.color}`}>{statusConfig.label}</span>
+        {streakDays > 0 && (
+          <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+            <Flame className="w-3.5 h-3.5 text-orange-500" />
+            {streakDays}d
+          </span>
+        )}
       </div>
-      <p className="text-xs text-muted-foreground">
-        {trendIcon} {trend} • 🔥 {streakDays}d streak
-      </p>
+      {activitySignal && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <TrendIcon trend={trend} />
+          <span>{activitySignal}</span>
+        </div>
+      )}
     </div>
   )
 }
 
 function HybridProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "hybrid" } }) {
-  const { objectiveProgress, processProgress } = progress
+  const { objectiveResult, processRhythm } = progress
   
+  const statusConfig = ACTIVITY_STATUS_CONFIG[processRhythm.activityStatus]
+  
+  // Результат и активность в одну строку (как outcome: слева инфо, справа значение)
   return (
-    <div className="space-y-2">
-      {/* Objective progress */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div 
-              className="h-full bg-blue-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${objectiveProgress.percentage}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-          <span className="text-xs font-medium text-blue-600">{objectiveProgress.percentage}%</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {objectiveProgress.current}/{objectiveProgress.target} {objectiveProgress.unit}
-        </p>
-      </div>
-      {/* Process indicator */}
-      <p className="text-xs text-muted-foreground">
-        Activity: {processProgress.activityIndex}% {processProgress.trend === "up" ? "📈" : processProgress.trend === "down" ? "📉" : "➡️"}
-      </p>
+    <div className="flex items-center gap-2">
+      {/* Процессный ритм - слева */}
+      <ActivityStatusIcon status={processRhythm.activityStatus} />
+      <span className={`text-sm font-medium ${statusConfig.color}`}>{statusConfig.label}</span>
+      {processRhythm.streakDays > 0 && (
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <Flame className="w-3 h-3 text-orange-500" />
+          {processRhythm.streakDays}d
+        </span>
+      )}
+
+      {/* Объективный результат - справа */}
+      <span className="flex items-center gap-1.5 ml-auto text-xs text-muted-foreground whitespace-nowrap">
+        <BarChart3 className="w-3.5 h-3.5 text-blue-500" />
+        {objectiveResult.current}/{objectiveResult.target} {objectiveResult.unit}
+      </span>
     </div>
   )
 }
@@ -130,22 +162,26 @@ function GlobalGoalCard({
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0"
+          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${typeInfo.color}20` }}
         >
-          {goal.icon || "🎯"}
+          {goal.icon && goal.icon !== "🎯" ? (
+            <span className="text-xl">{goal.icon}</span>
+          ) : (
+            <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-foreground truncate">{goal.title}</h3>
           <div className="flex items-center gap-2 mt-0.5">
-            <span 
+            {/* <span 
               className="text-xs px-1.5 py-0.5 rounded-full"
               style={{ backgroundColor: `${typeInfo.color}20`, color: typeInfo.color }}
             >
               {typeInfo.label}
-            </span>
+            </span> */}
             <span 
-              className="text-xs px-1.5 py-0.5 rounded-full"
+              className="text-xs py-0.5 rounded-full"
               style={{ backgroundColor: `${statusColor}20`, color: statusColor }}
             >
               {goal.status.replace('_', ' ')}
@@ -232,37 +268,7 @@ export function GlobalGoalsView() {
 
   return (
     <div className="flex flex-col h-full space-y-6">
-      {/* Type Filter */}
-      <div className="flex gap-2 p-1 bg-muted rounded-lg flex-shrink-0 overflow-x-auto">
-        <button
-          onClick={() => setSelectedType("all")}
-          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-            selectedType === "all"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          All
-        </button>
-        {(["outcome", "process", "hybrid"] as const).map((type) => {
-          const info = TYPE_INFO[type]
-          const Icon = info.icon
-          return (
-            <button
-              key={type}
-              onClick={() => setSelectedType(type)}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors whitespace-nowrap flex items-center justify-center gap-1.5 ${
-                selectedType === type
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {info.label}
-            </button>
-          )
-        })}
-      </div>
+
 
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">

@@ -162,11 +162,13 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
           icon,
         })
       } else {
+        // Не сохраняем дефолтную иконку 🎯 - тогда покажется иконка типа
+        const customIcon = icon !== "🎯" ? icon : undefined
         await addGlobalGoal({
           type,
           title,
           description: description || undefined,
-          icon,
+          icon: customIcon,
           periodStart,
           periodEnd,
           targetValue: type === "hybrid" && targetValue ? Number(targetValue) : undefined,
@@ -254,40 +256,6 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
           {/* Step 2: Basic Info */}
           {step === 2 && (
             <div className="space-y-4">
-              {/* Icon Selection - compact */}
-              <div className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border hover:border-primary/50 transition-colors"
-                >
-                  <span className="text-xl">{icon}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showEmojiPicker ? "rotate-180" : ""}`} />
-                </button>
-                
-                {showEmojiPicker && (
-                  <div className="absolute z-20 mt-1 p-2 bg-popover border border-border rounded-lg shadow-lg w-64">
-                    <div className="grid grid-cols-8 gap-1">
-                      {EMOJI_OPTIONS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => {
-                            setIcon(emoji)
-                            setShowEmojiPicker(false)
-                          }}
-                          className={`w-7 h-7 rounded flex items-center justify-center text-lg hover:bg-muted transition-colors ${
-                            icon === emoji ? "bg-primary/20 ring-1 ring-primary" : ""
-                          }`}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">

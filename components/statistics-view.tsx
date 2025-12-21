@@ -408,13 +408,6 @@ export function StatisticsView() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hide space-y-6">
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Productivity Calendar</h2>
-            <p className="text-sm text-muted-foreground">Track your daily progress</p>
-          </div>
-        </div>
-
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">{monthName}</h3>
