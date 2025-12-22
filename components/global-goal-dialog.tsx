@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Flag, TrendingUp, Layers, Plus, X, Info, ChevronDown, Calendar } from "lucide-react"
+import { Flag, TrendingUp, Layers, Plus, X, Info, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import type { GlobalGoal, GlobalGoalType } from "@/lib/types"
 
@@ -132,6 +132,14 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
     setMilestones(milestones.filter((_, i) => i !== index))
   }
 
+  const handleMoveMilestone = (index: number, direction: "up" | "down") => {
+    const newMilestones = [...milestones]
+    const targetIndex = direction === "up" ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= newMilestones.length) return
+    ;[newMilestones[index], newMilestones[targetIndex]] = [newMilestones[targetIndex], newMilestones[index]]
+    setMilestones(newMilestones)
+  }
+
   // Calculate end date based on preset
   const getEndDate = (): string | undefined => {
     if (periodPreset === "none") return undefined
@@ -187,7 +195,9 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
   const canProceedToStep2 = type !== null
   const canProceedToStep3 = title.trim().length > 0
   const canSave = title.trim().length > 0 && (
-    type !== "hybrid" || (targetValue && unit)
+    type === "process" ||
+    (type === "outcome" && milestones.length > 0) ||
+    (type === "hybrid" && targetValue && unit)
   )
 
   const selectedTypeInfo = TYPE_OPTIONS.find(t => t.value === type)
@@ -346,17 +356,43 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                       Add phases of your journey. You can always edit them later.
                     </p>
                   </div>
-                  
-                  <Label>Milestones (optional)</Label>
-                  
+
+                  <Label>Milestones <span className="text-destructive">*</span></Label>
+
                   {/* Existing milestones */}
                   {milestones.length > 0 && (
                     <div className="space-y-2">
                       {milestones.map((m, index) => (
-                        <div 
+                        <div
                           key={index}
                           className="flex items-center gap-2 p-2 bg-muted rounded-lg"
                         >
+                          <div className="flex flex-col gap-0.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveMilestone(index, "up")}
+                              disabled={index === 0}
+                              className={`p-0.5 rounded transition-colors ${
+                                index === 0
+                                  ? "text-muted-foreground/30 cursor-not-allowed"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-background"
+                              }`}
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveMilestone(index, "down")}
+                              disabled={index === milestones.length - 1}
+                              className={`p-0.5 rounded transition-colors ${
+                                index === milestones.length - 1
+                                  ? "text-muted-foreground/30 cursor-not-allowed"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-background"
+                              }`}
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </div>
                           <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
                           <span className="flex-1 text-sm">{m.title}</span>
                           <button
@@ -370,7 +406,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                       ))}
                     </div>
                   )}
-                  
+
                   {/* Add milestone input */}
                   <div className="flex gap-2">
                     <Input
@@ -379,9 +415,9 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                       onChange={(e) => setNewMilestone(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddMilestone()}
                     />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       size="icon"
                       onClick={handleAddMilestone}
                       disabled={!newMilestone.trim()}

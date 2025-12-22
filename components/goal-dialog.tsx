@@ -244,7 +244,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
                           >
                             <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                               <Flag className="w-3.5 h-3.5" />
-                              Link to milestone (recommended)
+                              Select milestone <span className="text-destructive">*</span>
                             </span>
                             <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showMilestoneSelector ? "rotate-180" : ""}`} />
                           </button>
@@ -352,7 +352,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
           <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25} className="flex-1">
+          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25 || (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !milestoneId)} className="flex-1">
             {goal ? "Update" : "Add"} Goal
           </Button>
         </div>
