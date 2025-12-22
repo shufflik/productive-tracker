@@ -729,30 +729,28 @@ export function GlobalGoalDetailDialog({
             </div>
           </div>
           
-          {/* Description */}
-          <div className="mb-4">
-            <span className="text-xs font-medium text-muted-foreground block mb-1.5">Описание</span>
-            {isEditingDescription ? (
-              <Textarea
-                value={editedDescription}
-                onChange={(e) => setEditedDescription(e.target.value)}
-                placeholder="Опишите вашу мотивацию..."
-                rows={3}
-                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
-                autoFocus
-              />
-            ) : goal.description ? (
-              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                <div className="max-h-20 overflow-y-auto">
-                  <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap">{goal.description}</p>
+          {/* Description - only show if editing or has content */}
+          {(isEditingDescription || goal.description) && (
+            <div className="mb-4">
+              <span className="text-xs font-medium text-muted-foreground block mb-1.5">Описание</span>
+              {isEditingDescription ? (
+                <Textarea
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Опишите вашу мотивацию..."
+                  rows={3}
+                  className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+                  autoFocus
+                />
+              ) : (
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                  <div className="max-h-20 overflow-y-auto">
+                    <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap">{goal.description}</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                <p className="text-sm text-muted-foreground italic">Нет описания</p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Deadline - only for outcome and hybrid with active status */}
           {goal.periodEnd && (goal.type === "outcome" || goal.type === "hybrid") &&
