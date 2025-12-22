@@ -586,6 +586,37 @@ function HybridDetailView({ goal, progress }: { goal: GlobalGoal; progress: Hybr
         {/* Chart */}
         <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} />
       </div>
+
+      {/* Linked items */}
+      <div className="space-y-3">
+        <h3 className="font-medium text-foreground">Привязанные элементы</h3>
+
+        {linkedGoals.length === 0 && linkedHabits.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Привяжите задачи и привычки для отслеживания активности.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {linkedHabits.map(h => (
+              <div key={h.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                <Target className="w-4 h-4 text-primary" />
+                <span className="text-sm">{h.title}</span>
+                <span className="text-xs text-muted-foreground ml-auto">привычка</span>
+              </div>
+            ))}
+            {linkedGoals.slice(0, 3).map(g => (
+              <div key={g.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                {g.completed ? (
+                  <Check className="w-4 h-4 text-green-500" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground" />
+                )}
+                <span className="text-sm">{g.title}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
