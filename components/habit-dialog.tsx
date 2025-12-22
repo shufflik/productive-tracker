@@ -139,11 +139,11 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{habit ? "Edit Habit" : "New Habit"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
@@ -293,7 +293,7 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex-shrink-0 flex gap-2 pt-2">
           {habit && onDelete && (
             <Button
               variant="outline"

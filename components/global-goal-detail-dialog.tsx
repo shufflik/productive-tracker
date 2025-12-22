@@ -468,8 +468,8 @@ function ProcessDetailView({ goal, progress }: { goal: GlobalGoal; progress: Pro
       
       {/* Linked items */}
       <div className="space-y-3">
-        <h3 className="font-medium text-foreground">Привязанные элементы</h3>
-        
+        <h3 className="font-medium text-foreground">Связанные действия</h3>
+
         {linkedGoals.length === 0 && linkedHabits.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Привяжите задачи и привычки для отслеживания активности.
@@ -589,7 +589,7 @@ function HybridDetailView({ goal, progress }: { goal: GlobalGoal; progress: Hybr
 
       {/* Linked items */}
       <div className="space-y-3">
-        <h3 className="font-medium text-foreground">Привязанные элементы</h3>
+        <h3 className="font-medium text-foreground">Связанные действия</h3>
 
         {linkedGoals.length === 0 && linkedHabits.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">

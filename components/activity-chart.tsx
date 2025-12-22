@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { motion } from "framer-motion"
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import type { Goal, Habit } from "@/lib/types"
 
 type ActivityChartProps = {
@@ -10,23 +10,12 @@ type ActivityChartProps = {
   days?: 14 | 28
 }
 
-type DayActivity = {
-  date: Date
-  dateStr: string
-  activityCount: number
-  isActive: boolean
-  isToday: boolean
-  dayLabel: string
-}
-
 export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: ActivityChartProps) {
-  const activityData = useMemo(() => {
+  const { chartData, stats } = useMemo(() => {
     const now = new Date()
     now.setHours(0, 0, 0, 0)
 
-    const result: DayActivity[] = []
-
-    // Build activity count map from goals
+    // Build activity count maps
     const goalActivityByDate: Record<string, number> = {}
     for (const goal of linkedGoals) {
       if (goal.completed && goal.targetDate) {
@@ -34,7 +23,6 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
       }
     }
 
-    // Build activity count map from habits
     const habitActivityByDate: Record<string, number> = {}
     for (const habit of linkedHabits) {
       if (habit.completions) {
@@ -46,7 +34,18 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
       }
     }
 
-    // Generate days array (from oldest to newest)
+    // Generate chart data
+    const data: Array<{
+      date: string
+      label: string
+      activity: number
+      isToday: boolean
+    }> = []
+
+    let activeDays = 0
+    let streak = 0
+    let tempStreak = 0
+
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(now)
       date.setDate(date.getDate() - i)
@@ -54,67 +53,61 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
 
       const goalCount = goalActivityByDate[dateStr] || 0
       const habitCount = habitActivityByDate[dateStr] || 0
-      const activityCount = goalCount + habitCount
+      const activity = goalCount + habitCount
 
-      result.push({
-        date,
-        dateStr,
-        activityCount,
-        isActive: activityCount > 0,
+      if (activity > 0) {
+        activeDays++
+        tempStreak++
+      } else {
+        tempStreak = 0
+      }
+
+      // Update streak (from today backwards)
+      if (i === 0 || (tempStreak > 0 && i < days - 1)) {
+        streak = tempStreak
+      }
+
+      data.push({
+        date: dateStr,
+        label: date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }),
+        activity,
         isToday: i === 0,
-        dayLabel: date.getDate().toString(),
       })
     }
 
-    return result
-  }, [linkedGoals, linkedHabits, days])
-
-  // Calculate stats
-  const stats = useMemo(() => {
-    const activeDays = activityData.filter(d => d.isActive).length
-    const maxActivity = Math.max(...activityData.map(d => d.activityCount), 1)
-
-    // Calculate streak from today backwards
-    let streak = 0
-    for (let i = activityData.length - 1; i >= 0; i--) {
-      if (activityData[i].isActive) {
+    // Recalculate streak from the end
+    streak = 0
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].activity > 0) {
         streak++
       } else {
         break
       }
     }
 
-    return { activeDays, maxActivity, streak, total: days }
-  }, [activityData, days])
+    return {
+      chartData: data,
+      stats: { activeDays, streak, total: days }
+    }
+  }, [linkedGoals, linkedHabits, days])
 
-  // SVG dimensions
-  const width = 280
-  const height = 80
-  const padding = { top: 10, right: 10, bottom: 20, left: 10 }
-  const chartWidth = width - padding.left - padding.right
-  const chartHeight = height - padding.top - padding.bottom
-
-  // Generate line path
-  const linePath = useMemo(() => {
-    const points = activityData.map((day, index) => {
-      const x = padding.left + (index / (days - 1)) * chartWidth
-      const y = padding.top + chartHeight - (day.activityCount / stats.maxActivity) * chartHeight
-      return { x, y, ...day }
-    })
-
-    // Create smooth curve path
-    const path = points.reduce((acc, point, index) => {
-      if (index === 0) {
-        return `M ${point.x} ${point.y}`
-      }
-      return `${acc} L ${point.x} ${point.y}`
-    }, "")
-
-    // Create area path (for gradient fill)
-    const areaPath = `${path} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${padding.left} ${padding.top + chartHeight} Z`
-
-    return { path, areaPath, points }
-  }, [activityData, days, chartWidth, chartHeight, stats.maxActivity, padding])
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: typeof chartData[0] }> }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload
+      return (
+        <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+          <p className="text-sm font-medium text-foreground">{data.label}</p>
+          <p className="text-xs text-muted-foreground">
+            {data.activity > 0
+              ? `${data.activity} ${data.activity === 1 ? "активность" : "активностей"}`
+              : "Нет активности"
+            }
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
 
   return (
     <div className="space-y-3">
@@ -128,88 +121,73 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
           {stats.streak > 0 && (
             <div>
               <span className="text-muted-foreground">Серия: </span>
-              <span className="font-semibold text-green-500">{stats.streak} {stats.streak === 1 ? "день" : stats.streak < 5 ? "дня" : "дней"}</span>
+              <span className="font-semibold text-green-500">
+                {stats.streak} {stats.streak === 1 ? "день" : stats.streak < 5 ? "дня" : "дней"}
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Line chart */}
-      <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="activityGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgb(34, 197, 94)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="rgb(34, 197, 94)" stopOpacity="0.05" />
-            </linearGradient>
-          </defs>
-
-          {/* Grid lines */}
-          {[0, 0.5, 1].map((ratio) => (
-            <line
-              key={ratio}
-              x1={padding.left}
-              y1={padding.top + chartHeight * (1 - ratio)}
-              x2={width - padding.right}
-              y2={padding.top + chartHeight * (1 - ratio)}
-              stroke="currentColor"
-              strokeOpacity="0.1"
-              strokeDasharray="4 4"
+      {/* Chart */}
+      <div className="h-20 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+            <defs>
+              <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="rgb(34, 197, 94)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="rgb(34, 197, 94)" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="label"
+              tick={false}
+              axisLine={false}
+              tickLine={false}
             />
-          ))}
-
-          {/* Area fill */}
-          <motion.path
-            d={linePath.areaPath}
-            fill="url(#activityGradient)"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          />
-
-          {/* Line */}
-          <motion.path
-            d={linePath.path}
-            fill="none"
-            stroke="rgb(34, 197, 94)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 1, ease: "easeOut" }}
-          />
-
-          {/* Data points */}
-          {linePath.points.map((point, index) => (
-            <motion.circle
-              key={point.dateStr}
-              cx={point.x}
-              cy={point.y}
-              r={point.isToday ? 4 : point.isActive ? 3 : 2}
-              fill={point.isActive ? "rgb(34, 197, 94)" : "rgb(156, 163, 175)"}
-              stroke={point.isToday ? "rgb(34, 197, 94)" : "none"}
-              strokeWidth={point.isToday ? 2 : 0}
-              strokeOpacity={0.3}
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.5 + index * 0.03 }}
+            <YAxis
+              hide
+              domain={[0, 'dataMax + 1']}
             />
-          ))}
+            <Tooltip content={<CustomTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="activity"
+              stroke="rgb(34, 197, 94)"
+              strokeWidth={2}
+              fill="url(#activityGradient)"
+              dot={(props) => {
+                const { cx, cy, payload } = props
+                if (payload.isToday) {
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={4}
+                      fill="rgb(34, 197, 94)"
+                      stroke="white"
+                      strokeWidth={2}
+                    />
+                  )
+                }
+                return <circle cx={cx} cy={cy} r={0} />
+              }}
+              activeDot={{
+                r: 4,
+                fill: "rgb(34, 197, 94)",
+                stroke: "white",
+                strokeWidth: 2
+              }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
 
-          {/* X-axis labels (show every few days) */}
-          {linePath.points.filter((_, i) => i === 0 || i === Math.floor(days / 2) || i === days - 1).map((point) => (
-            <text
-              key={`label-${point.dateStr}`}
-              x={point.x}
-              y={height - 4}
-              textAnchor="middle"
-              className="text-[9px] fill-muted-foreground"
-            >
-              {point.date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
-            </text>
-          ))}
-        </svg>
+      {/* Date labels */}
+      <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+        <span>{chartData[0]?.label}</span>
+        <span>{chartData[Math.floor(days / 2)]?.label}</span>
+        <span>{chartData[chartData.length - 1]?.label}</span>
       </div>
     </div>
   )

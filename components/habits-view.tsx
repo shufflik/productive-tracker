@@ -31,15 +31,15 @@ export function HabitsView() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const addHabit = useCallback(
-    (title: string, repeatType: "daily" | "weekly", repeatDays?: number[]) => {
-      addHabitToStore(title, repeatType, repeatDays)
+    (title: string, repeatType: "daily" | "weekly", repeatDays?: number[], globalGoalId?: string) => {
+      addHabitToStore(title, repeatType, repeatDays, globalGoalId)
     },
     [addHabitToStore]
   )
 
   const updateHabit = useCallback(
-    (id: string, title: string, repeatType: "daily" | "weekly", repeatDays?: number[]) => {
-      updateHabitInStore(id, title, repeatType, repeatDays)
+    (id: string, title: string, repeatType: "daily" | "weekly", repeatDays?: number[], globalGoalId?: string) => {
+      updateHabitInStore(id, title, repeatType, repeatDays, globalGoalId)
     },
     [updateHabitInStore]
   )
