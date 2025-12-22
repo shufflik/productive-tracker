@@ -20,13 +20,14 @@ import {
   Layers,
   Clock,
   Target,
-  Flame
+  Calendar
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useHabitsStore } from "@/lib/stores/habits-store"
 import type { GlobalGoal, GlobalGoalStatus, Milestone, OutcomeProgress, ProcessProgress, HybridProgress } from "@/lib/types"
 import { MilestoneDetailDialog } from "./milestone-detail-dialog"
+import { ActivityChart } from "./activity-chart"
 
 const STATUS_OPTIONS: { value: GlobalGoalStatus; label: string; color: string }[] = [
   { value: "not_started", label: "Not Started", color: "rgb(156, 163, 175)" },
@@ -40,6 +41,96 @@ const TYPE_ICONS = {
   outcome: { icon: Flag, color: "rgb(139, 92, 246)" },
   process: { icon: TrendingUp, color: "rgb(34, 197, 94)" },
   hybrid: { icon: Layers, color: "rgb(59, 130, 246)" },
+}
+
+// Deadline display component for detail view
+function DeadlineInfo({ periodEnd }: { periodEnd?: string }) {
+  if (!periodEnd) return null
+
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const deadline = new Date(periodEnd)
+  deadline.setHours(0, 0, 0, 0)
+
+  const diffTime = deadline.getTime() - now.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  const isOverdue = diffDays < 0
+  const days = Math.abs(diffDays)
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    })
+  }
+
+  const getDaysText = (d: number) => {
+    if (d === 1) return "день"
+    if (d >= 2 && d <= 4) return "дня"
+    return "дней"
+  }
+
+  if (isOverdue) {
+    return (
+      <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-red-500" />
+          <span className="text-sm font-medium text-red-500">
+            Просрочено на {days} {getDaysText(days)}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Дедлайн был {formatDate(deadline)}
+        </p>
+      </div>
+    )
+  }
+
+  if (days === 0) {
+    return (
+      <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-orange-500" />
+          <span className="text-sm font-medium text-orange-500">Сегодня дедлайн</span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {formatDate(deadline)}
+        </p>
+      </div>
+    )
+  }
+
+  if (days <= 7) {
+    return (
+      <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-orange-500" />
+          <span className="text-sm font-medium text-orange-500">
+            Осталось {days} {getDaysText(days)}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Дедлайн: {formatDate(deadline)}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+      <div className="flex items-center gap-2">
+        <Calendar className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-medium text-foreground">
+          Осталось {days} {getDaysText(days)}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Дедлайн: {formatDate(deadline)}
+      </p>
+    </div>
+  )
 }
 
 type GlobalGoalDetailDialogProps = {
@@ -343,32 +434,26 @@ function ProcessDetailView({ goal, progress }: { goal: GlobalGoal; progress: Pro
   
   return (
     <div className="space-y-6">
-      {/* Activity Status - текстовый, без процентов */}
+      {/* Activity Status + Chart - объединённый блок */}
       <div className={`p-4 rounded-xl ${statusInfo.bgColor} border ${statusInfo.borderColor}`}>
-        <div className="flex items-center gap-3 mb-2">
-          <TrendingUp className={`w-5 h-5 ${statusInfo.color}`} />
-          <span className={`text-lg font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
+        {/* Header: статус и тренд */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className={`w-5 h-5 ${statusInfo.color}`} />
+            <span className={`text-lg font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
+          </div>
+          {progress.activitySignal && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <TrendIconDetail trend={progress.trend} />
+              <span>{progress.activitySignal}</span>
+            </div>
+          )}
         </div>
-        
-        <p className="text-sm text-muted-foreground">{statusInfo.description}</p>
-        
-        {/* Сигнал активности - если есть */}
-        {progress.activitySignal && (
-          <div className="flex items-center gap-1.5 text-sm text-foreground mt-2">
-            <TrendIconDetail trend={progress.trend} />
-            <span>{progress.activitySignal}</span>
-          </div>
-        )}
-        
-        {/* Streak - полезный показатель */}
-        {progress.streakDays > 0 && (
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-2">
-            <Flame className="w-4 h-4 text-orange-500" />
-            <span>Серия: {progress.streakDays} {progress.streakDays === 1 ? "день" : progress.streakDays < 5 ? "дня" : "дней"}</span>
-          </div>
-        )}
+
+        {/* Chart */}
+        <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} />
       </div>
-      
+
       {/* Weekly Stats - без процентов */}
       <div className="grid grid-cols-2 gap-3">
         <div className="p-3 rounded-lg bg-muted/50">
@@ -417,9 +502,15 @@ function ProcessDetailView({ goal, progress }: { goal: GlobalGoal; progress: Pro
 
 function HybridDetailView({ goal, progress }: { goal: GlobalGoal; progress: HybridProgress }) {
   const updateGlobalGoal = useGlobalGoalsStore((state) => state.updateGlobalGoal)
+  const goals = useGoalsStore((state) => state.goals)
+  const habits = useHabitsStore((state) => state.habits)
+
+  const linkedGoals = useMemo(() => goals.filter(g => g.globalGoalId === goal.id), [goals, goal.id])
+  const linkedHabits = useMemo(() => habits.filter(h => h.globalGoalId === goal.id), [habits, goal.id])
+
   const [editingValue, setEditingValue] = useState(false)
   const [newValue, setNewValue] = useState(String(progress.objectiveResult.current))
-  
+
   const handleUpdateValue = () => {
     const value = Number(newValue)
     if (!isNaN(value) && value >= 0) {
@@ -427,7 +518,7 @@ function HybridDetailView({ goal, progress }: { goal: GlobalGoal; progress: Hybr
     }
     setEditingValue(false)
   }
-  
+
   const statusInfo = ACTIVITY_STATUS_DETAIL[progress.processRhythm.activityStatus]
   
   // ЗАПРЕЩЕНО:
@@ -476,31 +567,24 @@ function HybridDetailView({ goal, progress }: { goal: GlobalGoal; progress: Hybr
         </div>
       </div>
       
-      {/* 2. Процессный ритм - ОТДЕЛЬНО, текстовый статус без процентов */}
+      {/* 2. Ритм работы + График - объединённый блок */}
       <div className={`p-4 rounded-xl ${statusInfo.bgColor} border ${statusInfo.borderColor}`}>
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className={`w-4 h-4 ${statusInfo.color}`} />
-          <span className={`text-sm font-medium ${statusInfo.color}`}>Ритм работы</span>
-        </div>
-        
-        <p className={`text-lg font-semibold ${statusInfo.color}`}>{statusInfo.label}</p>
-        <p className="text-sm text-muted-foreground mt-1">{statusInfo.description}</p>
-        
-        {/* Сигнал и streak */}
-        <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+        {/* Header: статус и тренд */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className={`w-5 h-5 ${statusInfo.color}`} />
+            <span className={`text-lg font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
+          </div>
           {progress.processRhythm.activitySignal && (
-            <span className="flex items-center gap-1">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <TrendIconDetail trend={progress.processRhythm.trend} />
-              {progress.processRhythm.activitySignal}
-            </span>
-          )}
-          {progress.processRhythm.streakDays > 0 && (
-            <span className="flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5 text-orange-500" />
-              {progress.processRhythm.streakDays}d
-            </span>
+              <span>{progress.processRhythm.activitySignal}</span>
+            </div>
           )}
         </div>
+
+        {/* Chart */}
+        <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} />
       </div>
     </div>
   )
@@ -623,7 +707,7 @@ export function GlobalGoalDetailDialog({
                 onChange={(e) => setEditedDescription(e.target.value)}
                 placeholder="Опишите вашу мотивацию..."
                 rows={3}
-                className="bg-muted/30 border-border/50"
+                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 autoFocus
               />
             ) : goal.description ? (
@@ -638,7 +722,15 @@ export function GlobalGoalDetailDialog({
               </div>
             )}
           </div>
-          
+
+          {/* Deadline - only for outcome and hybrid with active status */}
+          {goal.periodEnd && (goal.type === "outcome" || goal.type === "hybrid") &&
+           (goal.status === "in_progress" || goal.status === "not_started") && (
+            <div className="mb-4">
+              <DeadlineInfo periodEnd={goal.periodEnd} />
+            </div>
+          )}
+
           {progress.type === "outcome" && (
             <OutcomeDetailView goal={goal} progress={progress as OutcomeProgress} isEditing={isEditingDescription} />
           )}

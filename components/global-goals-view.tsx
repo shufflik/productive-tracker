@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3 } from "lucide-react"
+import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GlobalGoalDialog } from "@/components/global-goal-dialog"
 import { GlobalGoalDetailDialog } from "@/components/global-goal-detail-dialog"
@@ -23,6 +23,65 @@ const STATUS_COLORS: Record<string, string> = {
   blocked: "rgb(249, 115, 22)",
   achieved: "rgb(34, 197, 94)",
   abandoned: "rgb(107, 114, 128)",
+}
+
+// Calculate days remaining until deadline
+function calculateDaysRemaining(periodEnd?: string): { days: number; isOverdue: boolean } | null {
+  if (!periodEnd) return null
+
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const deadline = new Date(periodEnd)
+  deadline.setHours(0, 0, 0, 0)
+
+  const diffTime = deadline.getTime() - now.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  return {
+    days: Math.abs(diffDays),
+    isOverdue: diffDays < 0
+  }
+}
+
+function DeadlineDisplay({ periodEnd }: { periodEnd?: string }) {
+  const result = calculateDaysRemaining(periodEnd)
+  if (!result) return null
+
+  const { days, isOverdue } = result
+
+  if (isOverdue) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-red-500">
+        <Calendar className="w-3 h-3" />
+        <span>Просрочено на {days} {days === 1 ? "день" : days < 5 ? "дня" : "дней"}</span>
+      </div>
+    )
+  }
+
+  if (days === 0) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-orange-500">
+        <Calendar className="w-3 h-3" />
+        <span>Сегодня дедлайн</span>
+      </div>
+    )
+  }
+
+  if (days <= 7) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-orange-500">
+        <Calendar className="w-3 h-3" />
+        <span>Осталось {days} {days === 1 ? "день" : days < 5 ? "дня" : "дней"}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <Calendar className="w-3 h-3" />
+      <span>Осталось {days} {days === 1 ? "день" : days < 5 ? "дня" : "дней"}</span>
+    </div>
+  )
 }
 
 function OutcomeProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "outcome" } }) {
@@ -195,6 +254,13 @@ function GlobalGoalCard({
       {progress.type === "outcome" && <OutcomeProgressDisplay progress={progress} />}
       {progress.type === "process" && <ProcessProgressDisplay progress={progress} />}
       {progress.type === "hybrid" && <HybridProgressDisplay progress={progress} />}
+
+      {/* Deadline - only for active goals with deadline */}
+      {goal.periodEnd && (goal.status === "in_progress" || goal.status === "not_started") && (
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <DeadlineDisplay periodEnd={goal.periodEnd} />
+        </div>
+      )}
     </motion.button>
   )
 }
