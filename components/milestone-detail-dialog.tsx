@@ -13,6 +13,7 @@ import {
   Clock
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
+import { toast } from "sonner"
 import type { Milestone } from "@/lib/types"
 
 type MilestoneDetailDialogProps = {
@@ -45,6 +46,36 @@ export function MilestoneDetailDialog({
     if (!milestone) return null
     return milestones.find(m => m.id === milestone.id) || milestone
   }, [milestones, milestone])
+
+  // Все milestones для данной цели, отсортированные по порядку
+  const goalMilestones = useMemo(() =>
+    milestones
+      .filter(m => m.globalGoalId === goalId)
+      .sort((a, b) => a.order - b.order),
+    [milestones, goalId]
+  )
+
+  // canStart - можно начать только если все предыдущие этапы завершены
+  const canStart = useMemo(() => {
+    if (!currentMilestone || currentMilestone.isActive || currentMilestone.isCompleted) {
+      return false
+    }
+
+    const currentIndex = goalMilestones.findIndex(m => m.id === currentMilestone.id)
+    if (currentIndex === -1) return false
+
+    // Для первого milestone - всегда можно начать
+    if (currentIndex === 0) return true
+
+    // Проверяем, что все предыдущие завершены
+    for (let i = 0; i < currentIndex; i++) {
+      if (!goalMilestones[i].isCompleted) {
+        return false
+      }
+    }
+
+    return true
+  }, [currentMilestone, goalMilestones])
   
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState("")
@@ -196,7 +227,7 @@ export function MilestoneDetailDialog({
             <div className="flex gap-2 mt-auto pt-4">
               {canEdit && (
                 <>
-                  <Button 
+                  <Button
                     variant="outline"
                     size="icon"
                     className="text-destructive hover:bg-destructive/10"
@@ -204,7 +235,7 @@ export function MilestoneDetailDialog({
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
-                  <Button 
+                  <Button
                     variant="outline"
                     size="icon"
                     onClick={() => {
@@ -214,17 +245,23 @@ export function MilestoneDetailDialog({
                   >
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  <Button 
-                    size="sm"
-                    className="flex-1 h-9"
-                    onClick={() => {
-                      activateMilestone(goalId, currentMilestone.id)
-                      onClose()
-                    }}
-                  >
-                    Начать этап
-                  </Button>
                 </>
+              )}
+              {canEdit && (
+                <Button
+                  size="sm"
+                  className={`flex-1 h-9 ${!canStart ? "opacity-50" : ""}`}
+                  onClick={() => {
+                    if (!canStart) {
+                      toast.info("Сначала завершите текущий этап")
+                      return
+                    }
+                    activateMilestone(goalId, currentMilestone.id)
+                    onClose()
+                  }}
+                >
+                  Начать этап
+                </Button>
               )}
               
               {isActive && (
