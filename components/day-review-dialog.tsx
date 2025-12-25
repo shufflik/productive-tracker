@@ -27,6 +27,8 @@ export type TaskAction = "backlog" | "tomorrow" | "not-relevant" | "today"
 
 export type DistractionLevel = "no" | "little" | "sometimes" | "often" | "constantly"
 
+export type BaselineLoadImpact = 0 | 1 | 2 | 3 | 4
+
 type GoalWithDetails = Goal & {
   reason?: IncompleteReason
   customReason?: string
@@ -51,6 +53,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "retro">("confirmation")
   const [distractionLevel, setDistractionLevel] = useState<DistractionLevel | "">("")
   const [dayReflection, setDayReflection] = useState<string>("")
+  const [baselineLoadImpact, setBaselineLoadImpact] = useState<BaselineLoadImpact | null>(null)
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState("")
   const [newTaskLabel, setNewTaskLabel] = useState("")
@@ -66,6 +69,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       setStep("confirmation")
       setDistractionLevel("")
       setDayReflection("")
+      setBaselineLoadImpact(null)
       setShowAddTaskDialog(false)
       setNewTaskTitle("")
       setNewTaskLabel("")
@@ -209,6 +213,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
           isAdditionalAdded: g.isAdditionalAdded || false,
         })),
         dayStatus: status,
+        baselineLoadImpact: baselineLoadImpact as BaselineLoadImpact,
         distractions: distractionLevel as DistractionLevel,
         dayReflection: dayReflection.trim(),
         incompleteReasons: incompleteGoals
@@ -355,6 +360,19 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   }
 
   const distractionLevels: DistractionLevel[] = ["no", "little", "sometimes", "often", "constantly"]
+
+  const baselineLoadLevels: BaselineLoadImpact[] = [0, 1, 2, 3, 4]
+
+  const getBaselineLoadLabel = (level: BaselineLoadImpact) => {
+    const labels: Record<BaselineLoadImpact, string> = {
+      0: "Almost no load (day off)",
+      1: "Light day",
+      2: "Regular workday",
+      3: "Heavy day",
+      4: "Overloaded day",
+    }
+    return labels[level]
+  }
 
   // Форматируем дату для отображения
   const formattedDate = date
@@ -657,6 +675,37 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
         {step === "retro" && (
           <div className="py-4 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
             <div className="space-y-4">
+              {/* Baseline Load Impact */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">How did external obligations impact your day? *</Label>
+                <Select
+                  value={baselineLoadImpact !== null ? String(baselineLoadImpact) : undefined}
+                  onValueChange={(value) => setBaselineLoadImpact(Number(value) as BaselineLoadImpact)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select load level..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {baselineLoadLevels.map((level) => (
+                      <SelectItem key={level} value={String(level)}>
+                        {getBaselineLoadLabel(level)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {baselineLoadImpact !== null && (
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">
+                      {baselineLoadImpact === 0 && "Great! You had maximum time for your personal goals."}
+                      {baselineLoadImpact === 1 && "Good balance between obligations and personal time."}
+                      {baselineLoadImpact === 2 && "Standard workday. Your results are in normal context."}
+                      {baselineLoadImpact === 3 && "Tough day. Be kind to yourself about incomplete goals."}
+                      {baselineLoadImpact === 4 && "Very demanding day. Any progress is a win!"}
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Focus Assessment */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">How often were you distracted today? *</Label>
@@ -730,7 +779,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             disabled={
               (step === "details" &&
                 incompleteGoals.some((g) => !g.reason || (g.reason === "other" && !g.customReason?.trim()) || !g.action)) ||
-              (step === "retro" && (!dayReflection.trim() || !distractionLevel))
+              (step === "retro" && (!dayReflection.trim() || !distractionLevel || baselineLoadImpact === null))
             }
           >
             {step === "confirmation" && "Start Review"}
