@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Pencil, Trash2, ChevronDown } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
@@ -34,18 +35,31 @@ export function GlobalGoalDetailDialog({
 
   const goals = useGoalsStore((state) => state.goals)
   const habits = useHabitsStore((state) => state.habits)
+  const milestones = useGlobalGoalsStore((state) => state.milestones)
 
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [isEditingDescription, setIsEditingDescription] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTitle, setEditedTitle] = useState("")
   const [editedDescription, setEditedDescription] = useState("")
+
+  // Reset editing state when goal changes or dialog closes
+  useEffect(() => {
+    if (!open || !goal) {
+      setIsEditing(false)
+      setEditedTitle("")
+      setEditedDescription("")
+      setShowStatusMenu(false)
+      setShowDeleteConfirm(false)
+    }
+  }, [open, goal?.id])
 
   const progress = useMemo(() => {
     if (!goal) return null
     const linkedGoals = goals.filter(g => g.globalGoalId === goal.id)
     const linkedHabits = habits.filter(h => h.globalGoalId === goal.id)
     return calculateProgress(goal, linkedGoals, linkedHabits)
-  }, [goal, goals, habits, calculateProgress])
+  }, [goal, goals, habits, milestones, calculateProgress])
 
   const handleStatusChange = (status: GlobalGoalStatus) => {
     if (goal) {
@@ -61,20 +75,25 @@ export function GlobalGoalDetailDialog({
     }
   }
 
-  const handleStartEditDescription = () => {
+  const handleStartEditing = () => {
+    setEditedTitle(goal?.title || "")
     setEditedDescription(goal?.description || "")
-    setIsEditingDescription(true)
+    setIsEditing(true)
   }
 
-  const handleSaveDescription = async () => {
-    if (goal) {
-      await updateGlobalGoal(goal.id, { description: editedDescription || undefined })
-      setIsEditingDescription(false)
+  const handleSave = async () => {
+    if (goal && editedTitle.trim()) {
+      await updateGlobalGoal(goal.id, {
+        title: editedTitle.trim(),
+        description: editedDescription || undefined
+      })
+      setIsEditing(false)
     }
   }
 
-  const handleCancelEditDescription = () => {
-    setIsEditingDescription(false)
+  const handleCancelEditing = () => {
+    setIsEditing(false)
+    setEditedTitle("")
     setEditedDescription("")
   }
 
@@ -85,8 +104,24 @@ export function GlobalGoalDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-hidden flex flex-col gap-2 px-6 py-4">
-        <DialogHeader className="flex-shrink-0 flex items-center justify-center">
-          <DialogTitle className="text-lg mb-1 text-center">{goal.title}</DialogTitle>
+        <DialogHeader className="flex-shrink-0 flex items-center justify-center pt-4">
+          {isEditing ? (
+            <div className="w-full">
+              <Input
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value.slice(0, 35))}
+                placeholder="Название цели"
+                maxLength={35}
+                className="text-center font-semibold bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground text-right mt-1">
+                {editedTitle.length}/35
+              </p>
+            </div>
+          ) : (
+            <DialogTitle className="text-lg mb-1 text-center">{goal.title}</DialogTitle>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
@@ -132,17 +167,16 @@ export function GlobalGoalDetailDialog({
           </div>
 
           {/* Description */}
-          {(isEditingDescription || goal.description) && (
+          {(isEditing || goal.description) && (
             <div className="mb-4">
               <span className="text-xs font-medium text-muted-foreground block mb-1.5">Описание</span>
-              {isEditingDescription ? (
+              {isEditing ? (
                 <Textarea
                   value={editedDescription}
                   onChange={(e) => setEditedDescription(e.target.value)}
                   placeholder="Опишите вашу мотивацию..."
                   rows={3}
                   className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
-                  autoFocus
                 />
               ) : (
                 <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
@@ -163,7 +197,7 @@ export function GlobalGoalDetailDialog({
           )}
 
           {progress.type === "outcome" && (
-            <OutcomeDetailView goal={goal} progress={progress as OutcomeProgress} isEditing={isEditingDescription} />
+            <OutcomeDetailView goal={goal} progress={progress as OutcomeProgress} isEditing={isEditing} />
           )}
           {progress.type === "process" && (
             <ProcessDetailView goal={goal} progress={progress as ProcessProgress} />
@@ -191,17 +225,18 @@ export function GlobalGoalDetailDialog({
                 Delete Goal
               </Button>
             </div>
-          ) : isEditingDescription ? (
+          ) : isEditing ? (
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={handleCancelEditDescription}
+                onClick={handleCancelEditing}
                 className="flex-1"
               >
                 Отмена
               </Button>
               <Button
-                onClick={handleSaveDescription}
+                onClick={handleSave}
+                disabled={!editedTitle.trim()}
                 className="flex-1"
               >
                 Сохранить
@@ -220,7 +255,7 @@ export function GlobalGoalDetailDialog({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={handleStartEditDescription}
+                onClick={handleStartEditing}
               >
                 <Pencil className="w-4 h-4" />
               </Button>

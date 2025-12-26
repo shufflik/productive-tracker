@@ -2,7 +2,7 @@
  * Type definitions for sync service
  */
 
-import type { Goal, Habit, LocalSyncOperation } from "@/lib/types"
+import type { Goal, Habit, GlobalGoal, Milestone, LocalSyncOperation } from "@/lib/types"
 
 /**
  * Change item that will be sent to backend
@@ -28,6 +28,8 @@ export type SyncChange<TPayload> = {
 export type SyncChanges = {
   goals: SyncChange<Omit<Goal, "_localUpdatedAt" | "_localOp" | "_version">>[]
   habits: SyncChange<Omit<Habit, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  globalGoals: SyncChange<Omit<GlobalGoal, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  milestones: SyncChange<Omit<Milestone, "_localUpdatedAt" | "_localOp" | "_version">>[]
 }
 
 export type SyncReviewBlock = {
@@ -121,9 +123,31 @@ export type HabitConflict = {
   serverVersion?: number
 }
 
+export type GlobalGoalConflict = {
+  id: string
+  message: string
+  localEntity?: GlobalGoal
+  serverEntity?: GlobalGoal
+  localOperation?: LocalSyncOperation
+  clientVersion?: number
+  serverVersion?: number
+}
+
+export type MilestoneConflict = {
+  id: string
+  message: string
+  localEntity?: Milestone
+  serverEntity?: Milestone
+  localOperation?: LocalSyncOperation
+  clientVersion?: number
+  serverVersion?: number
+}
+
 export type SyncConflicts = {
   goals: GoalConflict[]
   habits: HabitConflict[]
+  globalGoals: GlobalGoalConflict[]
+  milestones: MilestoneConflict[]
 }
 
 export type SyncResponse = {
@@ -168,6 +192,14 @@ export type SyncResponse = {
      * deleted: true for deleted habits (client should delete locally)
      */
     habits?: Array<Habit | { id: string; deleted: true }>
+    /**
+     * Global goals that were changed on server since lastSyncAt
+     */
+    globalGoals?: Array<GlobalGoal | { id: string; deleted: true }>
+    /**
+     * Milestones that were changed on server since lastSyncAt
+     */
+    milestones?: Array<Milestone | { id: string; deleted: true }>
   }
 }
 
@@ -186,6 +218,8 @@ export type SyncMeta = {
 export type SyncQueue = {
   goals: SyncChange<Omit<Goal, "_localUpdatedAt" | "_localOp" | "_version">>[]
   habits: SyncChange<Omit<Habit, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  globalGoals: SyncChange<Omit<GlobalGoal, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  milestones: SyncChange<Omit<Milestone, "_localUpdatedAt" | "_localOp" | "_version">>[]
 }
 
 /**
@@ -193,7 +227,11 @@ export type SyncQueue = {
  */
 export type GoalsApplyHandler = (goals: Goal[]) => void
 export type HabitsApplyHandler = (habits: Habit[]) => void
+export type GlobalGoalsApplyHandler = (globalGoals: GlobalGoal[]) => void
+export type MilestonesApplyHandler = (milestones: Milestone[]) => void
 export type GoalsDeleteHandler = (ids: string[]) => void
 export type HabitsDeleteHandler = (ids: string[]) => void
+export type GlobalGoalsDeleteHandler = (ids: string[]) => void
+export type MilestonesDeleteHandler = (ids: string[]) => void
 export type PendingReviewsApplyHandler = (reviewBlock: SyncReviewBlock) => void
 export type ConflictsHandler = (conflicts: SyncConflicts) => void

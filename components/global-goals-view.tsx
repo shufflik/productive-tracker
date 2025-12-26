@@ -86,36 +86,36 @@ function DeadlineDisplay({ periodEnd }: { periodEnd?: string }) {
 
 function OutcomeProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "outcome" } }) {
   const { currentMilestone, timeInCurrentMilestone, milestoneHistory } = progress
-  
+
   // ЗАПРЕЩЕНО показывать progress bar или проценты milestones
   // Показываем только текущий этап и время в нём
-  
+
   const completedCount = milestoneHistory.filter(m => m.isCompleted).length
   const hasNoActiveMilestone = !currentMilestone && completedCount > 0
-  
+
   return (
-    <div className="space-y-1">
+    <div className="flex items-start gap-2 min-h-5">
       {currentMilestone ? (
-        <div className="flex items-center gap-2">
+        <>
           <MapPin className="w-4 h-4 text-purple-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-foreground truncate">{currentMilestone.title}</span>
-          <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
+          <p className="text-xs font-medium text-foreground break-words line-clamp-2 flex-1 min-w-0 leading-4">{currentMilestone.title}</p>
+          <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
             {timeInCurrentMilestone}d
           </span>
-        </div>
+        </>
       ) : hasNoActiveMilestone ? (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Pause className="w-3.5 h-3.5" />
-          <span>Между этапами • Выберите следующий</span>
-        </div>
+        <>
+          <Pause className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground">Между этапами • Выберите следующий</span>
+        </>
       ) : milestoneHistory.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Добавьте этапы для отслеживания
-        </p>
+        </span>
       ) : (
-        <p className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Активируйте первый этап
-        </p>
+        </span>
       )}
     </div>
   )
@@ -126,6 +126,7 @@ const ACTIVITY_STATUS_CONFIG: Record<string, { label: string; color: string; ico
   active: { label: "Активно", color: "text-green-600", iconColor: "text-green-500" },
   unstable: { label: "Нестабильно", color: "text-yellow-600", iconColor: "text-yellow-500" },
   weak: { label: "Низкая активность", color: "text-red-500", iconColor: "text-red-500" },
+  collecting: { label: "Сбор данных", color: "text-muted-foreground", iconColor: "text-muted-foreground" },
 }
 
 function ActivityStatusIcon({ status }: { status: string }) {
@@ -141,29 +142,27 @@ function TrendIcon({ trend }: { trend: "up" | "down" | "stable" }) {
 
 function ProcessProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "process" } }) {
   const { activityStatus, activitySignal, trend, streakDays } = progress
-  
+
   const statusConfig = ACTIVITY_STATUS_CONFIG[activityStatus]
-  
+
   // ЗАПРЕЩЕНО показывать проценты Activity Index
-  // Показываем только текстовый статус
-  
+  // Показываем текстовый статус и сигнал в одну строку
+
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
-        <ActivityStatusIcon status={activityStatus} />
-        <span className={`text-sm font-medium ${statusConfig.color}`}>{statusConfig.label}</span>
-        {streakDays > 0 && (
-          <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
-            <Flame className="w-3.5 h-3.5 text-orange-500" />
-            {streakDays}d
-          </span>
-        )}
-      </div>
+    <div className="flex items-center gap-2">
+      <ActivityStatusIcon status={activityStatus} />
+      <span className={`text-sm font-medium ${statusConfig.color}`}>{statusConfig.label}</span>
       {activitySignal && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
           <TrendIcon trend={trend} />
-          <span>{activitySignal}</span>
-        </div>
+          <span className="truncate max-w-[100px]">{activitySignal}</span>
+        </span>
+      )}
+      {streakDays > 0 && (
+        <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1 flex-shrink-0">
+          <Flame className="w-3.5 h-3.5 text-orange-500" />
+          {streakDays}d
+        </span>
       )}
     </div>
   )
@@ -208,9 +207,7 @@ function GlobalGoalCard({
   const typeInfo = TYPE_INFO[goal.type]
   const TypeIcon = typeInfo.icon
   const statusColor = STATUS_COLORS[goal.status]
-  
-  const activeMilestone = useGlobalGoalsStore((state) => state.getActiveMilestone(goal.id))
-  
+
   return (
     <motion.button
       initial={{ opacity: 0, y: 20 }}
@@ -220,15 +217,11 @@ function GlobalGoalCard({
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div 
+        <div
           className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${typeInfo.color}20` }}
         >
-          {goal.icon && goal.icon !== "🎯" ? (
-            <span className="text-xl">{goal.icon}</span>
-          ) : (
-            <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
-          )}
+          <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-foreground truncate">{goal.title}</h3>
@@ -267,17 +260,18 @@ function GlobalGoalCard({
 
 export function GlobalGoalsView() {
   const globalGoals = useGlobalGoalsStore((state) => state.globalGoals)
+  const milestones = useGlobalGoalsStore((state) => state.milestones)
   const fetchGlobalGoals = useGlobalGoalsStore((state) => state.fetchGlobalGoals)
   const calculateProgress = useGlobalGoalsStore((state) => state.calculateProgress)
   const isLoading = useGlobalGoalsStore((state) => state.isLoading)
-  
+
   const goals = useGoalsStore((state) => state.goals)
   const habits = useHabitsStore((state) => state.habits)
 
   const [selectedType, setSelectedType] = useState<GlobalGoalType | "all">("all")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [selectedGoal, setSelectedGoal] = useState<GlobalGoal | null>(null)
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchGlobalGoals()
@@ -289,10 +283,10 @@ export function GlobalGoalsView() {
       const linkedGoals = goals.filter((g) => g.globalGoalId === goal.id)
       const linkedHabits = habits.filter((h) => h.globalGoalId === goal.id)
       const progress = calculateProgress(goal, linkedGoals, linkedHabits)
-      
+
       return { goal, progress, linkedGoals, linkedHabits }
     })
-  }, [globalGoals, goals, habits, calculateProgress])
+  }, [globalGoals, goals, habits, milestones, calculateProgress])
 
   // Filter by type
   const filteredGoals = useMemo(() => {
@@ -309,8 +303,14 @@ export function GlobalGoalsView() {
     })
   }, [goalsWithProgress, selectedType])
 
+  // Get selected goal from store to ensure it's always up-to-date
+  const selectedGoal = useMemo(() => {
+    if (!selectedGoalId) return null
+    return globalGoals.find(g => g.id === selectedGoalId) || null
+  }, [selectedGoalId, globalGoals])
+
   const handleOpenDetail = (goal: GlobalGoal) => {
-    setSelectedGoal(goal)
+    setSelectedGoalId(goal.id)
     setDetailOpen(true)
   }
 
@@ -357,18 +357,18 @@ export function GlobalGoalsView() {
             <p className="text-sm text-muted-foreground mt-4">Loading goals...</p>
           </div>
         ) : filteredGoals.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="flex flex-col items-center justify-center h-full text-center pb-24">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
               <Target className="w-8 h-8 text-muted-foreground" />
             </div>
             <p className="text-muted-foreground mb-4">
-              {selectedType === "all" 
-                ? "No global goals yet" 
+              {selectedType === "all"
+                ? "No global goals yet"
                 : `No ${TYPE_INFO[selectedType].label.toLowerCase()} goals`
               }
             </p>
             <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4" />
               Create Goal
             </Button>
           </div>
@@ -396,7 +396,7 @@ export function GlobalGoalsView() {
         open={detailOpen}
         onClose={() => {
           setDetailOpen(false)
-          setSelectedGoal(null)
+          setSelectedGoalId(null)
         }}
         goal={selectedGoal}
       />

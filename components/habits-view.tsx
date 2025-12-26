@@ -146,7 +146,7 @@ export function HabitsView() {
                 {isSelectedDateToday() ? "No habits scheduled for today" : "No habits scheduled for this day"}
               </p>
               <Button onClick={() => setHabitDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4" />
                 Add Your First Habit
               </Button>
             </div>

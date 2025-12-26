@@ -17,6 +17,7 @@ type ActivityStatusBlockProps = {
   trend: "up" | "down" | "stable"
   linkedGoals: Goal[]
   linkedHabits: Habit[]
+  createdAt?: string
 }
 
 export function ActivityStatusBlock({
@@ -24,7 +25,8 @@ export function ActivityStatusBlock({
   activitySignal,
   trend,
   linkedGoals,
-  linkedHabits
+  linkedHabits,
+  createdAt
 }: ActivityStatusBlockProps) {
   const statusInfo = ACTIVITY_STATUS_DETAIL[activityStatus]
 
@@ -43,7 +45,7 @@ export function ActivityStatusBlock({
         )}
       </div>
 
-      <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} />
+      <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} createdAt={createdAt} />
     </div>
   )
 }

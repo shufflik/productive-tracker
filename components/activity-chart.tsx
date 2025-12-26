@@ -8,12 +8,22 @@ type ActivityChartProps = {
   linkedGoals: Goal[]
   linkedHabits: Habit[]
   days?: 14 | 28
+  createdAt?: string
 }
 
-export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: ActivityChartProps) {
+export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt }: ActivityChartProps) {
   const { chartData, stats } = useMemo(() => {
     const now = new Date()
     now.setHours(0, 0, 0, 0)
+
+    // Calculate actual days to show based on goal age
+    let effectiveDays: number = days
+    if (createdAt) {
+      const created = new Date(createdAt)
+      created.setHours(0, 0, 0, 0)
+      const daysSinceCreation = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      effectiveDays = Math.min(days, Math.max(1, daysSinceCreation))
+    }
 
     // Build activity count maps
     const goalActivityByDate: Record<string, number> = {}
@@ -46,7 +56,7 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
     let streak = 0
     let tempStreak = 0
 
-    for (let i = days - 1; i >= 0; i--) {
+    for (let i = effectiveDays - 1; i >= 0; i--) {
       const date = new Date(now)
       date.setDate(date.getDate() - i)
       const dateStr = date.toDateString()
@@ -63,7 +73,7 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
       }
 
       // Update streak (from today backwards)
-      if (i === 0 || (tempStreak > 0 && i < days - 1)) {
+      if (i === 0 || (tempStreak > 0 && i < effectiveDays - 1)) {
         streak = tempStreak
       }
 
@@ -87,9 +97,9 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
 
     return {
       chartData: data,
-      stats: { activeDays, streak, total: days }
+      stats: { activeDays, streak, total: effectiveDays }
     }
-  }, [linkedGoals, linkedHabits, days])
+  }, [linkedGoals, linkedHabits, days, createdAt])
 
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: typeof chartData[0] }> }) => {
     if (active && payload && payload.length) {
@@ -186,7 +196,7 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14 }: Activity
       {/* Date labels */}
       <div className="flex justify-between text-[10px] text-muted-foreground px-1">
         <span>{chartData[0]?.label}</span>
-        <span>{chartData[Math.floor(days / 2)]?.label}</span>
+        <span>{chartData[Math.floor(chartData.length / 2)]?.label}</span>
         <span>{chartData[chartData.length - 1]?.label}</span>
       </div>
     </div>

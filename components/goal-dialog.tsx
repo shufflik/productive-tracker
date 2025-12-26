@@ -192,15 +192,11 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               {selectedGlobalGoal ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
-                    {selectedGlobalGoal.icon && selectedGlobalGoal.icon !== "🎯" ? (
-                      <span className="text-lg">{selectedGlobalGoal.icon}</span>
-                    ) : (
-                      (() => {
-                        const typeInfo = TYPE_INFO[selectedGlobalGoal.type]
-                        const TypeIcon = typeInfo.icon
-                        return <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
-                      })()
-                    )}
+                    {(() => {
+                      const typeInfo = TYPE_INFO[selectedGlobalGoal.type]
+                      const TypeIcon = typeInfo.icon
+                      return <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                    })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
                         {selectedGlobalGoal.title}
@@ -314,11 +310,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
                             }}
                             className="w-full flex items-center gap-2 p-3 hover:bg-muted text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
                           >
-                            {g.icon && g.icon !== "🎯" ? (
-                              <span className="text-lg">{g.icon}</span>
-                            ) : (
-                              <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
-                            )}
+                            <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{g.title}</p>
                               <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">

@@ -43,4 +43,11 @@ export const ACTIVITY_STATUS_DETAIL: Record<string, {
     borderColor: "border-red-500/20",
     description: "Активность низкая, требуется внимание"
   },
+  collecting: {
+    label: "Сбор данных",
+    color: "text-muted-foreground",
+    bgColor: "bg-muted/50",
+    borderColor: "border-border",
+    description: "Статистика ещё формируется"
+  },
 }

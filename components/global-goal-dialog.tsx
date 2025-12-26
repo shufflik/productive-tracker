@@ -98,7 +98,6 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
       setType(goal.type)
       setTitle(goal.title)
       setDescription(goal.description || "")
-      setIcon(goal.icon || "🎯")
       if (goal.targetValue) setTargetValue(String(goal.targetValue))
       if (goal.unit) setUnit(goal.unit)
       if (goal.periodEnd) {
@@ -111,7 +110,6 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
       setType("outcome")
       setTitle("")
       setDescription("")
-      setIcon("🎯")
       setMilestones([])
       setNewMilestone("")
       setTargetValue("")
@@ -119,7 +117,6 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
       setPeriodPreset("3m")
       setCustomEndDate("")
     }
-    setShowEmojiPicker(false)
   }, [goal, open])
 
   const handleAddMilestone = () => {
@@ -167,16 +164,12 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
         await updateGlobalGoal(goal.id, {
           title,
           description: description || undefined,
-          icon,
         })
       } else {
-        // Не сохраняем дефолтную иконку 🎯 - тогда покажется иконка типа
-        const customIcon = icon !== "🎯" ? icon : undefined
         await addGlobalGoal({
           type,
           title,
           description: description || undefined,
-          icon: customIcon,
           periodStart,
           periodEnd,
           targetValue: type === "hybrid" && targetValue ? Number(targetValue) : undefined,
@@ -280,9 +273,10 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                   }
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  maxLength={100}
+                  maxLength={35}
+                  className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
-                <p className="text-xs text-muted-foreground">{title.length}/100</p>
+                <p className="text-xs text-muted-foreground">{title.length}/35</p>
               </div>
 
               {/* Description */}
@@ -294,7 +288,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="!field-sizing-fixed resize-none"
+                  className="!field-sizing-fixed resize-none bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
               </div>
 
@@ -408,13 +402,17 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                   )}
 
                   {/* Add milestone input */}
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="e.g., Preparation phase"
-                      value={newMilestone}
-                      onChange={(e) => setNewMilestone(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddMilestone()}
-                    />
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1">
+                      <p className="text-xs text-muted-foreground">{newMilestone.length}/35</p>
+                      <Input
+                        placeholder="Название этапа"
+                        value={newMilestone}
+                        onChange={(e) => setNewMilestone(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddMilestone()}
+                        maxLength={35}
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="outline"

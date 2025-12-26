@@ -143,14 +143,18 @@ export function MilestoneDetailDialog({
         <div className="space-y-4 flex-1 overflow-y-auto">
           {/* Название */}
           {isEditing ? (
-            <div className="flex gap-2 items-center">
-              <Input
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSaveTitle()}
-                autoFocus
-                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
-              />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 space-y-1">
+                <p className="text-xs text-muted-foreground">{editTitle.length}/35</p>
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveTitle()}
+                  maxLength={35}
+                  autoFocus
+                  className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+                />
+              </div>
               <Button size="sm" className="h-9" onClick={handleSaveTitle}>OK</Button>
               <Button size="sm" variant="ghost" className="h-9" onClick={() => setIsEditing(false)}>✕</Button>
             </div>

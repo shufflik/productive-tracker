@@ -67,26 +67,27 @@ export class SyncStorage {
    */
   loadQueue(): SyncQueue {
     if (typeof window === "undefined") {
-      return { goals: [], habits: [] }
+      return { goals: [], habits: [], globalGoals: [], milestones: [] }
     }
 
     try {
       const raw = window.localStorage.getItem(SYNC_QUEUE_STORAGE_KEY)
       if (!raw) {
-        return { goals: [], habits: [] }
+        return { goals: [], habits: [], globalGoals: [], milestones: [] }
       }
 
       const parsed = JSON.parse(raw) as SyncQueue
       const result = {
         goals: parsed.goals || [],
         habits: parsed.habits || [],
+        globalGoals: parsed.globalGoals || [],
+        milestones: parsed.milestones || [],
       }
-
 
       return result
     } catch (error) {
       console.error("[SyncStorage] Failed to load sync queue:", error)
-      return { goals: [], habits: [] }
+      return { goals: [], habits: [], globalGoals: [], milestones: [] }
     }
   }
 
@@ -109,23 +110,25 @@ export class SyncStorage {
    */
   loadPendingConflicts(): SyncConflicts {
     if (typeof window === "undefined") {
-      return { goals: [], habits: [] }
+      return { goals: [], habits: [], globalGoals: [], milestones: [] }
     }
 
     try {
       const raw = window.localStorage.getItem(PENDING_CONFLICTS_STORAGE_KEY)
       if (!raw) {
-        return { goals: [], habits: [] }
+        return { goals: [], habits: [], globalGoals: [], milestones: [] }
       }
 
       const parsed = JSON.parse(raw) as SyncConflicts
       return {
         goals: parsed.goals || [],
         habits: parsed.habits || [],
+        globalGoals: parsed.globalGoals || [],
+        milestones: parsed.milestones || [],
       }
     } catch (error) {
       console.error("[SyncStorage] Failed to load pending conflicts:", error)
-      return { goals: [], habits: [] }
+      return { goals: [], habits: [], globalGoals: [], milestones: [] }
     }
   }
 
@@ -136,7 +139,13 @@ export class SyncStorage {
     if (typeof window === "undefined") return
 
     try {
-      if (conflicts.goals.length === 0 && conflicts.habits.length === 0) {
+      const hasConflicts =
+        conflicts.goals.length > 0 ||
+        conflicts.habits.length > 0 ||
+        conflicts.globalGoals.length > 0 ||
+        conflicts.milestones.length > 0
+
+      if (!hasConflicts) {
         window.localStorage.removeItem(PENDING_CONFLICTS_STORAGE_KEY)
       } else {
         window.localStorage.setItem(

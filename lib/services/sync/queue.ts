@@ -4,7 +4,7 @@
  * Queue management for sync service
  */
 
-import type { Goal, Habit, LocalSyncOperation } from "@/lib/types"
+import type { Goal, Habit, GlobalGoal, Milestone, LocalSyncOperation } from "@/lib/types"
 import type { SyncQueue } from "./types"
 import { SyncStorage } from "./storage"
 import { toast } from "sonner"
@@ -22,6 +22,8 @@ export class SyncQueueManager {
   private queue: SyncQueue = {
     goals: [],
     habits: [],
+    globalGoals: [],
+    milestones: [],
   }
   private storage: SyncStorage
   private onQueueOverflow?: () => Promise<void>
@@ -49,24 +51,43 @@ export class SyncQueueManager {
    * Check if queue has pending changes
    */
   hasPendingChanges(): boolean {
-    return this.queue.goals.length > 0 || this.queue.habits.length > 0
+    return (
+      this.queue.goals.length > 0 ||
+      this.queue.habits.length > 0 ||
+      this.queue.globalGoals.length > 0 ||
+      this.queue.milestones.length > 0
+    )
   }
 
   /**
    * Clear queue items by IDs (used after successful sync)
    */
-  clearSentItems(goalIds: Set<string>, habitIds: Set<string>): void {
+  clearSentItems(
+    goalIds: Set<string>,
+    habitIds: Set<string>,
+    globalGoalIds: Set<string>,
+    milestoneIds: Set<string>
+  ): void {
     this.queue.goals = this.queue.goals.filter(g => !goalIds.has(g.id))
     this.queue.habits = this.queue.habits.filter(h => !habitIds.has(h.id))
+    this.queue.globalGoals = this.queue.globalGoals.filter(gg => !globalGoalIds.has(gg.id))
+    this.queue.milestones = this.queue.milestones.filter(m => !milestoneIds.has(m.id))
     this.storage.saveQueue(this.queue)
   }
 
   /**
    * Remove conflicted items from queue
    */
-  removeConflictedItems(goalIds: Set<string>, habitIds: Set<string>): void {
+  removeConflictedItems(
+    goalIds: Set<string>,
+    habitIds: Set<string>,
+    globalGoalIds: Set<string> = new Set(),
+    milestoneIds: Set<string> = new Set()
+  ): void {
     this.queue.goals = this.queue.goals.filter(g => !goalIds.has(g.id))
     this.queue.habits = this.queue.habits.filter(h => !habitIds.has(h.id))
+    this.queue.globalGoals = this.queue.globalGoals.filter(gg => !globalGoalIds.has(gg.id))
+    this.queue.milestones = this.queue.milestones.filter(m => !milestoneIds.has(m.id))
     this.storage.saveQueue(this.queue)
   }
 
@@ -252,10 +273,174 @@ export class SyncQueueManager {
   }
 
   /**
+   * Enqueue global goal change
+   */
+  enqueueGlobalGoalChange(operation: LocalSyncOperation, globalGoal: GlobalGoal): void {
+    this.checkQueueSizeAndSync()
+
+    const list = this.queue.globalGoals
+    const idx = list.findIndex((item) => item.id === globalGoal.id)
+    const now = Date.now()
+
+    const { _localUpdatedAt, _localOp, _version, ...payload } = globalGoal
+    const version = _version || 0
+
+    if (idx === -1) {
+      list.push({
+        id: globalGoal.id,
+        clientUpdatedAt: now,
+        operation,
+        version,
+        payload,
+      })
+    } else {
+      const prev = list[idx].operation
+
+      if (prev === "create" && operation === "delete") {
+        list.splice(idx, 1)
+        this.storage.saveQueue(this.queue)
+        return
+      }
+
+      if (prev === "create" && (operation === "update" || operation === "upsert")) {
+        list[idx] = {
+          ...list[idx],
+          payload,
+          clientUpdatedAt: now,
+          version,
+        }
+      } else {
+        list[idx] = {
+          id: globalGoal.id,
+          clientUpdatedAt: now,
+          operation,
+          version,
+          payload,
+        }
+      }
+    }
+
+    this.storage.saveQueue(this.queue)
+  }
+
+  /**
+   * Enqueue milestone change
+   */
+  enqueueMilestoneChange(operation: LocalSyncOperation, milestone: Milestone): void {
+    this.checkQueueSizeAndSync()
+
+    const list = this.queue.milestones
+    const idx = list.findIndex((item) => item.id === milestone.id)
+    const now = Date.now()
+
+    const { _localUpdatedAt, _localOp, _version, ...payload } = milestone
+    const version = _version || 0
+
+    if (idx === -1) {
+      list.push({
+        id: milestone.id,
+        clientUpdatedAt: now,
+        operation,
+        version,
+        payload,
+      })
+    } else {
+      const prev = list[idx].operation
+
+      if (prev === "create" && operation === "delete") {
+        list.splice(idx, 1)
+        this.storage.saveQueue(this.queue)
+        return
+      }
+
+      if (prev === "create" && (operation === "update" || operation === "upsert")) {
+        list[idx] = {
+          ...list[idx],
+          payload,
+          clientUpdatedAt: now,
+          version,
+        }
+      } else {
+        list[idx] = {
+          id: milestone.id,
+          clientUpdatedAt: now,
+          operation,
+          version,
+          payload,
+        }
+      }
+    }
+
+    this.storage.saveQueue(this.queue)
+  }
+
+  /**
+   * Update global goal with resolve conflict version
+   */
+  updateGlobalGoalWithResolveConflict(
+    globalGoalId: string,
+    globalGoal: GlobalGoal,
+    resolveConflictVersion: number
+  ): void {
+    const list = this.queue.globalGoals
+    const idx = list.findIndex((item) => item.id === globalGoalId)
+
+    if (idx === -1) {
+      console.warn(`[SyncQueueManager] GlobalGoal ${globalGoalId} not found in queue for conflict resolution`)
+      return
+    }
+
+    const { _localUpdatedAt, _localOp, _version, ...payload } = globalGoal
+
+    list[idx] = {
+      ...list[idx],
+      _resolveConflictVersion: resolveConflictVersion,
+      payload,
+      clientUpdatedAt: Date.now(),
+      version: _version || 0,
+    }
+
+    this.storage.saveQueue(this.queue)
+  }
+
+  /**
+   * Update milestone with resolve conflict version
+   */
+  updateMilestoneWithResolveConflict(
+    milestoneId: string,
+    milestone: Milestone,
+    resolveConflictVersion: number
+  ): void {
+    const list = this.queue.milestones
+    const idx = list.findIndex((item) => item.id === milestoneId)
+
+    if (idx === -1) {
+      console.warn(`[SyncQueueManager] Milestone ${milestoneId} not found in queue for conflict resolution`)
+      return
+    }
+
+    const { _localUpdatedAt, _localOp, _version, ...payload } = milestone
+
+    list[idx] = {
+      ...list[idx],
+      _resolveConflictVersion: resolveConflictVersion,
+      payload,
+      clientUpdatedAt: Date.now(),
+      version: _version || 0,
+    }
+
+    this.storage.saveQueue(this.queue)
+  }
+
+  /**
    * Check queue size and trigger emergency sync if needed
    */
   private checkQueueSizeAndSync(): void {
-    const totalQueueSize = this.queue.goals.length + this.queue.habits.length
+    const totalQueueSize =
+      this.queue.goals.length +
+      this.queue.habits.length +
+      this.queue.globalGoals.length +
+      this.queue.milestones.length
 
     if (totalQueueSize >= MAX_QUEUE_SIZE) {
       console.warn(

@@ -34,23 +34,25 @@ export type GlobalGoal = {
   type: GlobalGoalType
   title: string
   description?: string
-  icon?: string
-  
+
   // Период
   periodStart: string  // ISO date
   periodEnd?: string   // ISO date (optional for process goals)
-  
+
   // Статус
   status: GlobalGoalStatus
   statusChangedAt?: string
-  
+
   // Для HYBRID целей - измеримый прогресс
   targetValue?: number      // например, 10 (кг)
   currentValue?: number     // например, 3 (кг)
   unit?: string             // например, "кг"
-  
+
   // Метаданные
   createdAt: string
+
+  // Soft delete flag for sync
+  deleted?: boolean
 } & LocalSyncMeta
 
 /**
@@ -65,15 +67,18 @@ export type Milestone = {
   title: string
   description?: string
   order: number
-  
+
   // Когда пользователь вошёл в этот этап
   enteredAt?: string
   // Когда вышел из этапа (перешёл на следующий)
   exitedAt?: string
-  
+
   // Статус этапа
   isActive: boolean
   isCompleted: boolean
+
+  // Soft delete flag for sync
+  deleted?: boolean
 } & LocalSyncMeta
 
 /**
@@ -167,7 +172,7 @@ export type DayStatus = "productive" | "normal" | "unproductive" | null
  * Статус активности для process-целей
  * Показывается вместо процентов
  */
-export type ActivityStatus = "active" | "unstable" | "weak"
+export type ActivityStatus = "active" | "unstable" | "weak" | "collecting"
 
 /**
  * Прогресс для OUTCOME цели

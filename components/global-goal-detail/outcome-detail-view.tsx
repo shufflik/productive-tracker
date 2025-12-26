@@ -9,7 +9,8 @@ import {
   Flag,
   Clock,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Play
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
@@ -26,6 +27,7 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
   const allMilestones = useGlobalGoalsStore((state) => state.milestones)
   const addMilestone = useGlobalGoalsStore((state) => state.addMilestone)
   const swapMilestoneOrders = useGlobalGoalsStore((state) => state.swapMilestoneOrders)
+  const activateMilestone = useGlobalGoalsStore((state) => state.activateMilestone)
   const goals = useGoalsStore((state) => state.goals)
 
   const milestones = useMemo(() =>
@@ -67,18 +69,35 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
   const hasCompletedWithoutActive = !progress.currentMilestone &&
     progress.milestoneHistory.some(m => m.isCompleted)
 
+  // Этапы ещё не начаты (есть milestones, но ни один не активен и не завершён)
+  const hasNotStarted = milestones.length > 0 &&
+    !progress.currentMilestone &&
+    !progress.milestoneHistory.some(m => m.isCompleted)
+
+  const firstMilestone = milestones[0]
+
+  const handleStartFirstMilestone = async () => {
+    if (firstMilestone) {
+      await activateMilestone(goal.id, firstMilestone.id)
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Current Phase - компактный вид */}
       {progress.currentMilestone ? (
         <div className="px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-          <div className="flex items-center gap-2">
-            <Flag className="w-4 h-4 text-purple-500 flex-shrink-0" />
-            <span className="text-sm text-purple-600">Текущий:</span>
-            <span className="text-base font-medium text-foreground truncate">{progress.currentMilestone.title}</span>
-            <span className="text-sm text-muted-foreground ml-auto flex-shrink-0">
-              {progress.timeInCurrentMilestone} дн.
-            </span>
+          <div className="flex items-start gap-2">
+            <Flag className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-purple-600">Текущий:</span>
+                <span className="text-sm text-muted-foreground">
+                  {progress.timeInCurrentMilestone} дн.
+                </span>
+              </div>
+              <p className="text-sm font-medium text-foreground break-words mt-1">{progress.currentMilestone.title}</p>
+            </div>
           </div>
         </div>
       ) : hasCompletedWithoutActive ? (
@@ -86,6 +105,23 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-yellow-600" />
             <span className="text-sm text-yellow-600">Между этапами — активируйте следующий</span>
+          </div>
+        </div>
+      ) : hasNotStarted ? (
+        <div className="px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Play className="w-4 h-4 text-blue-500 flex-shrink-0" />
+              <span className="text-sm text-blue-600 truncate">Начать с: {firstMilestone?.title}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleStartFirstMilestone}
+              className="flex-shrink-0 border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
+            >
+              Старт
+            </Button>
           </div>
         </div>
       ) : null}
@@ -105,15 +141,19 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
         </div>
 
         {showAddMilestone && (
-          <div className="flex gap-2 items-center">
-            <Input
-              placeholder="Название этапа"
-              value={newMilestoneTitle}
-              onChange={(e) => setNewMilestoneTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddMilestone()}
-              autoFocus
-              className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
-            />
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 space-y-1">
+              <p className="text-xs text-muted-foreground">{newMilestoneTitle.length}/35</p>
+              <Input
+                placeholder="Название этапа"
+                value={newMilestoneTitle}
+                onChange={(e) => setNewMilestoneTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddMilestone()}
+                maxLength={35}
+                autoFocus
+                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+              />
+            </div>
             <Button size="sm" className="h-9" onClick={handleAddMilestone}>OK</Button>
             <Button size="sm" variant="ghost" className="h-9" onClick={() => setShowAddMilestone(false)}>✕</Button>
           </div>
@@ -211,7 +251,7 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
                         disabled={isEditing}
                         className={`flex-1 min-w-0 text-left ${isEditing ? "cursor-default" : ""}`}
                       >
-                        <p className={`font-medium truncate ${isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                        <p className={`text-sm font-medium break-words ${isCompleted ? "text-muted-foreground line-through" : "text-foreground"}`}>
                           {milestone.title}
                         </p>
                         {((historyData && historyData.daysSpent > 0) || (activityData && activityData.goalsTotal > 0)) && (
