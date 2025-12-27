@@ -186,11 +186,13 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
   }
 
   const canProceedToStep2 = type !== null
-  const canProceedToStep3 = title.trim().length > 0
+  const isDeadlineRequired = type === "outcome" || type === "hybrid"
+  const hasValidDeadline = periodPreset !== "none" && (periodPreset !== "custom" || customEndDate)
+  const canProceedToStep3 = title.trim().length > 0 && (!isDeadlineRequired || hasValidDeadline)
   const canSave = title.trim().length > 0 && (
     type === "process" ||
-    (type === "outcome" && milestones.length > 0) ||
-    (type === "hybrid" && targetValue && unit)
+    (type === "outcome" && milestones.length > 0 && hasValidDeadline) ||
+    (type === "hybrid" && targetValue && unit && hasValidDeadline)
   )
 
   const selectedTypeInfo = TYPE_OPTIONS.find(t => t.value === type)
@@ -297,9 +299,20 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                 <Label className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
                   Deadline
+                  {(type === "outcome" || type === "hybrid") && (
+                    <span className="text-destructive">*</span>
+                  )}
                 </Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {PERIOD_PRESETS.map((preset) => (
+                  {PERIOD_PRESETS
+                    .filter((preset) => {
+                      // Hide "No deadline" option for outcome and hybrid types
+                      if (preset.value === "none" && (type === "outcome" || type === "hybrid")) {
+                        return false
+                      }
+                      return true
+                    })
+                    .map((preset) => (
                     <button
                       key={preset.value}
                       type="button"
@@ -480,19 +493,21 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
             <Button
               variant="outline"
               onClick={() => setStep((step - 1) as 1 | 2)}
-              className="bg-transparent"
+              className="flex-1 bg-transparent"
             >
               Back
             </Button>
           )}
           
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="flex-1 bg-transparent"
-          >
-            Cancel
-          </Button>
+          {step === 1 && (
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 bg-transparent"
+            >
+              Cancel
+            </Button>
+          )}
           
           {step === 1 && (
             <Button

@@ -105,9 +105,7 @@ export function ConflictsDialog({ open, conflicts, onResolve }: ConflictsDialogP
     switch (status) {
       case "not_started": return "Не начата"
       case "in_progress": return "В процессе"
-      case "blocked": return "Заблокирована"
       case "achieved": return "Достигнута"
-      case "abandoned": return "Отменена"
       default: return status
     }
   }

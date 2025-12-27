@@ -10,7 +10,8 @@ import {
   Clock,
   ChevronUp,
   ChevronDown,
-  Play
+  Play,
+  CheckCircle2
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
@@ -69,6 +70,10 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
   const hasCompletedWithoutActive = !progress.currentMilestone &&
     progress.milestoneHistory.some(m => m.isCompleted)
 
+  // Все этапы завершены
+  const allCompleted = milestones.length > 0 &&
+    milestones.every(m => m.isCompleted)
+
   // Этапы ещё не начаты (есть milestones, но ни один не активен и не завершён)
   const hasNotStarted = milestones.length > 0 &&
     !progress.currentMilestone &&
@@ -84,47 +89,56 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
 
   return (
     <div className="space-y-5">
-      {/* Current Phase - компактный вид */}
-      {progress.currentMilestone ? (
-        <div className="px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-          <div className="flex items-start gap-2">
-            <Flag className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-purple-600">Текущий:</span>
-                <span className="text-sm text-muted-foreground">
-                  {progress.timeInCurrentMilestone} дн.
-                </span>
+      {/* Current Phase - компактный вид - hidden in editing mode */}
+      {!isEditing && (
+        progress.currentMilestone ? (
+          <div className="px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+            <div className="flex items-start gap-2">
+              <Flag className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-purple-600">Текущий:</span>
+                  <span className="text-sm text-muted-foreground">
+                    {progress.timeInCurrentMilestone} дн.
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-foreground break-words mt-1">{progress.currentMilestone.title}</p>
               </div>
-              <p className="text-sm font-medium text-foreground break-words mt-1">{progress.currentMilestone.title}</p>
             </div>
           </div>
-        </div>
-      ) : hasCompletedWithoutActive ? (
-        <div className="px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-yellow-600" />
-            <span className="text-sm text-yellow-600">Между этапами — активируйте следующий</span>
-          </div>
-        </div>
-      ) : hasNotStarted ? (
-        <div className="px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Play className="w-4 h-4 text-blue-500 flex-shrink-0" />
-              <span className="text-sm text-blue-600 truncate">Начать с: {firstMilestone?.title}</span>
+        ) : allCompleted ? (
+          <div className="px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <span className="text-sm text-green-600 font-medium">Все этапы пройдены</span>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleStartFirstMilestone}
-              className="flex-shrink-0 border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
-            >
-              Старт
-            </Button>
           </div>
-        </div>
-      ) : null}
+        ) : hasCompletedWithoutActive ? (
+          <div className="px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-yellow-600" />
+              <span className="text-sm text-yellow-600">Между этапами — активируйте следующий</span>
+            </div>
+          </div>
+        ) : hasNotStarted ? (
+          <div className="px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Play className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <span className="text-sm text-blue-600 truncate">Начать с: {firstMilestone?.title}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleStartFirstMilestone}
+                className="flex-shrink-0 border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
+              >
+                Старт
+              </Button>
+            </div>
+          </div>
+        ) : null
+      )}
 
       {/* Milestones */}
       <div className="space-y-3">

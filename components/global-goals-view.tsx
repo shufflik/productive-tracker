@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3, Calendar } from "lucide-react"
+import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3, Calendar, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GlobalGoalDialog } from "@/components/global-goal-dialog"
 import { GlobalGoalDetailDialog } from "@/components/global-goal-detail-dialog"
@@ -20,9 +20,7 @@ const TYPE_INFO: Record<GlobalGoalType, { label: string; icon: typeof Target; co
 const STATUS_COLORS: Record<string, string> = {
   not_started: "rgb(156, 163, 175)",
   in_progress: "rgb(59, 130, 246)",
-  blocked: "rgb(249, 115, 22)",
   achieved: "rgb(34, 197, 94)",
-  abandoned: "rgb(107, 114, 128)",
 }
 
 // Calculate days remaining until deadline
@@ -91,6 +89,7 @@ function OutcomeProgressDisplay({ progress }: { progress: GlobalGoalProgress & {
   // Показываем только текущий этап и время в нём
 
   const completedCount = milestoneHistory.filter(m => m.isCompleted).length
+  const allCompleted = milestoneHistory.length > 0 && milestoneHistory.every(m => m.isCompleted)
   const hasNoActiveMilestone = !currentMilestone && completedCount > 0
 
   return (
@@ -102,6 +101,11 @@ function OutcomeProgressDisplay({ progress }: { progress: GlobalGoalProgress & {
           <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
             {timeInCurrentMilestone}d
           </span>
+        </>
+      ) : allCompleted ? (
+        <>
+          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+          <span className="text-xs text-green-600 font-medium">Цель достигнута</span>
         </>
       ) : hasNoActiveMilestone ? (
         <>
@@ -168,11 +172,25 @@ function ProcessProgressDisplay({ progress }: { progress: GlobalGoalProgress & {
   )
 }
 
-function HybridProgressDisplay({ progress }: { progress: GlobalGoalProgress & { type: "hybrid" } }) {
+function HybridProgressDisplay({ progress, isAchieved }: { progress: GlobalGoalProgress & { type: "hybrid" }, isAchieved?: boolean }) {
   const { objectiveResult, processRhythm } = progress
-  
+
   const statusConfig = ACTIVITY_STATUS_CONFIG[processRhythm.activityStatus]
-  
+
+  // If achieved, show completion message like outcome goals
+  if (isAchieved) {
+    return (
+      <div className="flex items-center gap-2">
+        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+        <span className="text-xs text-green-600 font-medium">Цель достигнута</span>
+        <span className="flex items-center gap-1.5 ml-auto text-xs text-muted-foreground whitespace-nowrap">
+          <BarChart3 className="w-3.5 h-3.5 text-green-500" />
+          {objectiveResult.current}/{objectiveResult.target} {objectiveResult.unit}
+        </span>
+      </div>
+    )
+  }
+
   // Результат и активность в одну строку (как outcome: слева инфо, справа значение)
   return (
     <div className="flex items-center gap-2">
@@ -208,12 +226,27 @@ function GlobalGoalCard({
   const TypeIcon = typeInfo.icon
   const statusColor = STATUS_COLORS[goal.status]
 
+  // Check if all milestones are completed for outcome goals
+  const isAllMilestonesCompleted = progress.type === "outcome" &&
+    progress.milestoneHistory.length > 0 &&
+    progress.milestoneHistory.every(m => m.isCompleted)
+
+  // Check if hybrid goal is achieved
+  const isHybridAchieved = goal.type === "hybrid" && goal.status === "achieved"
+
+  // Show green border for completed outcome or achieved hybrid
+  const showGreenBorder = isAllMilestonesCompleted || isHybridAchieved
+
   return (
     <motion.button
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={onClick}
-      className="w-full bg-card border border-border rounded-xl p-4 text-left hover:border-primary/50 transition-colors"
+      className={`w-full bg-card border rounded-xl p-4 text-left transition-colors ${
+        showGreenBorder
+          ? "border-green-500/50 hover:border-green-500"
+          : "border-border hover:border-primary/50"
+      }`}
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
@@ -246,7 +279,7 @@ function GlobalGoalCard({
       {/* Progress */}
       {progress.type === "outcome" && <OutcomeProgressDisplay progress={progress} />}
       {progress.type === "process" && <ProcessProgressDisplay progress={progress} />}
-      {progress.type === "hybrid" && <HybridProgressDisplay progress={progress} />}
+      {progress.type === "hybrid" && <HybridProgressDisplay progress={progress} isAchieved={isHybridAchieved} />}
 
       {/* Deadline - only for active goals with deadline */}
       {goal.periodEnd && (goal.status === "in_progress" || goal.status === "not_started") && (
@@ -291,15 +324,15 @@ export function GlobalGoalsView() {
   // Filter by type
   const filteredGoals = useMemo(() => {
     let filtered = goalsWithProgress
-    
+
     if (selectedType !== "all") {
       filtered = filtered.filter((g) => g.goal.type === selectedType)
     }
 
-    // Sort: active first, then by status
-    return filtered.sort((a, b) => {
-      const statusOrder = { in_progress: 0, not_started: 1, blocked: 2, achieved: 3, abandoned: 4 }
-      return (statusOrder[a.goal.status] || 5) - (statusOrder[b.goal.status] || 5)
+    // Sort: active first, achieved last
+    return [...filtered].sort((a, b) => {
+      const statusOrder: Record<string, number> = { in_progress: 0, not_started: 1, achieved: 2 }
+      return (statusOrder[a.goal.status] ?? 5) - (statusOrder[b.goal.status] ?? 5)
     })
   }, [goalsWithProgress, selectedType])
 

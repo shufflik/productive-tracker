@@ -4,9 +4,7 @@ import type { GlobalGoalStatus } from "@/lib/types"
 export const STATUS_OPTIONS: { value: GlobalGoalStatus; label: string; color: string }[] = [
   { value: "not_started", label: "Not Started", color: "rgb(156, 163, 175)" },
   { value: "in_progress", label: "In Progress", color: "rgb(59, 130, 246)" },
-  { value: "blocked", label: "Blocked", color: "rgb(249, 115, 22)" },
   { value: "achieved", label: "Achieved", color: "rgb(34, 197, 94)" },
-  { value: "abandoned", label: "Abandoned", color: "rgb(107, 114, 128)" },
 ]
 
 export const TYPE_ICONS = {

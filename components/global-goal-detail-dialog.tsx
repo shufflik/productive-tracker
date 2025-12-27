@@ -5,11 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Pencil, Trash2, ChevronDown } from "lucide-react"
+import { Pencil, Trash2, Calendar } from "lucide-react"
+import { Label } from "@/components/ui/label"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useHabitsStore } from "@/lib/stores/habits-store"
-import type { GlobalGoal, GlobalGoalStatus, OutcomeProgress, ProcessProgress, HybridProgress } from "@/lib/types"
+import type { GlobalGoal, OutcomeProgress, ProcessProgress, HybridProgress } from "@/lib/types"
 import {
   DeadlineInfo,
   OutcomeDetailView,
@@ -37,11 +38,11 @@ export function GlobalGoalDetailDialog({
   const habits = useHabitsStore((state) => state.habits)
   const milestones = useGlobalGoalsStore((state) => state.milestones)
 
-  const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
   const [editedDescription, setEditedDescription] = useState("")
+  const [editedDeadline, setEditedDeadline] = useState("")
 
   // Reset editing state when goal changes or dialog closes
   useEffect(() => {
@@ -49,7 +50,7 @@ export function GlobalGoalDetailDialog({
       setIsEditing(false)
       setEditedTitle("")
       setEditedDescription("")
-      setShowStatusMenu(false)
+      setEditedDeadline("")
       setShowDeleteConfirm(false)
     }
   }, [open, goal?.id])
@@ -61,13 +62,6 @@ export function GlobalGoalDetailDialog({
     return calculateProgress(goal, linkedGoals, linkedHabits)
   }, [goal, goals, habits, milestones, calculateProgress])
 
-  const handleStatusChange = (status: GlobalGoalStatus) => {
-    if (goal) {
-      updateGlobalGoal(goal.id, { status })
-    }
-    setShowStatusMenu(false)
-  }
-
   const handleDelete = async () => {
     if (goal) {
       await deleteGlobalGoal(goal.id)
@@ -78,14 +72,19 @@ export function GlobalGoalDetailDialog({
   const handleStartEditing = () => {
     setEditedTitle(goal?.title || "")
     setEditedDescription(goal?.description || "")
+    setEditedDeadline(goal?.periodEnd || "")
     setIsEditing(true)
   }
 
+  const isDeadlineRequired = goal?.type === "outcome" || goal?.type === "hybrid"
+  const canSave = editedTitle.trim() && (!isDeadlineRequired || editedDeadline)
+
   const handleSave = async () => {
-    if (goal && editedTitle.trim()) {
+    if (goal && canSave) {
       await updateGlobalGoal(goal.id, {
         title: editedTitle.trim(),
-        description: editedDescription || undefined
+        description: editedDescription || undefined,
+        periodEnd: editedDeadline || undefined
       })
       setIsEditing(false)
     }
@@ -95,6 +94,7 @@ export function GlobalGoalDetailDialog({
     setIsEditing(false)
     setEditedTitle("")
     setEditedDescription("")
+    setEditedDeadline("")
   }
 
   if (!goal || !progress) return null
@@ -125,13 +125,12 @@ export function GlobalGoalDetailDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {/* Status selector */}
-          <div className="mb-4">
-            <span className="text-xs font-medium text-muted-foreground block mb-1.5">Статус</span>
-            <div className="relative">
-              <button
-                onClick={() => setShowStatusMenu(!showStatusMenu)}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors w-fit"
+          {/* Status display - hidden in editing mode */}
+          {!isEditing && (
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Статус</span>
+              <span
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md"
                 style={{
                   backgroundColor: `${currentStatus?.color}15`,
                   color: currentStatus?.color,
@@ -143,28 +142,9 @@ export function GlobalGoalDetailDialog({
                   style={{ backgroundColor: currentStatus?.color }}
                 />
                 {currentStatus?.label}
-                <ChevronDown className="w-3 h-3" />
-              </button>
-
-              {showStatusMenu && (
-                <div className="absolute top-full mt-1 left-0 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
-                  {STATUS_OPTIONS.map((status) => (
-                    <button
-                      key={status.value}
-                      onClick={() => handleStatusChange(status.value)}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
-                    >
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: status.color }}
-                      />
-                      {status.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              </span>
             </div>
-          </div>
+          )}
 
           {/* Description */}
           {(isEditing || goal.description) && (
@@ -189,7 +169,24 @@ export function GlobalGoalDetailDialog({
           )}
 
           {/* Deadline */}
-          {goal.periodEnd && (goal.type === "outcome" || goal.type === "hybrid") &&
+          {isEditing ? (
+            <div className="mb-4">
+              <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                <Calendar className="w-3.5 h-3.5" />
+                Дедлайн
+                {(goal.type === "outcome" || goal.type === "hybrid") && (
+                  <span className="text-destructive">*</span>
+                )}
+              </Label>
+              <Input
+                type="date"
+                value={editedDeadline}
+                onChange={(e) => setEditedDeadline(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+              />
+            </div>
+          ) : goal.periodEnd && (goal.type === "outcome" || goal.type === "hybrid" || goal.type === "process") &&
            (goal.status === "in_progress" || goal.status === "not_started") && (
             <div className="mb-4">
               <DeadlineInfo periodEnd={goal.periodEnd} />
@@ -200,10 +197,10 @@ export function GlobalGoalDetailDialog({
             <OutcomeDetailView goal={goal} progress={progress as OutcomeProgress} isEditing={isEditing} />
           )}
           {progress.type === "process" && (
-            <ProcessDetailView goal={goal} progress={progress as ProcessProgress} />
+            <ProcessDetailView goal={goal} progress={progress as ProcessProgress} isEditing={isEditing} />
           )}
           {progress.type === "hybrid" && (
-            <HybridDetailView goal={goal} progress={progress as HybridProgress} />
+            <HybridDetailView goal={goal} progress={progress as HybridProgress} isEditing={isEditing} />
           )}
         </div>
 
@@ -236,7 +233,7 @@ export function GlobalGoalDetailDialog({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!editedTitle.trim()}
+                disabled={!canSave}
                 className="flex-1"
               >
                 Сохранить

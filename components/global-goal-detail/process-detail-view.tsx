@@ -13,9 +13,10 @@ import { LinkedItemsList } from "./linked-items-list"
 type ProcessDetailViewProps = {
   goal: GlobalGoal
   progress: ProcessProgress
+  isEditing?: boolean
 }
 
-export function ProcessDetailView({ goal, progress }: ProcessDetailViewProps) {
+export function ProcessDetailView({ goal, progress, isEditing }: ProcessDetailViewProps) {
   const updateGlobalGoal = useGlobalGoalsStore((state) => state.updateGlobalGoal)
   const goals = useGoalsStore((state) => state.goals)
   const habits = useHabitsStore((state) => state.habits)
@@ -31,8 +32,8 @@ export function ProcessDetailView({ goal, progress }: ProcessDetailViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Start Goal Button */}
-      {isNotStarted && (
+      {/* Start Goal Button - hidden in editing mode */}
+      {isNotStarted && !isEditing && (
         <div className="px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -50,33 +51,40 @@ export function ProcessDetailView({ goal, progress }: ProcessDetailViewProps) {
           </div>
         </div>
       )}
-      {/* Activity Status + Chart */}
-      <ActivityStatusBlock
-        activityStatus={progress.activityStatus}
-        activitySignal={progress.activitySignal}
-        trend={progress.trend}
-        linkedGoals={linkedGoals}
-        linkedHabits={linkedHabits}
-        createdAt={goal.createdAt}
-      />
 
-      {/* Weekly Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 rounded-lg bg-muted/50">
-          <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.goalsCompleted}</p>
-          <p className="text-xs text-muted-foreground">Задач за неделю</p>
-        </div>
-        <div className="p-3 rounded-lg bg-muted/50">
-          <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.habitsCompleted}</p>
-          <p className="text-xs text-muted-foreground">Привычек за неделю</p>
-        </div>
-      </div>
+      {/* Activity Status + Chart - hidden in editing mode */}
+      {!isEditing && (
+        <ActivityStatusBlock
+          activityStatus={progress.activityStatus}
+          activitySignal={progress.activitySignal}
+          trend={progress.trend}
+          linkedGoals={linkedGoals}
+          linkedHabits={linkedHabits}
+          createdAt={goal.createdAt}
+        />
+      )}
 
-      {/* Linked items */}
-      <div className="space-y-3">
-        <h3 className="font-medium text-foreground">Связанные действия</h3>
-        <LinkedItemsList linkedGoals={linkedGoals} linkedHabits={linkedHabits} />
-      </div>
+      {/* Weekly Stats - hidden in editing mode */}
+      {!isEditing && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg bg-muted/50">
+            <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.goalsCompleted}</p>
+            <p className="text-xs text-muted-foreground">Задач за неделю</p>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/50">
+            <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.habitsCompleted}</p>
+            <p className="text-xs text-muted-foreground">Привычек за неделю</p>
+          </div>
+        </div>
+      )}
+
+      {/* Linked items - hidden in editing mode */}
+      {!isEditing && (
+        <div className="space-y-3">
+          <h3 className="font-medium text-foreground">Связанные действия</h3>
+          <LinkedItemsList linkedGoals={linkedGoals} linkedHabits={linkedHabits} />
+        </div>
+      )}
     </div>
   )
 }

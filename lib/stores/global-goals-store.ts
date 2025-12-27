@@ -50,6 +50,8 @@ type GlobalGoalsActions = {
     status?: GlobalGoalStatus
     periodEnd?: string
     currentValue?: number
+    targetValue?: number
+    unit?: string
   }) => Promise<void>
 
   deleteGlobalGoal: (id: string) => Promise<void>
@@ -213,6 +215,12 @@ export const useGlobalGoalsStore = create<GlobalGoalsStore>()(
 
         syncService.enqueueMilestoneChange("create", newMilestone)
 
+        // If goal was achieved but new milestone added, change status back to in_progress
+        const goal = get().globalGoals.find(g => g.id === globalGoalId)
+        if (goal && goal.status === "achieved") {
+          await get().updateGlobalGoal(globalGoalId, { status: "in_progress" })
+        }
+
         return newMilestone
       },
 
@@ -302,7 +310,7 @@ export const useGlobalGoalsStore = create<GlobalGoalsStore>()(
         }
       },
 
-      completeMilestone: async (_globalGoalId, milestoneId) => {
+      completeMilestone: async (globalGoalId, milestoneId) => {
         const now = new Date().toISOString()
         const milestone = get().milestones.find(m => m.id === milestoneId)
         if (!milestone) return
@@ -323,6 +331,16 @@ export const useGlobalGoalsStore = create<GlobalGoalsStore>()(
         }))
 
         syncService.enqueueMilestoneChange("update", updated)
+
+        // Check if all milestones are completed - if so, mark goal as achieved
+        const goalMilestones = get().milestones.filter(m => m.globalGoalId === globalGoalId)
+        const allCompleted = goalMilestones.length > 0 && goalMilestones.every(m => m.isCompleted)
+        if (allCompleted) {
+          const goal = get().globalGoals.find(g => g.id === globalGoalId)
+          if (goal && goal.status !== "achieved") {
+            await get().updateGlobalGoal(globalGoalId, { status: "achieved" })
+          }
+        }
       },
 
       fetchGlobalGoals: async () => {

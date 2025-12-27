@@ -24,7 +24,7 @@ export type GlobalGoalType = "outcome" | "process" | "hybrid"
 /**
  * Статус глобальной цели
  */
-export type GlobalGoalStatus = "not_started" | "in_progress" | "blocked" | "achieved" | "abandoned"
+export type GlobalGoalStatus = "not_started" | "in_progress" | "achieved"
 
 /**
  * Глобальная цель
