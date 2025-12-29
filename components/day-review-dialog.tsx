@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Goal } from "@/lib/types"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
+import { useGoalsStore } from "@/lib/stores/goals-store"
 import confetti from "canvas-confetti"
 import { getTodayLocalISO } from "@/lib/utils/date"
 import { syncService } from "@/lib/services/sync"
@@ -144,14 +145,13 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     if (!newTaskTitle.trim() || !newTaskLabel.trim()) return
 
     const reviewDate = date || getTodayLocalISO()
-    const reviewDateAsDateString = new Date(reviewDate + "T00:00:00").toDateString()
 
     const newGoal: GoalWithDetails = {
       id: generateId(),
       title: newTaskTitle.trim(),
       label: newTaskLabel.trim().toUpperCase(),
       completed: true, // Дополнительные задачи всегда выполнены
-      targetDate: reviewDateAsDateString,
+      targetDate: reviewDate, // ISO format (YYYY-MM-DD)
       isAdditionalAdded: true, // Помечаем как дополнительно добавленную
       _version: 0,
     }
@@ -270,6 +270,15 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
           })
 
         onUpdateGoals(originalGoals)
+
+        // Для автоматического завершения пропущенных дней - удаляем goals из кеша
+        const currentDate = getTodayLocalISO()
+        if (reviewDate !== currentDate) {
+          const currentGoals = useGoalsStore.getState().goals
+          // Filter out goals by ISO date (reviewDate is already in YYYY-MM-DD format)
+          const filteredGoals = currentGoals.filter((g) => g.targetDate !== reviewDate)
+          useGoalsStore.getState().setGoals(filteredGoals)
+        }
 
         // Mark day as ended locally
         markDayAsEnded(reviewDate)

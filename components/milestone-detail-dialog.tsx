@@ -23,7 +23,7 @@ type MilestoneDetailDialogProps = {
   goalId: string
   historyData?: { daysSpent: number; isCompleted: boolean }
   activityData?: { goalsCompleted: number; goalsTotal: number }
-  linkedGoals: Array<{ id: string; title: string; completed: boolean; milestoneId?: string }>
+  linkedGoals: Array<{ id: string; title: string; completed: boolean; milestoneId?: string | null }>
 }
 
 export function MilestoneDetailDialog({ 

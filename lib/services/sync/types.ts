@@ -32,8 +32,31 @@ export type SyncChanges = {
   milestones: SyncChange<Omit<Milestone, "_localUpdatedAt" | "_localOp" | "_version">>[]
 }
 
+/**
+ * Goal data for pending review (minimal fields needed for review dialog)
+ */
+export type PendingReviewGoal = {
+  id: string
+  title: string
+  description: string | null
+  targetDate: string | null
+  isBacklog: boolean
+  label: string | null
+  completed: boolean
+  important: boolean
+  meta: Record<string, unknown> | null
+  globalGoalId: string | null
+  milestoneId: string | null
+  _version: number
+}
+
 export type SyncReviewBlock = {
-  pendingReviewDates: string[]
+  /**
+   * Goals grouped by date for pending reviews
+   * Key is ISO date string (e.g., "2025-12-27")
+   * Value is array of goals for that date
+   */
+  pendingReview?: Record<string, PendingReviewGoal[]>
   /**
    * Day ended status for a specific date
    * Backend returns the date and whether it's ended
@@ -167,15 +190,6 @@ export type SyncResponse = {
    * (may differ from what client sent)
    */
   review?: SyncReviewBlock
-  /**
-   * Day states for auto end-day functionality
-   */
-  dayStates?: {
-    /**
-     * Dates that need review (calculated from missed days)
-     */
-    pendingReviewDates: string[]
-  }
   /**
    * BIDIRECTIONAL SYNC: Changes from backend since client's lastSyncAt
    * Backend returns all entities that were changed on other devices

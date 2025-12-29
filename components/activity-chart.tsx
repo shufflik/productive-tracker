@@ -2,7 +2,11 @@
 
 import { useMemo } from "react"
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { format } from "date-fns"
 import type { Goal, Habit } from "@/lib/types"
+
+// Helper to format date to ISO format (YYYY-MM-DD)
+const toISODateString = (date: Date): string => format(date, "yyyy-MM-dd")
 
 type ActivityChartProps = {
   linkedGoals: Goal[]
@@ -59,10 +63,11 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt 
     for (let i = effectiveDays - 1; i >= 0; i--) {
       const date = new Date(now)
       date.setDate(date.getDate() - i)
-      const dateStr = date.toDateString()
+      const isoDateStr = toISODateString(date)
+      const legacyDateStr = date.toDateString() // Habits use toDateString format
 
-      const goalCount = goalActivityByDate[dateStr] || 0
-      const habitCount = habitActivityByDate[dateStr] || 0
+      const goalCount = goalActivityByDate[isoDateStr] || 0
+      const habitCount = habitActivityByDate[legacyDateStr] || 0
       const activity = goalCount + habitCount
 
       if (activity > 0) {
@@ -78,7 +83,7 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt 
       }
 
       data.push({
-        date: dateStr,
+        date: isoDateStr,
         label: date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }),
         activity,
         isToday: i === 0,

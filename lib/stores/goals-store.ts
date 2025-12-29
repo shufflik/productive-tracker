@@ -6,6 +6,10 @@ import type { Goal } from "@/lib/types"
 import { goalsArraySchema } from "@/lib/schemas/common.schema"
 import { generateId } from "@/lib/utils/id"
 import { syncService } from "@/lib/services/sync"
+import { format } from "date-fns"
+
+// Helper to format date to ISO format (YYYY-MM-DD)
+const toISODateString = (date: Date): string => format(date, "yyyy-MM-dd")
 
 type GoalsState = {
   goals: Goal[]
@@ -14,7 +18,7 @@ type GoalsState = {
 
 type GoalsActions = {
   // Goal CRUD operations
-  addGoal: (title: string, label: string, description: string, targetDate?: string, globalGoalId?: string, milestoneId?: string) => void
+  addGoal: (title: string, label: string, description: string, options?: { targetDate?: string; isBacklog?: boolean }, globalGoalId?: string, milestoneId?: string) => void
   updateGoal: (id: string, title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => void
   linkToGlobalGoal: (goalId: string, globalGoalId: string | undefined, milestoneId?: string) => void
   deleteGoal: (id: string) => void
@@ -42,21 +46,15 @@ export const useGoalsStore = create<GoalsStore>()(
       goals: [],
       isLoaded: false,
 
-      addGoal: (title, label, description, targetDate, globalGoalId, milestoneId) => {
-        let finalTargetDate: string
-
-        if (targetDate) {
-          finalTargetDate = targetDate
-        } else {
-          finalTargetDate = new Date().toDateString()
-        }
-
+      addGoal: (title, label, description, options, globalGoalId, milestoneId) => {
         const newGoal: Goal = {
           id: generateId(),
           title,
           description: description || undefined,
           completed: false,
-          targetDate: finalTargetDate,
+          // Either targetDate or isBacklog, not both
+          targetDate: options?.isBacklog ? undefined : (options?.targetDate || toISODateString(new Date())),
+          isBacklog: options?.isBacklog || undefined,
           label: label ? label.toUpperCase() : label,
           globalGoalId: globalGoalId || undefined,
           milestoneId: milestoneId || undefined,
@@ -180,7 +178,7 @@ export const useGoalsStore = create<GoalsStore>()(
       },
 
       rescheduleForTomorrow: (id) => {
-        const tomorrow = new Date(Date.now() + 86400000).toDateString()
+        const tomorrow = toISODateString(new Date(Date.now() + 86400000))
         let updatedGoal: Goal | undefined
 
         set((state) => {
@@ -190,6 +188,7 @@ export const useGoalsStore = create<GoalsStore>()(
           updatedGoal = {
             ...goal,
             targetDate: tomorrow,
+            isBacklog: undefined, // Clear backlog flag when scheduling
             completed: false,
             meta: goal.meta,
           }
@@ -205,7 +204,7 @@ export const useGoalsStore = create<GoalsStore>()(
       },
 
       moveToToday: (goalIds) => {
-        const todayDate = new Date().toDateString()
+        const todayDate = toISODateString(new Date())
         const idsArray = Array.isArray(goalIds) ? goalIds : [goalIds]
         const updatedGoals: Goal[] = []
 
@@ -215,6 +214,7 @@ export const useGoalsStore = create<GoalsStore>()(
               const updated = {
                 ...g,
                 targetDate: todayDate,
+                isBacklog: undefined, // Clear backlog flag when moving to today
                 completed: false,
                 meta: g.meta,
               }
@@ -241,7 +241,8 @@ export const useGoalsStore = create<GoalsStore>()(
 
           updatedGoal = {
             ...goal,
-            targetDate: "backlog",
+            targetDate: undefined, // Clear date when moving to backlog
+            isBacklog: true,
             completed: false,
             meta: goal.meta,
           }
@@ -265,15 +266,15 @@ export const useGoalsStore = create<GoalsStore>()(
       },
 
       getGoalsForDate: (date) => {
-        const dateString = date.toDateString()
+        const dateString = toISODateString(date)
         return get().goals.filter(
-          (g) => g.targetDate === dateString
+          (g) => g.targetDate === dateString && !g.isBacklog
         )
       },
 
       getBacklogGoals: () => {
         return get().goals.filter(
-          (g) => g.targetDate === "backlog"
+          (g) => g.isBacklog === true
         )
       },
 
@@ -362,17 +363,7 @@ syncService.registerGoalsApplyHandler((serverGoals) => {
         let selectedGoal: Goal
         if (serverVersion > localVersion) {
           // Серверная версия новее - берем её
-
-          // CRITICAL: Check if targetDate exists and is in correct format
-          if (!serverGoal.targetDate) {
-            console.warn(`[GoalsStore] WARNING: Server goal missing targetDate! Using local:`, localGoal.targetDate)
-            selectedGoal = {
-              ...serverGoal,
-              targetDate: localGoal.targetDate, // Keep local targetDate
-            }
-          } else {
-            selectedGoal = serverGoal
-          }
+          selectedGoal = serverGoal
         } else if (serverVersion === localVersion) {
           // Версии равны - сравниваем по времени изменения
           const localUpdatedAt = localGoal._localUpdatedAt || 0

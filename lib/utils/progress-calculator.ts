@@ -2,6 +2,7 @@
  * Progress calculation utilities for Global Goals
  */
 
+import { format } from "date-fns"
 import type {
   GlobalGoal,
   Milestone,
@@ -12,6 +13,9 @@ import type {
   HybridProgress,
   ActivityStatus,
 } from "@/lib/types"
+
+// Helper to format date to ISO format (YYYY-MM-DD)
+const toISODateString = (date: Date): string => format(date, "yyyy-MM-dd")
 
 /** Grace period in days before activity status is calculated */
 const ACTIVITY_GRACE_PERIOD_DAYS = 14
@@ -198,12 +202,14 @@ export function calculateProcessProgress(
   checkDate.setHours(0, 0, 0, 0)
 
   while (true) {
-    const dateStr = checkDate.toDateString()
+    const dateStr = toISODateString(checkDate)
     const hasGoalActivity = goalsToCount.some(g =>
       g.targetDate === dateStr && g.completed
     )
+    // Habits still use toDateString format for completions keys
+    const habitDateStr = checkDate.toDateString()
     const hasHabitActivity = linkedHabits.some(h =>
-      h.completions?.[dateStr] === true
+      h.completions?.[habitDateStr] === true
     )
 
     if (hasGoalActivity || hasHabitActivity) {

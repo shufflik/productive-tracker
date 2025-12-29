@@ -121,17 +121,20 @@ export type GoalMeta = {
   isPostponed?: boolean
 }
 
-// Goal (temporary task with deadline)
+// Goal (temporary task with deadline or backlog)
 export type Goal = BaseItem & {
   description?: string
+  // ISO date (YYYY-MM-DD) - заполняется для goals с конкретной датой
   targetDate?: string
+  // true для backlog goals (без даты)
+  isBacklog?: boolean
   label?: string
   meta?: GoalMeta
-  
+
   // Связь с глобальной целью
-  globalGoalId?: string
-  milestoneId?: string
-  
+  globalGoalId?: string | null
+  milestoneId?: string | null
+
   // Уровень усилий (для process прогресса)
   effortLevel?: "low" | "medium" | "high"
 }

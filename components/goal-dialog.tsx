@@ -65,8 +65,8 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
       setTitle(goal.title)
       setLabel(goal.label || "")
       setDescription(goal.description || "")
-      setGlobalGoalId(goal.globalGoalId)
-      setMilestoneId(goal.milestoneId)
+      setGlobalGoalId(goal.globalGoalId ?? undefined)
+      setMilestoneId(goal.milestoneId ?? undefined)
     } else {
       setTitle("")
       setLabel("")
