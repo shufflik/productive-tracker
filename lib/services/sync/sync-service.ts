@@ -556,6 +556,13 @@ declare global {
           impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
           selectionChanged: () => void
         }
+        SettingsButton?: {
+          show: () => void
+          hide: () => void
+          onClick: (callback: () => void) => void
+          offClick: (callback: () => void) => void
+          isVisible: boolean
+        }
       }
     }
   }
