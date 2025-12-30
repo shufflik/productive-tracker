@@ -2,7 +2,7 @@
  * Type definitions for sync service
  */
 
-import type { Goal, Habit, LocalSyncOperation } from "@/lib/types"
+import type { Goal, Habit, GlobalGoal, Milestone, LocalSyncOperation } from "@/lib/types"
 
 /**
  * Change item that will be sent to backend
@@ -28,10 +28,35 @@ export type SyncChange<TPayload> = {
 export type SyncChanges = {
   goals: SyncChange<Omit<Goal, "_localUpdatedAt" | "_localOp" | "_version">>[]
   habits: SyncChange<Omit<Habit, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  globalGoals: SyncChange<Omit<GlobalGoal, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  milestones: SyncChange<Omit<Milestone, "_localUpdatedAt" | "_localOp" | "_version">>[]
+}
+
+/**
+ * Goal data for pending review (minimal fields needed for review dialog)
+ */
+export type PendingReviewGoal = {
+  id: string
+  title: string
+  description: string | null
+  targetDate: string | null
+  isBacklog: boolean
+  label: string | null
+  completed: boolean
+  important: boolean
+  meta: Record<string, unknown> | null
+  globalGoalId: string | null
+  milestoneId: string | null
+  _version: number
 }
 
 export type SyncReviewBlock = {
-  pendingReviewDates: string[]
+  /**
+   * Goals grouped by date for pending reviews
+   * Key is ISO date string (e.g., "2025-12-27")
+   * Value is array of goals for that date
+   */
+  pendingReview?: Record<string, PendingReviewGoal[]>
   /**
    * Day ended status for a specific date
    * Backend returns the date and whether it's ended
@@ -121,9 +146,31 @@ export type HabitConflict = {
   serverVersion?: number
 }
 
+export type GlobalGoalConflict = {
+  id: string
+  message: string
+  localEntity?: GlobalGoal
+  serverEntity?: GlobalGoal
+  localOperation?: LocalSyncOperation
+  clientVersion?: number
+  serverVersion?: number
+}
+
+export type MilestoneConflict = {
+  id: string
+  message: string
+  localEntity?: Milestone
+  serverEntity?: Milestone
+  localOperation?: LocalSyncOperation
+  clientVersion?: number
+  serverVersion?: number
+}
+
 export type SyncConflicts = {
   goals: GoalConflict[]
   habits: HabitConflict[]
+  globalGoals: GlobalGoalConflict[]
+  milestones: MilestoneConflict[]
 }
 
 export type SyncResponse = {
@@ -144,15 +191,6 @@ export type SyncResponse = {
    */
   review?: SyncReviewBlock
   /**
-   * Day states for auto end-day functionality
-   */
-  dayStates?: {
-    /**
-     * Dates that need review (calculated from missed days)
-     */
-    pendingReviewDates: string[]
-  }
-  /**
    * BIDIRECTIONAL SYNC: Changes from backend since client's lastSyncAt
    * Backend returns all entities that were changed on other devices
    * or directly on server since client's last sync
@@ -168,6 +206,14 @@ export type SyncResponse = {
      * deleted: true for deleted habits (client should delete locally)
      */
     habits?: Array<Habit | { id: string; deleted: true }>
+    /**
+     * Global goals that were changed on server since lastSyncAt
+     */
+    globalGoals?: Array<GlobalGoal | { id: string; deleted: true }>
+    /**
+     * Milestones that were changed on server since lastSyncAt
+     */
+    milestones?: Array<Milestone | { id: string; deleted: true }>
   }
 }
 
@@ -186,6 +232,8 @@ export type SyncMeta = {
 export type SyncQueue = {
   goals: SyncChange<Omit<Goal, "_localUpdatedAt" | "_localOp" | "_version">>[]
   habits: SyncChange<Omit<Habit, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  globalGoals: SyncChange<Omit<GlobalGoal, "_localUpdatedAt" | "_localOp" | "_version">>[]
+  milestones: SyncChange<Omit<Milestone, "_localUpdatedAt" | "_localOp" | "_version">>[]
 }
 
 /**
@@ -193,7 +241,11 @@ export type SyncQueue = {
  */
 export type GoalsApplyHandler = (goals: Goal[]) => void
 export type HabitsApplyHandler = (habits: Habit[]) => void
+export type GlobalGoalsApplyHandler = (globalGoals: GlobalGoal[]) => void
+export type MilestonesApplyHandler = (milestones: Milestone[]) => void
 export type GoalsDeleteHandler = (ids: string[]) => void
 export type HabitsDeleteHandler = (ids: string[]) => void
+export type GlobalGoalsDeleteHandler = (ids: string[]) => void
+export type MilestonesDeleteHandler = (ids: string[]) => void
 export type PendingReviewsApplyHandler = (reviewBlock: SyncReviewBlock) => void
 export type ConflictsHandler = (conflicts: SyncConflicts) => void

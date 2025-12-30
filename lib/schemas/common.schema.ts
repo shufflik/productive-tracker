@@ -24,10 +24,11 @@ const goalMetaSchema = z.object({
   isPostponed: z.boolean().nullish(),
 })
 
-// Goal schema (temporary task with deadline)
+// Goal schema (temporary task with deadline or backlog)
 const goalSchema = baseItemSchema.extend({
   description: z.string().nullish(),
   targetDate: z.string().nullish(),
+  isBacklog: z.boolean().nullish(),
   label: z.string().nullish(),
   meta: goalMetaSchema.nullish(),
 })

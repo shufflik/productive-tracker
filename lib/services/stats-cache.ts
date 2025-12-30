@@ -14,8 +14,9 @@
  * Now cached - fetched via /stats/range endpoint
  */
 export type DayStatsData = {
-    date: string  // "2025-01-15"
+  date: string  // "2025-01-15"
   dayStatus: "good" | "average" | "poor" | "bad"
+  baselineLoadImpact: 0 | 1 | 2 | 3 | 4
   distractions: "no" | "little" | "sometimes" | "often" | "constantly"
   dayReflection: string
   completedGoals: Array<{

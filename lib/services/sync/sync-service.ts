@@ -14,18 +14,21 @@
  * 8. Error notifications only: Toast appears only if sync failed
  */
 
-import type { Goal, Habit } from "@/lib/types"
+import type { Goal, Habit, GlobalGoal, Milestone } from "@/lib/types"
 import { toast } from "sonner"
 import type {
   SyncMeta,
   SyncRequest,
   SyncReviewBlock,
   SyncConflicts,
-  HabitConflict,
   GoalsApplyHandler,
   HabitsApplyHandler,
+  GlobalGoalsApplyHandler,
+  MilestonesApplyHandler,
   GoalsDeleteHandler,
   HabitsDeleteHandler,
+  GlobalGoalsDeleteHandler,
+  MilestonesDeleteHandler,
   PendingReviewsApplyHandler,
   ConflictsHandler,
 } from "./types"
@@ -34,6 +37,8 @@ import { SyncQueueManager } from "./queue"
 import { PollingManager } from "./polling"
 import { RetryManager } from "./retry-manager"
 import { syncApi } from "../api-client"
+import { processServerChanges, collectConflictedIds, type ChangesHandlers } from "./changes-handler"
+import { resolveConflict as resolveConflictFn, hasConflicts, createEmptyConflicts } from "./conflict-handler"
 
 /**
  * Core sync service
@@ -47,7 +52,7 @@ export class SyncService {
   private queueManager: SyncQueueManager
   private pollingManager: PollingManager
   private retryManager: RetryManager
-  private pendingConflicts: SyncConflicts = { goals: [], habits: [] }
+  private pendingConflicts: SyncConflicts = { goals: [], habits: [], globalGoals: [], milestones: [] }
   private hasPerformedInitialSync = false
 
   // Promise-based sync lock to prevent concurrent syncs
@@ -59,8 +64,12 @@ export class SyncService {
   // Handlers for applying server data back into stores
   private applyGoals?: GoalsApplyHandler
   private applyHabits?: HabitsApplyHandler
+  private applyGlobalGoals?: GlobalGoalsApplyHandler
+  private applyMilestones?: MilestonesApplyHandler
   private deleteGoals?: GoalsDeleteHandler
   private deleteHabits?: HabitsDeleteHandler
+  private deleteGlobalGoals?: GlobalGoalsDeleteHandler
+  private deleteMilestones?: MilestonesDeleteHandler
   private applyPendingReviews?: PendingReviewsApplyHandler
   private conflictsHandler?: ConflictsHandler
 
@@ -79,8 +88,7 @@ export class SyncService {
     this.queueManager.setOverflowCallback(() => this.sync())
 
     // Show pending conflicts if any
-    const hasConflicts = this.pendingConflicts.goals.length > 0 || this.pendingConflicts.habits.length > 0
-    if (hasConflicts && this.conflictsHandler) {
+    if (hasConflicts(this.pendingConflicts) && this.conflictsHandler) {
       this.conflictsHandler(this.pendingConflicts)
     }
   }
@@ -104,6 +112,22 @@ export class SyncService {
     this.deleteHabits = handler
   }
 
+  registerGlobalGoalsApplyHandler(handler: GlobalGoalsApplyHandler): void {
+    this.applyGlobalGoals = handler
+  }
+
+  registerMilestonesApplyHandler(handler: MilestonesApplyHandler): void {
+    this.applyMilestones = handler
+  }
+
+  registerGlobalGoalsDeleteHandler(handler: GlobalGoalsDeleteHandler): void {
+    this.deleteGlobalGoals = handler
+  }
+
+  registerMilestonesDeleteHandler(handler: MilestonesDeleteHandler): void {
+    this.deleteMilestones = handler
+  }
+
   registerPendingReviewsApplyHandler(handler: PendingReviewsApplyHandler): void {
     this.applyPendingReviews = handler
   }
@@ -116,76 +140,35 @@ export class SyncService {
    * Apply user's choice for conflict resolution
    */
   resolveConflict(conflictId: string, chosenVersion: 'local' | 'server'): void {
-    // Try to find conflict in goals first
-    let goalConflict = this.pendingConflicts.goals.find(c => c.id === conflictId)
-    let habitConflict: HabitConflict | undefined
-    let isGoal = !!goalConflict
+    this.pendingConflicts = resolveConflictFn(
+      conflictId,
+      chosenVersion,
+      this.pendingConflicts,
+      this.queueManager,
+      this.storage,
+      this.getChangesHandlers()
+    )
+  }
 
-    // If not found in goals, try habits
-    if (!goalConflict) {
-      habitConflict = this.pendingConflicts.habits.find(c => c.id === conflictId)
-      if (!habitConflict) {
-        console.warn(`[SyncService] Conflict ${conflictId} not found in pending conflicts`)
-        return
-      }
+  /**
+   * Get handlers object for changes-handler and conflict-handler
+   */
+  private getChangesHandlers(): ChangesHandlers {
+    return {
+      applyGoals: this.applyGoals,
+      applyHabits: this.applyHabits,
+      applyGlobalGoals: this.applyGlobalGoals,
+      applyMilestones: this.applyMilestones,
+      deleteGoals: this.deleteGoals,
+      deleteHabits: this.deleteHabits,
+      deleteGlobalGoals: this.deleteGlobalGoals,
+      deleteMilestones: this.deleteMilestones,
     }
-
-    const conflict = goalConflict || habitConflict!
-
-    if (chosenVersion === 'server') {
-      // User chose server version
-      if (isGoal && conflict.serverEntity && this.applyGoals) {
-        this.applyGoals([conflict.serverEntity as Goal])
-      } else if (!isGoal && conflict.serverEntity && this.applyHabits) {
-        this.applyHabits([conflict.serverEntity as Habit])
-      }
-
-      // Remove local change from queue (server version already on server)
-      const goalIds = isGoal ? new Set([conflictId]) : new Set<string>()
-      const habitIds = !isGoal ? new Set([conflictId]) : new Set<string>()
-      this.queueManager.removeConflictedItems(goalIds, habitIds)
-    } else {
-      // User chose local version
-      // Apply local version in localStorage
-      if (isGoal && conflict.localEntity && this.applyGoals) {
-        this.applyGoals([conflict.localEntity as Goal])
-      } else if (!isGoal && conflict.localEntity && this.applyHabits) {
-        this.applyHabits([conflict.localEntity as Habit])
-      }
-
-      // Update queue item with _resolveConflictVersion
-      // This will be sent to backend with server's version for atomic conflict resolution
-      const serverVersion = conflict.serverEntity?._version
-      if (serverVersion !== undefined) {
-        if (isGoal && conflict.localEntity) {
-          this.queueManager.updateGoalWithResolveConflict(
-            conflictId,
-            conflict.localEntity as Goal,
-            serverVersion
-          )
-        } else if (!isGoal && conflict.localEntity) {
-          this.queueManager.updateHabitWithResolveConflict(
-            conflictId,
-            conflict.localEntity as Habit,
-            serverVersion
-          )
-        }
-      }
-    }
-
-    // Remove resolved conflict from pending
-    if (isGoal) {
-      this.pendingConflicts.goals = this.pendingConflicts.goals.filter(c => c.id !== conflictId)
-    } else {
-      this.pendingConflicts.habits = this.pendingConflicts.habits.filter(c => c.id !== conflictId)
-    }
-    this.storage.savePendingConflicts(this.pendingConflicts)
-
   }
 
   onConflictsResolved(): void {
     // Called after user resolved all conflicts
-    this.pendingConflicts = { goals: [], habits: [] }
+    this.pendingConflicts = createEmptyConflicts()
     this.storage.savePendingConflicts(this.pendingConflicts)
 
     // Trigger sync to send resolved conflicts
@@ -305,8 +288,12 @@ export class SyncService {
     // This protects from losing changes added during sync request
     const snapshotGoals = [...queue.goals]
     const snapshotHabits = [...queue.habits]
+    const snapshotGlobalGoals = [...queue.globalGoals]
+    const snapshotMilestones = [...queue.milestones]
     const snapshotGoalIds = new Set(snapshotGoals.map(g => g.id))
     const snapshotHabitIds = new Set(snapshotHabits.map(h => h.id))
+    const snapshotGlobalGoalIds = new Set(snapshotGlobalGoals.map(gg => gg.id))
+    const snapshotMilestoneIds = new Set(snapshotMilestones.map(m => m.id))
 
     try {
       const reviewBlock = this.collectReviewBlock()
@@ -323,6 +310,8 @@ export class SyncService {
         changes: {
           goals: snapshotGoals,
           habits: snapshotHabits,
+          globalGoals: snapshotGlobalGoals,
+          milestones: snapshotMilestones,
         },
         review: reviewBlock,
       }
@@ -331,16 +320,21 @@ export class SyncService {
 
       if (response.success) {
         // Check for conflicts FIRST before updating lastSyncAt
-        const hasConflicts = (response.conflicts.goals.length > 0 || response.conflicts.habits.length > 0)
+        const hasConflictsInResponse = hasConflicts(response.conflicts)
 
-        if (!hasConflicts) {
+        if (!hasConflictsInResponse) {
           this.lastSyncTimestamp = response.lastSyncAt
           this.meta.lastSyncAt = response.lastSyncAt
           this.lastSuccessfulSyncTime = Date.now() // Update time of last successful sync
 
           // Remove only sent changes from queue
           // New changes added during sync stay in queue
-          this.queueManager.clearSentItems(snapshotGoalIds, snapshotHabitIds)
+          this.queueManager.clearSentItems(
+            snapshotGoalIds,
+            snapshotHabitIds,
+            snapshotGlobalGoalIds,
+            snapshotMilestoneIds
+          )
 
           // Save metadata only if no conflicts
           this.storage.saveMeta(this.meta)
@@ -352,87 +346,21 @@ export class SyncService {
           console.warn("[SyncService] Conflicts detected - NOT updating lastSyncAt and NOT clearing queue")
         }
 
-        // Apply review block from backend (merge pendingReviewDates and dayEnded status)
+        // Apply review block from backend (pendingReview with goals and dayEnded status)
         if (response.review && this.applyPendingReviews) {
           this.applyPendingReviews(response.review)
         }
 
-        // CRITICAL: Collect IDs of conflicted entities for filtering
-        // If entity is in both conflicts and changes - priority goes to conflicts
-        const conflictedGoalIds = new Set<string>()
-        const conflictedHabitIds = new Set<string>()
-
-        if (hasConflicts) {
-
-          response.conflicts.goals.forEach(conflict => {
-            conflictedGoalIds.add(conflict.id)
-          })
-
-          response.conflicts.habits.forEach(conflict => {
-            conflictedHabitIds.add(conflict.id)
-          })
-
-        }
+        // Collect conflicted IDs for filtering
+        const conflictedIds = collectConflictedIds(response.conflicts)
 
         // BIDIRECTIONAL SYNC: Apply changes from backend (changes from other devices)
-
         if (response.changes) {
-          if (response.changes.goals && response.changes.goals.length > 0) {
-
-            // Filter deleted goals and regular goals
-            // IMPORTANT: Exclude conflicted goals (they're processed separately)
-            // Check VALUE of deleted field, not just presence of key
-            const goalsBeforeDeleteFilter = response.changes.goals.filter((g): g is Goal => g.deleted !== true)
-
-            const goalsToApply = goalsBeforeDeleteFilter.filter(g => !conflictedGoalIds.has(g.id))
-
-
-            const goalsToDelete = response.changes.goals
-              .filter((g): g is { id: string; deleted: true } => g.deleted === true)
-              .map(g => g.id)
-              .filter(id => !conflictedGoalIds.has(id))  // ← Exclude conflicts
-
-            if (goalsToApply.length > 0 && this.applyGoals) {
-              this.applyGoals(goalsToApply)
-            }
-
-            if (goalsToDelete.length > 0) {
-              if (this.deleteGoals) {
-                this.deleteGoals(goalsToDelete)
-              } else {
-                console.warn("[SyncService] deleteGoals handler not registered! Goals will not be deleted locally.")
-              }
-            }
-          }
-
-          if (response.changes.habits && response.changes.habits.length > 0) {
-            // IMPORTANT: Exclude conflicted habits (they're processed separately)
-            // Check VALUE of deleted field, not just presence of key
-            const habitsToApply = response.changes.habits
-              .filter((h): h is Habit => h.deleted !== true)
-              .filter(h => !conflictedHabitIds.has(h.id))  // ← Exclude conflicts
-
-            const habitsToDelete = response.changes.habits
-              .filter((h): h is { id: string; deleted: true } => h.deleted === true)
-              .map(h => h.id)
-              .filter(id => !conflictedHabitIds.has(id))  // ← Exclude conflicts
-
-            if (habitsToApply.length > 0 && this.applyHabits) {
-              this.applyHabits(habitsToApply)
-            }
-
-            if (habitsToDelete.length > 0) {
-              if (this.deleteHabits) {
-                this.deleteHabits(habitsToDelete)
-              } else {
-                console.warn("[SyncService] deleteHabits handler not registered! Habits will not be deleted locally.")
-              }
-            }
-          }
+          processServerChanges(response.changes, conflictedIds, this.getChangesHandlers())
         }
 
         // CRITICAL: Handle conflicts - show form for user to choose version
-        if (hasConflicts) {
+        if (hasConflictsInResponse) {
           console.warn("[SyncService] Conflicts detected:", response.conflicts)
 
           // Stop polling - blocking UI state
@@ -501,6 +429,20 @@ export class SyncService {
    */
   enqueueHabitChange(operation: Parameters<SyncQueueManager['enqueueHabitChange']>[0], habit: Habit): void {
     this.queueManager.enqueueHabitChange(operation, habit)
+  }
+
+  /**
+   * Enqueue global goal change
+   */
+  enqueueGlobalGoalChange(operation: Parameters<SyncQueueManager['enqueueGlobalGoalChange']>[0], globalGoal: GlobalGoal): void {
+    this.queueManager.enqueueGlobalGoalChange(operation, globalGoal)
+  }
+
+  /**
+   * Enqueue milestone change
+   */
+  enqueueMilestoneChange(operation: Parameters<SyncQueueManager['enqueueMilestoneChange']>[0], milestone: Milestone): void {
+    this.queueManager.enqueueMilestoneChange(operation, milestone)
   }
 
   /**
@@ -581,26 +523,11 @@ export class SyncService {
   }
 
   /**
-   * Collect pendingReviewDates from day-state-store
-   * Note: lastActiveDate is no longer sent to backend
+   * Collect review block for sync request
+   * Note: pendingReview is now generated by backend, client sends empty block
    */
   private collectReviewBlock(): SyncReviewBlock {
-    if (typeof window === "undefined") {
-      return { pendingReviewDates: [] }
-    }
-
-    try {
-      const dayStateData = localStorage.getItem("day-state-storage")
-      if (!dayStateData) return { pendingReviewDates: [] }
-
-      const dayState = JSON.parse(dayStateData).state
-      return {
-        pendingReviewDates: dayState?.pendingReviewDates || [],
-      }
-    } catch (error) {
-      console.error("[SyncService] Failed to collect review block:", error)
-      return { pendingReviewDates: [] }
-    }
+    return {}
   }
 }
 

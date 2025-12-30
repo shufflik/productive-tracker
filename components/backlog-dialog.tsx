@@ -11,10 +11,10 @@ type BacklogDialogProps = {
   open: boolean
   onClose: () => void
   goals: Goal[]
-  onMoveToToday: (goalIds: string[]) => void
+  onMoveToDate: (goalIds: string[]) => void
 }
 
-export function BacklogDialog({ open, onClose, goals, onMoveToToday }: BacklogDialogProps) {
+export function BacklogDialog({ open, onClose, goals, onMoveToDate }: BacklogDialogProps) {
   const [selectedGoals, setSelectedGoals] = useState<string[]>([])
 
   const toggleGoal = (goalId: string) => {
@@ -27,7 +27,7 @@ export function BacklogDialog({ open, onClose, goals, onMoveToToday }: BacklogDi
 
   const handleAdd = () => {
     if (selectedGoals.length > 0) {
-      onMoveToToday(selectedGoals)
+      onMoveToDate(selectedGoals)
       setSelectedGoals([])
       onClose()
     }
@@ -55,11 +55,11 @@ export function BacklogDialog({ open, onClose, goals, onMoveToToday }: BacklogDi
             goals.map((goal) => (
               <div
                 key={goal.id}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
+                className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
                 onClick={() => toggleGoal(goal.id)}
               >
                 <Checkbox checked={selectedGoals.includes(goal.id)} onCheckedChange={() => toggleGoal(goal.id)} />
-                <span className="flex-1 text-sm text-foreground">{goal.title}</span>
+                <span className="flex-1 min-w-0 text-sm text-foreground break-words">{goal.title}</span>
               </div>
             ))
           )}

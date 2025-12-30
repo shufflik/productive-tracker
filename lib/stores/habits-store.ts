@@ -14,8 +14,8 @@ type HabitsState = {
 
 type HabitsActions = {
   // Habit CRUD operations
-  addHabit: (title: string, repeatType: RepeatType, repeatDays?: number[]) => void
-  updateHabit: (id: string, title: string, repeatType: RepeatType, repeatDays?: number[]) => void
+  addHabit: (title: string, repeatType: RepeatType, repeatDays?: number[], globalGoalId?: string) => void
+  updateHabit: (id: string, title: string, repeatType: RepeatType, repeatDays?: number[], globalGoalId?: string) => void
   deleteHabit: (id: string) => void
   
   // Completion tracking
@@ -41,13 +41,14 @@ export const useHabitsStore = create<HabitsStore>()(
       habits: [],
       isLoaded: false,
 
-      addHabit: (title, repeatType, repeatDays) => {
+      addHabit: (title, repeatType, repeatDays, globalGoalId) => {
         const newHabit: Habit = {
           id: generateId(),
           title,
           completed: false,
           repeatType,
           repeatDays: repeatType === "weekly" ? repeatDays : undefined,
+          globalGoalId,
           currentStreak: 0,
           maxStreak: 0,
           lastCompletedDate: undefined,
@@ -62,7 +63,7 @@ export const useHabitsStore = create<HabitsStore>()(
         syncService.enqueueHabitChange("create", newHabit)
       },
 
-      updateHabit: (id, title, repeatType, repeatDays) => {
+      updateHabit: (id, title, repeatType, repeatDays, globalGoalId) => {
         let updatedHabit: Habit | undefined
 
         set((state) => {
@@ -74,6 +75,7 @@ export const useHabitsStore = create<HabitsStore>()(
             title,
             repeatType,
             repeatDays: repeatType === "weekly" ? repeatDays : undefined,
+            globalGoalId,
           }
 
           return {

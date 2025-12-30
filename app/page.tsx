@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { GoalsView } from "@/components/goals-view"
 import { StatisticsView } from "@/components/statistics-view"
 import { HabitsView } from "@/components/habits-view"
-import { CheckSquare, BarChart3, Target } from "lucide-react"
+import { GlobalGoalsView } from "@/components/global-goals-view"
+import { CheckSquare, BarChart3, Target, Crosshair } from "lucide-react"
 import { syncService } from "@/lib/services/sync"
 // import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
@@ -16,7 +17,7 @@ import { useGoalsStore } from "@/lib/stores/goals-store"
 let appInitialized = false
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"goals" | "statistics" | "habits">("goals")
+  const [activeTab, setActiveTab] = useState<"goals" | "objectives" | "statistics" | "habits">("goals")
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false)
 
   // Auto End Day state
@@ -197,6 +198,7 @@ export default function Home() {
         <h1 className="text-2xl font-bold text-foreground text-center mb-6 flex-shrink-0">Daily Tracker</h1>
         <div className="flex-1 min-h-0">
           {activeTab === "goals" && <GoalsView />}
+          {activeTab === "objectives" && <GlobalGoalsView />}
           {activeTab === "statistics" && <StatisticsView />}
           {activeTab === "habits" && <HabitsView />}
         </div>
@@ -216,6 +218,15 @@ export default function Home() {
           >
             <CheckSquare className="w-6 h-6" />
             <span className="text-xs font-medium">Goals</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("objectives")}
+            className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
+              activeTab === "objectives" ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <Crosshair className="w-6 h-6" />
+            <span className="text-xs font-medium">Objectives</span>
           </button>
           <button
             onClick={() => setActiveTab("habits")}

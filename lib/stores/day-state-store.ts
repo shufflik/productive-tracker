@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from "zustand/middleware"
 import { getTodayLocalISO, getLocalDateFromUTC } from "@/lib/utils/date"
 import { syncService } from "@/lib/services/sync"
 import { useGoalsStore } from "./goals-store"
+import type { PendingReviewGoal } from "@/lib/services/sync/types"
 
 type DayState = {
   date: string // ISO date format "2025-11-10"
@@ -14,20 +15,20 @@ type DayState = {
 type DayStateStore = {
   dayStates: Record<string, DayState> // key is ISO date string
   lastActiveDate: string | null // последняя дата и время активности пользователя (ISO datetime "2025-01-15T14:30:00.000Z")
-  pendingReviewDates: string[] // даты, для которых нужно показать review диалог
-  
+  pendingReview: Record<string, PendingReviewGoal[]> // goals grouped by date for pending reviews
+
   // Actions
   markDayAsEnded: (date: string) => void
   cancelDayEnd: (date: string, incompleteGoalIds?: string[]) => void
   isDayEnded: (date: string) => boolean
   getTodayState: () => DayState
   isTodayEnded: () => boolean
-  
-  // Новые методы для автоматического закрытия дней
-  markDayForReview: (date: string) => void
+
+  // Методы для автоматического закрытия дней
   completePendingReview: (date: string) => void
   updateLastActiveDate: () => void
   getPendingReviewDates: () => string[]
+  getGoalsForReview: (date: string) => PendingReviewGoal[]
 }
 
 export const useDayStateStore = create<DayStateStore>()(
@@ -35,7 +36,7 @@ export const useDayStateStore = create<DayStateStore>()(
     (set, get) => ({
       dayStates: {},
       lastActiveDate: null,
-      pendingReviewDates: [],
+      pendingReview: {},
 
       markDayAsEnded: (date) => {
         // Храним только 1 день в кеше - заменяем весь кеш новой датой
@@ -85,21 +86,12 @@ export const useDayStateStore = create<DayStateStore>()(
         return get().isDayEnded(today)
       },
 
-      markDayForReview: (date) => {
-        set((state) => {
-          if (!state.pendingReviewDates.includes(date)) {
-            return {
-              pendingReviewDates: [...state.pendingReviewDates, date],
-            }
-          }
-          return state
-        })
-      },
-
       completePendingReview: (date) => {
-        set((state) => ({
-          pendingReviewDates: state.pendingReviewDates.filter((d) => d !== date),
-        }))
+        set((state) => {
+          const newPendingReview = { ...state.pendingReview }
+          delete newPendingReview[date]
+          return { pendingReview: newPendingReview }
+        })
       },
 
       updateLastActiveDate: () => {
@@ -109,7 +101,11 @@ export const useDayStateStore = create<DayStateStore>()(
       },
 
       getPendingReviewDates: () => {
-        return get().pendingReviewDates
+        return Object.keys(get().pendingReview)
+      },
+
+      getGoalsForReview: (date) => {
+        return get().pendingReview[date] || []
       },
     }),
     {
@@ -150,19 +146,17 @@ export const useDayStateStore = create<DayStateStore>()(
 )
 
 // Зарегистрировать обработчик применения review блока от backend
-// pendingReviewDates теперь генерируются только на бекенде
 syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
   useDayStateStore.setState((state) => {
-    // pendingReviewDates генерируются на бекенде, просто берем с сервера
-    const serverDates = reviewBlock.pendingReviewDates || []
+    // pendingReview приходит с бекенда - goals сгруппированы по датам
+    const serverPendingReview = reviewBlock.pendingReview || {}
 
     // Применяем dayEnded от бекенда
-    // Бекенд теперь возвращает дату напрямую в dayEnded.date
     let newDayStates = { ...state.dayStates }
     if (reviewBlock.dayEnded) {
       try {
         const { date, ended } = reviewBlock.dayEnded
-        
+
         // Если день закрыт и даты нет в кеше - добавляем (заменяя весь кеш)
         if (ended && !newDayStates[date]) {
           newDayStates = {
@@ -172,7 +166,6 @@ syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
             }
           }
         }
-        // Если ended = false или дата уже в кеше - ничего не делаем
       } catch (error) {
         console.error("[DayStateStore] Failed to apply dayEnded:", error)
       }
@@ -180,7 +173,7 @@ syncService.registerPendingReviewsApplyHandler((reviewBlock) => {
 
     return {
       ...state,
-      pendingReviewDates: serverDates,
+      pendingReview: serverPendingReview,
       dayStates: newDayStates,
     }
   })

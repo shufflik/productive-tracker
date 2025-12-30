@@ -13,9 +13,13 @@ import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { syncService } from "@/lib/services/sync"
 import { DotLottieReact } from "@lottiefiles/dotlottie-react"
 import type { Goal } from "@/lib/types"
+import { format } from "date-fns"
 
 // Re-export Goal type for backward compatibility
 export type { Goal } from "@/lib/types"
+
+// Helper to format date to ISO format (YYYY-MM-DD)
+const toISODateString = (date: Date): string => format(date, "yyyy-MM-dd")
 
 export function GoalsView() {
   // Zustand store
@@ -27,6 +31,7 @@ export function GoalsView() {
   const rescheduleInStore = useGoalsStore((state) => state.rescheduleForTomorrow)
   const toggleImportantInStore = useGoalsStore((state) => state.toggleImportant)
   const moveToTodayInStore = useGoalsStore((state) => state.moveToToday)
+  const moveToDateInStore = useGoalsStore((state) => state.moveToDate)
   const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
 
   // Day state store
@@ -43,25 +48,21 @@ export function GoalsView() {
   const [movingGoals, setMovingGoals] = useState<Record<string, string>>({})
 
   const addGoal = useCallback(
-    (title: string, label: string, description: string) => {
-      let targetDate: string
-
+    (title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => {
       if (selectedDay === "backlog") {
-        targetDate = "backlog"
+        addGoalToStore(title, label, description, { isBacklog: true }, globalGoalId, milestoneId)
       } else if (selectedDay === "tomorrow") {
-        targetDate = new Date(Date.now() + 86400000).toDateString()
+        addGoalToStore(title, label, description, { targetDate: toISODateString(new Date(Date.now() + 86400000)) }, globalGoalId, milestoneId)
       } else {
-        targetDate = new Date().toDateString()
+        addGoalToStore(title, label, description, { targetDate: toISODateString(new Date()) }, globalGoalId, milestoneId)
       }
-
-      addGoalToStore(title, label, description, targetDate)
     },
     [selectedDay, addGoalToStore]
   )
 
   const updateGoal = useCallback(
-    (id: string, title: string, label: string, description: string) => {
-      updateGoalInStore(id, title, label, description)
+    (id: string, title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => {
+      updateGoalInStore(id, title, label, description, globalGoalId, milestoneId)
     },
     [updateGoalInStore]
   )
@@ -170,18 +171,19 @@ export function GoalsView() {
   const shouldShowForSelectedDay = useCallback(
     (goal: Goal): boolean => {
       if (selectedDay === "backlog") {
-        return goal.targetDate === "backlog"
+        return goal.isBacklog === true
       }
 
+      // Skip backlog goals for today/tomorrow views
+      if (goal.isBacklog) return false
+
       const targetDay = selectedDay === "tomorrow" ? new Date(Date.now() + 86400000) : new Date()
+      const targetDateStr = toISODateString(targetDay)
 
-      if (!goal.targetDate || goal.targetDate === "backlog") return false
+      if (!goal.targetDate) return false
 
-      const goalDate = new Date(goal.targetDate).toDateString()
-      const todayDate = targetDay.toDateString()
-      const matches = goalDate === todayDate
-
-      return matches
+      // Compare ISO date strings directly
+      return goal.targetDate === targetDateStr
     },
     [selectedDay]
   )
@@ -226,11 +228,16 @@ export function GoalsView() {
 
   const displayDate = selectedDay === "today" ? today : selectedDay === "tomorrow" ? tomorrow : "Goals for later"
 
-  const moveFromBacklogToToday = useCallback(
+  const moveFromBacklog = useCallback(
     (goalIds: string[]) => {
-      moveToTodayInStore(goalIds)
+      if (selectedDay === "tomorrow") {
+        const tomorrowDate = toISODateString(new Date(Date.now() + 86400000))
+        moveToDateInStore(goalIds, tomorrowDate)
+      } else {
+        moveToTodayInStore(goalIds)
+      }
     },
-    [moveToTodayInStore]
+    [selectedDay, moveToTodayInStore, moveToDateInStore]
   )
 
   // Check if today is ended
@@ -514,15 +521,18 @@ export function GoalsView() {
       <GoalDialog
         open={dialogOpen}
         onClose={closeDialog}
-        onSave={editingGoal ? (title: string, label: string, description: string) => updateGoal(editingGoal.id, title, label, description) : addGoal}
+        onSave={editingGoal 
+          ? (title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => updateGoal(editingGoal.id, title, label, description, globalGoalId, milestoneId) 
+          : addGoal
+        }
         goal={editingGoal}
       />
 
       <BacklogDialog
         open={backlogOpen}
         onClose={() => setBacklogOpen(false)}
-        goals={goals.filter((g) => g.targetDate === "backlog")}
-        onMoveToToday={moveFromBacklogToToday}
+        goals={goals.filter((g) => g.isBacklog === true)}
+        onMoveToDate={moveFromBacklog}
       />
 
       <DayReviewDialog

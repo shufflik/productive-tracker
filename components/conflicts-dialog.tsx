@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { SyncConflicts } from "@/lib/services/sync"
-import type { Goal, Habit } from "@/lib/types"
+import type { Goal, Habit, GlobalGoal, Milestone } from "@/lib/types"
 import { AlertTriangle } from "lucide-react"
 
 type ConflictsDialogProps = {
@@ -16,7 +16,7 @@ type ConflictsDialogProps = {
 export function ConflictsDialog({ open, conflicts, onResolve }: ConflictsDialogProps) {
   const [resolutions, setResolutions] = useState<Map<string, "local" | "server">>(new Map())
 
-  const totalConflicts = conflicts.goals.length + conflicts.habits.length
+  const totalConflicts = conflicts.goals.length + conflicts.habits.length + conflicts.globalGoals.length + conflicts.milestones.length
 
   const handleResolutionChange = (conflictId: string, choice: "local" | "server") => {
     const newResolutions = new Map(resolutions)
@@ -28,8 +28,10 @@ export function ConflictsDialog({ open, conflicts, onResolve }: ConflictsDialogP
     // Убеждаемся, что все конфликты разрешены
     const allGoalsResolved = conflicts.goals.every(c => resolutions.has(c.id))
     const allHabitsResolved = conflicts.habits.every(c => resolutions.has(c.id))
+    const allGlobalGoalsResolved = conflicts.globalGoals.every(c => resolutions.has(c.id))
+    const allMilestonesResolved = conflicts.milestones.every(c => resolutions.has(c.id))
 
-    if (!allGoalsResolved || !allHabitsResolved) {
+    if (!allGoalsResolved || !allHabitsResolved || !allGlobalGoalsResolved || !allMilestonesResolved) {
       return
     }
     onResolve(resolutions)
@@ -61,6 +63,50 @@ export function ConflictsDialog({ open, conflicts, onResolve }: ConflictsDialogP
       currentStreak: habit.currentStreak,
       completed: habit.completed,
       important: habit.important,
+    }
+  }
+
+  const getGlobalGoalDetails = (globalGoal: GlobalGoal | undefined) => {
+    if (!globalGoal) return null
+    return {
+      type: globalGoal.type,
+      description: globalGoal.description,
+      status: globalGoal.status,
+      periodStart: globalGoal.periodStart,
+      periodEnd: globalGoal.periodEnd,
+      targetValue: globalGoal.targetValue,
+      currentValue: globalGoal.currentValue,
+      unit: globalGoal.unit,
+    }
+  }
+
+  const getMilestoneDetails = (milestone: Milestone | undefined) => {
+    if (!milestone) return null
+    return {
+      description: milestone.description,
+      order: milestone.order,
+      isActive: milestone.isActive,
+      isCompleted: milestone.isCompleted,
+      enteredAt: milestone.enteredAt,
+      exitedAt: milestone.exitedAt,
+    }
+  }
+
+  const formatGlobalGoalType = (type: GlobalGoal["type"]) => {
+    switch (type) {
+      case "outcome": return "Результат"
+      case "process": return "Процесс"
+      case "hybrid": return "Гибридная"
+      default: return type
+    }
+  }
+
+  const formatGlobalGoalStatus = (status: GlobalGoal["status"]) => {
+    switch (status) {
+      case "not_started": return "Не начата"
+      case "in_progress": return "В процессе"
+      case "achieved": return "Достигнута"
+      default: return status
     }
   }
 
@@ -235,6 +281,186 @@ export function ConflictsDialog({ open, conflicts, onResolve }: ConflictsDialogP
                         {serverDetails?.important !== undefined && <p><strong>Важное:</strong> {serverDetails.important ? "Да" : "Нет"}</p>}
                         {serverHabit._localUpdatedAt && (
                           <p className="text-[10px] sm:text-xs"><strong>Обновлено:</strong> {formatDate(serverHabit._localUpdatedAt)}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Серверная версия отсутствует</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* GlobalGoals conflicts */}
+          {conflicts.globalGoals.map((conflict) => {
+            const localGlobalGoal = conflict.localEntity
+            const serverGlobalGoal = conflict.serverEntity
+            const resolution = resolutions.get(conflict.id)
+            const localDetails = getGlobalGoalDetails(localGlobalGoal)
+            const serverDetails = getGlobalGoalDetails(serverGlobalGoal)
+
+            return (
+              <div key={conflict.id} className="border border-border rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
+                <div>
+                  <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                    Глобальная цель: {localGlobalGoal?.title || serverGlobalGoal?.title || "N/A"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">{conflict.message}</p>
+                </div>
+
+                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3 sm:gap-4">
+                  {/* Локальная версия */}
+                  <div className={`border-2 rounded-lg p-2 sm:p-3 ${resolution === "local" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                      <span className="text-xs sm:text-sm font-semibold text-foreground">Локальная версия</span>
+                      <Button
+                        size="sm"
+                        variant={resolution === "local" ? "default" : "outline"}
+                        onClick={() => handleResolutionChange(conflict.id, "local")}
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        {resolution === "local" ? "✓ Выбрано" : "Выбрать"}
+                      </Button>
+                    </div>
+                    {localGlobalGoal ? (
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p className="break-words"><strong>Название:</strong> {localGlobalGoal.title}</p>
+                        {localDetails?.type && <p><strong>Тип:</strong> {formatGlobalGoalType(localDetails.type)}</p>}
+                        {localDetails?.status && <p><strong>Статус:</strong> {formatGlobalGoalStatus(localDetails.status)}</p>}
+                        {localDetails?.description && (
+                          <p className="break-words"><strong>Описание:</strong> {localDetails.description}</p>
+                        )}
+                        {localDetails?.periodStart && <p><strong>Начало:</strong> {localDetails.periodStart}</p>}
+                        {localDetails?.periodEnd && <p><strong>Окончание:</strong> {localDetails.periodEnd}</p>}
+                        {localDetails?.targetValue !== undefined && localDetails?.unit && (
+                          <p><strong>Прогресс:</strong> {localDetails.currentValue ?? 0}/{localDetails.targetValue} {localDetails.unit}</p>
+                        )}
+                        {localGlobalGoal._localUpdatedAt && (
+                          <p className="text-[10px] sm:text-xs"><strong>Обновлено:</strong> {formatDate(localGlobalGoal._localUpdatedAt)}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Локальная версия отсутствует</p>
+                    )}
+                  </div>
+
+                  {/* Серверная версия */}
+                  <div className={`border-2 rounded-lg p-2 sm:p-3 ${resolution === "server" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                      <span className="text-xs sm:text-sm font-semibold text-foreground">Серверная версия</span>
+                      <Button
+                        size="sm"
+                        variant={resolution === "server" ? "default" : "outline"}
+                        onClick={() => handleResolutionChange(conflict.id, "server")}
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        {resolution === "server" ? "✓ Выбрано" : "Выбрать"}
+                      </Button>
+                    </div>
+                    {serverGlobalGoal ? (
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p className="break-words"><strong>Название:</strong> {serverGlobalGoal.title}</p>
+                        {serverDetails?.type && <p><strong>Тип:</strong> {formatGlobalGoalType(serverDetails.type)}</p>}
+                        {serverDetails?.status && <p><strong>Статус:</strong> {formatGlobalGoalStatus(serverDetails.status)}</p>}
+                        {serverDetails?.description && (
+                          <p className="break-words"><strong>Описание:</strong> {serverDetails.description}</p>
+                        )}
+                        {serverDetails?.periodStart && <p><strong>Начало:</strong> {serverDetails.periodStart}</p>}
+                        {serverDetails?.periodEnd && <p><strong>Окончание:</strong> {serverDetails.periodEnd}</p>}
+                        {serverDetails?.targetValue !== undefined && serverDetails?.unit && (
+                          <p><strong>Прогресс:</strong> {serverDetails.currentValue ?? 0}/{serverDetails.targetValue} {serverDetails.unit}</p>
+                        )}
+                        {serverGlobalGoal._localUpdatedAt && (
+                          <p className="text-[10px] sm:text-xs"><strong>Обновлено:</strong> {formatDate(serverGlobalGoal._localUpdatedAt)}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Серверная версия отсутствует</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Milestones conflicts */}
+          {conflicts.milestones.map((conflict) => {
+            const localMilestone = conflict.localEntity
+            const serverMilestone = conflict.serverEntity
+            const resolution = resolutions.get(conflict.id)
+            const localDetails = getMilestoneDetails(localMilestone)
+            const serverDetails = getMilestoneDetails(serverMilestone)
+
+            return (
+              <div key={conflict.id} className="border border-border rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
+                <div>
+                  <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                    Этап: {localMilestone?.title || serverMilestone?.title || "N/A"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">{conflict.message}</p>
+                </div>
+
+                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3 sm:gap-4">
+                  {/* Локальная версия */}
+                  <div className={`border-2 rounded-lg p-2 sm:p-3 ${resolution === "local" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                      <span className="text-xs sm:text-sm font-semibold text-foreground">Локальная версия</span>
+                      <Button
+                        size="sm"
+                        variant={resolution === "local" ? "default" : "outline"}
+                        onClick={() => handleResolutionChange(conflict.id, "local")}
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        {resolution === "local" ? "✓ Выбрано" : "Выбрать"}
+                      </Button>
+                    </div>
+                    {localMilestone ? (
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p className="break-words"><strong>Название:</strong> {localMilestone.title}</p>
+                        {localDetails?.description && (
+                          <p className="break-words"><strong>Описание:</strong> {localDetails.description}</p>
+                        )}
+                        <p><strong>Порядок:</strong> {localDetails?.order}</p>
+                        <p><strong>Активный:</strong> {localDetails?.isActive ? "Да" : "Нет"}</p>
+                        <p><strong>Завершён:</strong> {localDetails?.isCompleted ? "Да" : "Нет"}</p>
+                        {localDetails?.enteredAt && <p><strong>Начат:</strong> {localDetails.enteredAt}</p>}
+                        {localDetails?.exitedAt && <p><strong>Завершён:</strong> {localDetails.exitedAt}</p>}
+                        {localMilestone._localUpdatedAt && (
+                          <p className="text-[10px] sm:text-xs"><strong>Обновлено:</strong> {formatDate(localMilestone._localUpdatedAt)}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Локальная версия отсутствует</p>
+                    )}
+                  </div>
+
+                  {/* Серверная версия */}
+                  <div className={`border-2 rounded-lg p-2 sm:p-3 ${resolution === "server" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                      <span className="text-xs sm:text-sm font-semibold text-foreground">Серверная версия</span>
+                      <Button
+                        size="sm"
+                        variant={resolution === "server" ? "default" : "outline"}
+                        onClick={() => handleResolutionChange(conflict.id, "server")}
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                      >
+                        {resolution === "server" ? "✓ Выбрано" : "Выбрать"}
+                      </Button>
+                    </div>
+                    {serverMilestone ? (
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <p className="break-words"><strong>Название:</strong> {serverMilestone.title}</p>
+                        {serverDetails?.description && (
+                          <p className="break-words"><strong>Описание:</strong> {serverDetails.description}</p>
+                        )}
+                        <p><strong>Порядок:</strong> {serverDetails?.order}</p>
+                        <p><strong>Активный:</strong> {serverDetails?.isActive ? "Да" : "Нет"}</p>
+                        <p><strong>Завершён:</strong> {serverDetails?.isCompleted ? "Да" : "Нет"}</p>
+                        {serverDetails?.enteredAt && <p><strong>Начат:</strong> {serverDetails.enteredAt}</p>}
+                        {serverDetails?.exitedAt && <p><strong>Завершён:</strong> {serverDetails.exitedAt}</p>}
+                        {serverMilestone._localUpdatedAt && (
+                          <p className="text-[10px] sm:text-xs"><strong>Обновлено:</strong> {formatDate(serverMilestone._localUpdatedAt)}</p>
                         )}
                       </div>
                     ) : (

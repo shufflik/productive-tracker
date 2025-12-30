@@ -58,6 +58,7 @@ export function DayStatusDialog({
   const [completedGoals, setCompletedGoals] = useState<Goal[]>([])
   const [incompleteGoals, setIncompleteGoals] = useState<ReasonData[]>([])
   const [distractions, setDistractions] = useState<string | null>(null)
+  const [baselineLoadImpact, setBaselineLoadImpact] = useState<number | null>(null)
   const [showIncomplete, setShowIncomplete] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -74,6 +75,7 @@ export function DayStatusDialog({
         setCompletedGoals(dayDetail.completedGoals || [])
         setIncompleteGoals((dayDetail.incompleteReasons || []) as ReasonData[])
         setDistractions(dayDetail.distractions || null)
+        setBaselineLoadImpact(dayDetail.baselineLoadImpact ?? null)
       } else {
         // Priority 2: Try to get from cache directly
         const cachedDay = getDayFromCache(date)
@@ -81,11 +83,13 @@ export function DayStatusDialog({
           setCompletedGoals(cachedDay.completedGoals || [])
           setIncompleteGoals((cachedDay.incompleteReasons || []) as ReasonData[])
           setDistractions(cachedDay.distractions || null)
+          setBaselineLoadImpact(cachedDay.baselineLoadImpact ?? null)
         } else {
           // No data available
           setCompletedGoals([])
           setIncompleteGoals([])
           setDistractions(null)
+          setBaselineLoadImpact(null)
         }
       }
 
@@ -137,6 +141,30 @@ export function DayStatusDialog({
       "constantly": "bg-red-100 text-red-700",
     }
     return colors[distractions] || "bg-muted"
+  }
+
+  const getBaselineLoadLabel = (level: number | null) => {
+    if (level === null) return null
+    const labels: Record<number, string> = {
+      0: "Almost no load (day off)",
+      1: "Light day",
+      2: "Regular workday",
+      3: "Heavy day",
+      4: "Overloaded day",
+    }
+    return labels[level] || null
+  }
+
+  const getBaselineLoadColor = (level: number | null) => {
+    if (level === null) return "bg-muted"
+    const colors: Record<number, string> = {
+      0: "bg-green-100 text-green-700",
+      1: "bg-blue-100 text-blue-700",
+      2: "bg-gray-100 text-gray-700",
+      3: "bg-orange-100 text-orange-700",
+      4: "bg-red-100 text-red-700",
+    }
+    return colors[level] || "bg-muted"
   }
 
   const getStatusLabel = (status: DayStatus) => {
@@ -203,6 +231,15 @@ export function DayStatusDialog({
                   )}
                 </div>
               </div>
+
+              {baselineLoadImpact !== null && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">Workload</h3>
+                  <div className={`${getBaselineLoadColor(baselineLoadImpact)} rounded-lg p-3 text-sm font-medium`}>
+                    {getBaselineLoadLabel(baselineLoadImpact)}
+                  </div>
+                </div>
+              )}
 
               {distractions && (
                 <div className="space-y-2">

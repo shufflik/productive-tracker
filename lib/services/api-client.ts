@@ -7,6 +7,19 @@
  */
 
 import type { SyncRequest, SyncResponse } from "./sync/types"
+import type { Goal } from "@/lib/types"
+
+export type LinkedGoalsResponse = {
+  items: Goal[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+}
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL
 
@@ -21,7 +34,7 @@ function isProductionMode(): boolean {
   if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
     return true
   }
-  
+
   // Also check if we're actually running in Telegram WebApp
   // If we're in Telegram, we're in production mode
   if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -31,7 +44,7 @@ function isProductionMode(): boolean {
       return true
     }
   }
-  
+
   return false
 }
 
@@ -44,12 +57,12 @@ function getInitData(): string | null {
   if (!isProductionMode()) {
     return null
   }
-  
+
   // Get initData from Telegram WebApp
   if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) {
     return window.Telegram.WebApp.initData
   }
-  
+
   return null
 }
 
@@ -61,12 +74,12 @@ function getHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  
+
   const initData = getInitData()
   if (initData) {
     headers['X-Telegram-Init-Data'] = initData
   }
-  
+
   return headers
 }
 
@@ -84,24 +97,24 @@ async function fetchBackend(
   if (!BACKEND_URL) {
     throw new Error('BACKEND_URL is not configured')
   }
-  
+
   const url = `${BACKEND_URL}${endpoint}`
   const headers = {
     ...getHeaders(),
     ...options.headers,
   }
-  
+
   const fetchOptions: RequestInit = {
     method: options.method || 'GET',
     headers,
   }
-  
+
   if (options.body) {
-    fetchOptions.body = typeof options.body === 'string' 
-      ? options.body 
+    fetchOptions.body = typeof options.body === 'string'
+      ? options.body
       : JSON.stringify(options.body)
   }
-  
+
   return fetch(url, fetchOptions)
 }
 
@@ -113,21 +126,21 @@ export async function syncApi(request: SyncRequest): Promise<SyncResponse> {
     method: 'POST',
     body: request,
   })
-  
+
   if (!response.ok) {
     const error: any = new Error(`HTTP ${response.status}: ${response.statusText}`)
     error.status = response.status
     error.response = response
-    
+
     try {
       error.data = await response.json()
     } catch (e) {
       // Ignore JSON parse errors
     }
-    
+
     throw error
   }
-  
+
   return response.json()
 }
 
@@ -139,11 +152,11 @@ export async function endDayApi(request: any): Promise<any> {
     method: 'POST',
     body: request,
   })
-  
+
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
-  
+
   return response.json()
 }
 
@@ -155,11 +168,11 @@ export async function cancelEndDayApi(request: { date: string; deviceId: string 
     method: 'DELETE',
     body: request,
   })
-  
+
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
-  
+
   return response.json()
 }
 
@@ -175,17 +188,48 @@ export async function getStatsRangeApi(params: {
     start_date: params.start_date,
     end_date: params.end_date,
   })
-  
+
   const response = await fetchBackend(`/api/stats/range?${queryParams.toString()}`, {
     method: 'GET',
   })
-  
+
   if (!response.ok) {
     if (response.status === 404) {
       return []
     }
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
-  
+
+  return response.json()
+}
+
+/**
+ * Get linked goals API (GET /api/goals)
+ * Returns paginated list of goals filtered by globalGoalId and optionally milestoneId
+ */
+export async function getLinkedGoalsApi(params: {
+  globalGoalId: string
+  milestoneId?: string
+  page?: number
+  limit?: number
+}): Promise<LinkedGoalsResponse> {
+  const queryParams = new URLSearchParams({
+    globalGoalId: params.globalGoalId,
+    page: String(params.page ?? 0),
+    limit: String(params.limit ?? 20),
+  })
+
+  if (params.milestoneId) {
+    queryParams.set('milestoneId', params.milestoneId)
+  }
+
+  const response = await fetchBackend(`/api/goals?${queryParams.toString()}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
   return response.json()
 }
