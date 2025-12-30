@@ -70,6 +70,17 @@ export default function Home() {
         if (tg.disableVerticalSwipes) {
           tg.disableVerticalSwipes()
         }
+
+        // Setup Settings button to clear local cache
+        if (tg.SettingsButton) {
+          tg.SettingsButton.show()
+          tg.SettingsButton.onClick(() => {
+            // Clear all localStorage
+            localStorage.clear()
+            // Reload to reset app state
+            window.location.reload()
+          })
+        }
       }
     }
 
