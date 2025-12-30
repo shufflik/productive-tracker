@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
+import { useLinkedGoals } from "@/lib/hooks/use-linked-goals"
 import type { GlobalGoal, Milestone, OutcomeProgress } from "@/lib/types"
 import { MilestoneDetailDialog } from "../milestone-detail-dialog"
 
@@ -28,6 +29,26 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
   const addMilestone = useGlobalGoalsStore((state) => state.addMilestone)
   const swapMilestoneOrders = useGlobalGoalsStore((state) => state.swapMilestoneOrders)
   const activateMilestone = useGlobalGoalsStore((state) => state.activateMilestone)
+
+  // Load linked goals from API for activity stats
+  const { goals: linkedGoals } = useLinkedGoals({ globalGoalId: goal.id })
+
+  // Calculate activity by milestone from API data
+  const activityByMilestone = useMemo(() => {
+    const result: Record<string, { goalsCompleted: number; goalsTotal: number }> = {}
+    for (const g of linkedGoals) {
+      if (g.milestoneId) {
+        if (!result[g.milestoneId]) {
+          result[g.milestoneId] = { goalsCompleted: 0, goalsTotal: 0 }
+        }
+        result[g.milestoneId].goalsTotal++
+        if (g.completed) {
+          result[g.milestoneId].goalsCompleted++
+        }
+      }
+    }
+    return result
+  }, [linkedGoals])
 
   const milestones = useMemo(() =>
     allMilestones
@@ -174,7 +195,7 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
           <ul className="timeline timeline-vertical timeline-compact">
             {milestones.map((milestone, index) => {
               const historyData = progress.milestoneHistory.find(h => h.id === milestone.id)
-              const activityData = progress.activityByMilestone[milestone.id]
+              const activityData = activityByMilestone[milestone.id]
               const isActive = milestone.isActive
               const isCompleted = milestone.isCompleted
               const isLast = index === milestones.length - 1
@@ -295,7 +316,7 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
         milestone={selectedMilestone}
         goalId={goal.id}
         historyData={selectedMilestone ? progress.milestoneHistory.find(h => h.id === selectedMilestone.id) : undefined}
-        activityData={selectedMilestone ? progress.activityByMilestone[selectedMilestone.id] : undefined}
+        activityData={selectedMilestone ? activityByMilestone[selectedMilestone.id] : undefined}
       />
     </div>
   )

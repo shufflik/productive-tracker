@@ -7,9 +7,33 @@ import { goalsArraySchema } from "@/lib/schemas/common.schema"
 import { generateId } from "@/lib/utils/id"
 import { syncService } from "@/lib/services/sync"
 import { format } from "date-fns"
+import { queryClient } from "@/components/providers/query-provider"
 
 // Helper to format date to ISO format (YYYY-MM-DD)
 const toISODateString = (date: Date): string => format(date, "yyyy-MM-dd")
+
+// Helper to remove linked-goals cache when goal's globalGoalId changes
+const removeLinkedGoalsCache = (
+  globalGoalId: string | undefined,
+  milestoneId?: string | undefined,
+  oldGlobalGoalId?: string | undefined,
+  oldMilestoneId?: string | undefined
+) => {
+  // Remove new globalGoalId cache
+  if (globalGoalId) {
+    queryClient.removeQueries({ queryKey: ["linked-goals", globalGoalId] })
+  }
+
+  // Remove old globalGoalId cache if it changed
+  if (oldGlobalGoalId && oldGlobalGoalId !== globalGoalId) {
+    queryClient.removeQueries({ queryKey: ["linked-goals", oldGlobalGoalId] })
+  }
+
+  // Remove old milestoneId cache if it changed within same globalGoalId
+  if (globalGoalId && oldMilestoneId && oldMilestoneId !== milestoneId) {
+    queryClient.removeQueries({ queryKey: ["linked-goals", globalGoalId, oldMilestoneId] })
+  }
+}
 
 type GoalsState = {
   goals: Goal[]
@@ -71,22 +95,27 @@ export const useGoalsStore = create<GoalsStore>()(
 
       updateGoal: (id, title, label, description, globalGoalId, milestoneId) => {
         let updatedGoal: Goal | undefined
+        let oldGlobalGoalId: string | undefined
+        let oldMilestoneId: string | undefined
 
         set((state) => {
           const goal = state.goals.find((g) => g.id === id)
           if (!goal) return state
 
+          // Save old values for cache invalidation
+          oldGlobalGoalId = goal.globalGoalId ?? undefined
+          oldMilestoneId = goal.milestoneId ?? undefined
 
           updatedGoal = {
             ...goal,
             title,
             label: label ? label.toUpperCase() : label,
             description: description || undefined,
-            globalGoalId: globalGoalId,
-            milestoneId: milestoneId,
+            // Use null instead of undefined so it gets serialized to JSON for sync
+            globalGoalId: globalGoalId ?? null,
+            milestoneId: milestoneId ?? null,
             meta: goal.meta,
           }
-
 
           return {
             goals: state.goals.map((g) => (g.id === id ? updatedGoal! : g)),
@@ -95,20 +124,30 @@ export const useGoalsStore = create<GoalsStore>()(
 
         if (updatedGoal) {
           syncService.enqueueGoalChange("update", updatedGoal)
+
+          // Remove cache for old and new global goal
+          removeLinkedGoalsCache(globalGoalId, milestoneId, oldGlobalGoalId, oldMilestoneId)
         }
       },
 
       linkToGlobalGoal: (goalId, globalGoalId, milestoneId) => {
         let updatedGoal: Goal | undefined
+        let oldGlobalGoalId: string | undefined
+        let oldMilestoneId: string | undefined
 
         set((state) => {
           const goal = state.goals.find((g) => g.id === goalId)
           if (!goal) return state
 
+          // Save old values for cache invalidation
+          oldGlobalGoalId = goal.globalGoalId ?? undefined
+          oldMilestoneId = goal.milestoneId ?? undefined
+
           updatedGoal = {
             ...goal,
-            globalGoalId: globalGoalId,
-            milestoneId: milestoneId,
+            // Use null instead of undefined so it gets serialized to JSON for sync
+            globalGoalId: globalGoalId ?? null,
+            milestoneId: milestoneId ?? null,
           }
 
           return {
@@ -118,6 +157,9 @@ export const useGoalsStore = create<GoalsStore>()(
 
         if (updatedGoal) {
           syncService.enqueueGoalChange("update", updatedGoal)
+
+          // Remove cache for old and new global goal
+          removeLinkedGoalsCache(globalGoalId, milestoneId, oldGlobalGoalId, oldMilestoneId)
         }
       },
 
@@ -132,6 +174,9 @@ export const useGoalsStore = create<GoalsStore>()(
 
         // enqueueGoalChange схлопнет create+delete или отправит delete для существующей
         syncService.enqueueGoalChange("delete", goalToDelete)
+
+        // Remove cache if goal was linked to a global goal
+        removeLinkedGoalsCache(goalToDelete.globalGoalId ?? undefined, goalToDelete.milestoneId ?? undefined)
       },
 
       toggleComplete: (id) => {

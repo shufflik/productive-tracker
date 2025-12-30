@@ -225,7 +225,7 @@ export function MilestoneDetailDialog({
             </div>
             <div className="p-3 rounded-lg bg-muted/30 text-center">
               <p className="text-xl font-bold text-foreground">
-                {activityData?.goalsCompleted || 0}/{activityData?.goalsTotal || 0}
+                {linkedGoals.filter(g => g.completed).length}/{linkedGoals.length}
               </p>
               <p className="text-xs text-muted-foreground">Задач</p>
             </div>
@@ -235,39 +235,46 @@ export function MilestoneDetailDialog({
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-foreground">Задачи этапа</h4>
             {isLoading ? (
-              <div className="flex items-center justify-center py-4">
+              <div className="rounded-lg border border-border bg-muted/20 flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
             ) : linkedGoals.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                Нет задач для этого этапа
-              </p>
+              <div className="rounded-lg border border-border bg-muted/20 py-6 px-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Нет задач для этого этапа
+                </p>
+              </div>
             ) : (
-              <ScrollArea className="max-h-32">
-                <div className="space-y-1 pr-3">
-                  {linkedGoals.map(task => (
-                    <div key={task.id} className="flex items-center gap-2 text-sm py-1">
-                      {task.completed ? (
-                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      )}
-                      <span className={`truncate ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                        {task.title}
-                      </span>
-                    </div>
-                  ))}
+              <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
+                <ScrollArea className="h-48">
+                  <div className="space-y-2 p-3 pr-4">
+                    {linkedGoals.map(task => (
+                      <div
+                        key={task.id}
+                        className="flex items-start gap-2 p-2 rounded-lg bg-background/60"
+                      >
+                        {task.completed ? (
+                          <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        )}
+                        <span className={`text-sm flex-1 min-w-0 break-words ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                          {task.title}
+                        </span>
+                      </div>
+                    ))}
 
-                  {/* Sentinel element for infinite scroll */}
-                  {hasNextPage && (
-                    <div ref={sentinelRef} className="flex items-center justify-center py-2">
-                      {isFetchingNextPage && (
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+                    {/* Sentinel element for infinite scroll */}
+                    {hasNextPage && (
+                      <div ref={sentinelRef} className="flex items-center justify-center py-2">
+                        {isFetchingNextPage && (
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             )}
           </div>
 
