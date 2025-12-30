@@ -1,18 +1,21 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { 
-  Pencil, 
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Pencil,
   Trash2,
   Check,
   Circle,
   Flag,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
+import { useLinkedGoals } from "@/lib/hooks/use-linked-goals"
 import { toast } from "sonner"
 import type { Milestone } from "@/lib/types"
 
@@ -23,24 +26,61 @@ type MilestoneDetailDialogProps = {
   goalId: string
   historyData?: { daysSpent: number; isCompleted: boolean }
   activityData?: { goalsCompleted: number; goalsTotal: number }
-  linkedGoals: Array<{ id: string; title: string; completed: boolean; milestoneId?: string | null }>
 }
 
-export function MilestoneDetailDialog({ 
-  open, 
-  onClose, 
-  milestone, 
+export function MilestoneDetailDialog({
+  open,
+  onClose,
+  milestone,
   goalId,
   historyData,
   activityData,
-  linkedGoals
 }: MilestoneDetailDialogProps) {
   const updateMilestone = useGlobalGoalsStore((state) => state.updateMilestone)
   const deleteMilestone = useGlobalGoalsStore((state) => state.deleteMilestone)
   const activateMilestone = useGlobalGoalsStore((state) => state.activateMilestone)
   const completeMilestone = useGlobalGoalsStore((state) => state.completeMilestone)
   const milestones = useGlobalGoalsStore((state) => state.milestones)
-  
+
+  // Load linked goals from API with milestoneId filter
+  const {
+    goals: linkedGoals,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useLinkedGoals({
+    globalGoalId: goalId,
+    milestoneId: milestone?.id,
+    enabled: open && !!milestone?.id,
+  })
+
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    if (!hasNextPage) return
+
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(sentinel)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
   // Получаем актуальный milestone из store, чтобы он обновлялся после изменений
   const currentMilestone = useMemo(() => {
     if (!milestone) return null
@@ -76,18 +116,18 @@ export function MilestoneDetailDialog({
 
     return true
   }, [currentMilestone, goalMilestones])
-  
+
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState("")
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  
+
   // Обновляем editTitle при изменении currentMilestone.title, но только если не в режиме редактирования
   useEffect(() => {
     if (!isEditing && currentMilestone) {
       setEditTitle(currentMilestone.title)
     }
   }, [currentMilestone?.title, isEditing])
-  
+
   // Сбрасываем состояние редактирования при закрытии диалога или смене этапа
   useEffect(() => {
     if (!open) {
@@ -95,7 +135,7 @@ export function MilestoneDetailDialog({
       setShowDeleteConfirm(false)
     }
   }, [open])
-  
+
   // Сбрасываем состояние редактирования при смене milestone
   useEffect(() => {
     setIsEditing(false)
@@ -104,32 +144,29 @@ export function MilestoneDetailDialog({
       setEditTitle(currentMilestone.title)
     }
   }, [currentMilestone?.id])
-  
+
   if (!currentMilestone) return null
-  
+
   const isActive = currentMilestone.isActive
   const isCompleted = currentMilestone.isCompleted
   const canEdit = !isCompleted && !isActive
-  
-  // Задачи привязанные к этому этапу
-  const milestoneTasks = linkedGoals.filter(g => g.milestoneId === currentMilestone.id)
-  
+
   const handleSaveTitle = async () => {
     if (editTitle.trim() && editTitle !== currentMilestone.title) {
       await updateMilestone(goalId, currentMilestone.id, { title: editTitle.trim() })
     }
     setIsEditing(false)
   }
-  
+
   const handleDelete = async () => {
     await deleteMilestone(goalId, currentMilestone.id)
     onClose()
   }
-  
+
   const statusLabel = isCompleted ? "Завершён" : isActive ? "В процессе" : "Не начат"
   const statusColor = isCompleted ? "text-green-600" : isActive ? "text-purple-600" : "text-muted-foreground"
   const statusBg = isCompleted ? "bg-green-500/10" : isActive ? "bg-purple-500/10" : "bg-muted/50"
-  
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[90%] sm:max-w-sm flex flex-col">
@@ -139,7 +176,7 @@ export function MilestoneDetailDialog({
             Этап
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4 flex-1 overflow-y-auto">
           {/* Название */}
           {isEditing ? (
@@ -163,7 +200,7 @@ export function MilestoneDetailDialog({
               <h3 className="text-lg font-semibold text-center">{currentMilestone.title}</h3>
             </div>
           )}
-          
+
           {/* Статус */}
           <div className={`px-3 py-2 rounded-lg ${statusBg} flex items-center justify-center gap-2`}>
             {isCompleted ? (
@@ -175,7 +212,7 @@ export function MilestoneDetailDialog({
             )}
             <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
           </div>
-          
+
           {/* Статистика */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-lg bg-muted/30 text-center">
@@ -193,28 +230,47 @@ export function MilestoneDetailDialog({
               <p className="text-xs text-muted-foreground">Задач</p>
             </div>
           </div>
-          
+
           {/* Задачи этапа */}
-          {milestoneTasks.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-foreground">Задачи этапа</h4>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {milestoneTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-2 text-sm py-1">
-                    {task.completed ? (
-                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <span className={`truncate ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                      {task.title}
-                    </span>
-                  </div>
-                ))}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-foreground">Задачи этапа</h4>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               </div>
-            </div>
-          )}
-          
+            ) : linkedGoals.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Нет задач для этого этапа
+              </p>
+            ) : (
+              <ScrollArea className="max-h-32">
+                <div className="space-y-1 pr-3">
+                  {linkedGoals.map(task => (
+                    <div key={task.id} className="flex items-center gap-2 text-sm py-1">
+                      {task.completed ? (
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <span className={`truncate ${task.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                        {task.title}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Sentinel element for infinite scroll */}
+                  {hasNextPage && (
+                    <div ref={sentinelRef} className="flex items-center justify-center py-2">
+                      {isFetchingNextPage && (
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+
           {/* Подтверждение удаления */}
           {showDeleteConfirm && (
             <div className="space-y-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -225,7 +281,7 @@ export function MilestoneDetailDialog({
               </div>
             </div>
           )}
-          
+
           {/* Действия */}
           {!showDeleteConfirm && !isEditing && (
             <div className="flex gap-2 mt-auto pt-4">
@@ -267,9 +323,9 @@ export function MilestoneDetailDialog({
                   Начать этап
                 </Button>
               )}
-              
+
               {isActive && (
-                <Button 
+                <Button
                   size="sm"
                   className="flex-1 h-9"
                     onClick={() => {
@@ -280,7 +336,7 @@ export function MilestoneDetailDialog({
                   Завершить этап
                 </Button>
               )}
-              
+
               {isCompleted && (
                 <Button variant="outline" size="sm" className="flex-1 h-9" onClick={onClose}>
                   Закрыть
@@ -293,4 +349,3 @@ export function MilestoneDetailDialog({
     </Dialog>
   )
 }
-

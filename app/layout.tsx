@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import Script from 'next/script'
 import { ThemeProvider } from '@/components/theme-provider'
+import { QueryProvider } from '@/components/providers/query-provider'
 import { PendingDayReviewsManager } from '@/components/pending-day-reviews-manager'
 import { ConflictsManager } from '@/components/conflicts-manager'
 import { Toaster } from 'sonner'
@@ -36,19 +37,21 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <PendingDayReviewsManager />
-          <ConflictsManager />
-          {children}
-          <Toaster 
-            position="bottom-center"
-            toastOptions={{
-              style: {
-                background: '#dc2626',
-                color: '#fff'
-              },
-              className: 'sonner-toast',
-            }}
-          />
+          <QueryProvider>
+            <PendingDayReviewsManager />
+            <ConflictsManager />
+            {children}
+            <Toaster
+              position="bottom-center"
+              toastOptions={{
+                style: {
+                  background: '#dc2626',
+                  color: '#fff'
+                },
+                className: 'sonner-toast',
+              }}
+            />
+          </QueryProvider>
         </ThemeProvider>
         <Analytics />
       </body>

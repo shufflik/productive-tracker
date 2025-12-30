@@ -18,6 +18,7 @@ type ActivityStatusBlockProps = {
   linkedGoals: Goal[]
   linkedHabits: Habit[]
   createdAt?: string
+  isLoadingChart?: boolean
 }
 
 export function ActivityStatusBlock({
@@ -26,7 +27,8 @@ export function ActivityStatusBlock({
   trend,
   linkedGoals,
   linkedHabits,
-  createdAt
+  createdAt,
+  isLoadingChart = false,
 }: ActivityStatusBlockProps) {
   const statusInfo = ACTIVITY_STATUS_DETAIL[activityStatus]
 
@@ -45,7 +47,7 @@ export function ActivityStatusBlock({
         )}
       </div>
 
-      <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} createdAt={createdAt} />
+      <ActivityChart linkedGoals={linkedGoals} linkedHabits={linkedHabits} days={14} createdAt={createdAt} isLoading={isLoadingChart} />
     </div>
   )
 }

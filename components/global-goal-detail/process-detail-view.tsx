@@ -4,8 +4,8 @@ import { useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Play } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
-import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useHabitsStore } from "@/lib/stores/habits-store"
+import { useLinkedGoals } from "@/lib/hooks/use-linked-goals"
 import type { GlobalGoal, ProcessProgress } from "@/lib/types"
 import { ActivityStatusBlock } from "./activity-status-block"
 import { LinkedItemsList } from "./linked-items-list"
@@ -18,11 +18,24 @@ type ProcessDetailViewProps = {
 
 export function ProcessDetailView({ goal, progress, isEditing }: ProcessDetailViewProps) {
   const updateGlobalGoal = useGlobalGoalsStore((state) => state.updateGlobalGoal)
-  const goals = useGoalsStore((state) => state.goals)
   const habits = useHabitsStore((state) => state.habits)
 
-  const linkedGoals = useMemo(() => goals.filter(g => g.globalGoalId === goal.id), [goals, goal.id])
-  const linkedHabits = useMemo(() => habits.filter(h => h.globalGoalId === goal.id), [habits, goal.id])
+  // Load linked goals from API
+  const {
+    goals: linkedGoals,
+    goalsFor14Days,
+    isLoading,
+    isLoadingChart,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useLinkedGoals({ globalGoalId: goal.id })
+
+  // Habits still from store (temporary solution)
+  const linkedHabits = useMemo(
+    () => habits.filter((h) => h.globalGoalId === goal.id),
+    [habits, goal.id]
+  )
 
   const isNotStarted = goal.status === "not_started"
 
@@ -58,9 +71,10 @@ export function ProcessDetailView({ goal, progress, isEditing }: ProcessDetailVi
           activityStatus={progress.activityStatus}
           activitySignal={progress.activitySignal}
           trend={progress.trend}
-          linkedGoals={linkedGoals}
+          linkedGoals={goalsFor14Days}
           linkedHabits={linkedHabits}
           createdAt={goal.createdAt}
+          isLoadingChart={isLoadingChart}
         />
       )}
 
@@ -82,7 +96,14 @@ export function ProcessDetailView({ goal, progress, isEditing }: ProcessDetailVi
       {!isEditing && (
         <div className="space-y-3">
           <h3 className="font-medium text-foreground">Связанные действия</h3>
-          <LinkedItemsList linkedGoals={linkedGoals} linkedHabits={linkedHabits} />
+          <LinkedItemsList
+            linkedGoals={linkedGoals}
+            linkedHabits={linkedHabits}
+            isLoading={isLoading}
+            isFetchingNextPage={isFetchingNextPage}
+            hasNextPage={hasNextPage}
+            onLoadMore={fetchNextPage}
+          />
         </div>
       )}
     </div>

@@ -7,6 +7,19 @@
  */
 
 import type { SyncRequest, SyncResponse } from "./sync/types"
+import type { Goal } from "@/lib/types"
+
+export type LinkedGoalsResponse = {
+  items: Goal[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+}
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL
 
@@ -184,6 +197,37 @@ export async function getStatsRangeApi(params: {
     if (response.status === 404) {
       return []
     }
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get linked goals API (GET /api/goals)
+ * Returns paginated list of goals filtered by globalGoalId and optionally milestoneId
+ */
+export async function getLinkedGoalsApi(params: {
+  globalGoalId: string
+  milestoneId?: string
+  page?: number
+  limit?: number
+}): Promise<LinkedGoalsResponse> {
+  const queryParams = new URLSearchParams({
+    globalGoalId: params.globalGoalId,
+    page: String(params.page ?? 0),
+    limit: String(params.limit ?? 20),
+  })
+
+  if (params.milestoneId) {
+    queryParams.set('milestoneId', params.milestoneId)
+  }
+
+  const response = await fetchBackend(`/api/goals?${queryParams.toString()}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
 

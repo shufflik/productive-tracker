@@ -14,7 +14,6 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
-import { useGoalsStore } from "@/lib/stores/goals-store"
 import type { GlobalGoal, Milestone, OutcomeProgress } from "@/lib/types"
 import { MilestoneDetailDialog } from "../milestone-detail-dialog"
 
@@ -29,7 +28,6 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
   const addMilestone = useGlobalGoalsStore((state) => state.addMilestone)
   const swapMilestoneOrders = useGlobalGoalsStore((state) => state.swapMilestoneOrders)
   const activateMilestone = useGlobalGoalsStore((state) => state.activateMilestone)
-  const goals = useGoalsStore((state) => state.goals)
 
   const milestones = useMemo(() =>
     allMilestones
@@ -61,11 +59,6 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
     setNewMilestoneTitle("")
     setShowAddMilestone(false)
   }
-
-  const linkedGoals = useMemo(() =>
-    goals.filter(g => g.globalGoalId === goal.id),
-    [goals, goal.id]
-  )
 
   const hasCompletedWithoutActive = !progress.currentMilestone &&
     progress.milestoneHistory.some(m => m.isCompleted)
@@ -303,7 +296,6 @@ export function OutcomeDetailView({ goal, progress, isEditing }: OutcomeDetailVi
         goalId={goal.id}
         historyData={selectedMilestone ? progress.milestoneHistory.find(h => h.id === selectedMilestone.id) : undefined}
         activityData={selectedMilestone ? progress.activityByMilestone[selectedMilestone.id] : undefined}
-        linkedGoals={linkedGoals}
       />
     </div>
   )

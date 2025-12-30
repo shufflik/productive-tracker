@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { format } from "date-fns"
+import { Loader2 } from "lucide-react"
 import type { Goal, Habit } from "@/lib/types"
 
 // Helper to format date to ISO format (YYYY-MM-DD)
@@ -13,9 +14,10 @@ type ActivityChartProps = {
   linkedHabits: Habit[]
   days?: 14 | 28
   createdAt?: string
+  isLoading?: boolean
 }
 
-export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt }: ActivityChartProps) {
+export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt, isLoading = false }: ActivityChartProps) {
   const { chartData, stats } = useMemo(() => {
     const now = new Date()
     now.setHours(0, 0, 0, 0)
@@ -122,6 +124,33 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt 
       )
     }
     return null
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {/* Stats row skeleton */}
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-4">
+            <div className="h-4 w-20 bg-muted/50 rounded animate-pulse" />
+            <div className="h-4 w-16 bg-muted/50 rounded animate-pulse" />
+          </div>
+        </div>
+
+        {/* Chart skeleton */}
+        <div className="h-20 w-full flex items-center justify-center bg-muted/30 rounded">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+
+        {/* Date labels skeleton */}
+        <div className="flex justify-between text-[10px] px-1">
+          <div className="h-3 w-10 bg-muted/50 rounded animate-pulse" />
+          <div className="h-3 w-10 bg-muted/50 rounded animate-pulse" />
+          <div className="h-3 w-10 bg-muted/50 rounded animate-pulse" />
+        </div>
+      </div>
+    )
   }
 
   return (
