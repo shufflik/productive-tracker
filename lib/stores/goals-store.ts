@@ -189,7 +189,7 @@ export const useGoalsStore = create<GoalsStore>()(
           updatedGoal = {
             ...goal,
             targetDate: tomorrow,
-            isBacklog: undefined, // Clear backlog flag when scheduling
+            isBacklog: false, // Clear backlog flag when scheduling (false, not undefined, so it serializes to JSON)
             completed: false,
             meta: goal.meta,
           }
@@ -215,7 +215,7 @@ export const useGoalsStore = create<GoalsStore>()(
               const updated = {
                 ...g,
                 targetDate: todayDate,
-                isBacklog: undefined, // Clear backlog flag when moving to today
+                isBacklog: false, // Clear backlog flag when moving to today (false, not undefined, so it serializes to JSON)
                 completed: false,
                 meta: g.meta,
               }
@@ -243,7 +243,7 @@ export const useGoalsStore = create<GoalsStore>()(
               const updated = {
                 ...g,
                 targetDate: targetDate,
-                isBacklog: undefined, // Clear backlog flag when moving to a date
+                isBacklog: false, // Clear backlog flag when moving to a date (false, not undefined, so it serializes to JSON)
                 completed: false,
                 meta: g.meta,
               }
