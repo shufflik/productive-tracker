@@ -29,7 +29,9 @@ export function GoalDetailDialog({ open, onClose, goal }: GoalDetailDialogProps)
           {goal.description && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Description</p>
-              <p className="text-base text-foreground whitespace-pre-wrap break-words">{goal.description}</p>
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/50 max-h-[7rem] overflow-auto scrollbar-hide">
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words">{goal.description}</p>
+              </div>
             </div>
           )}
 

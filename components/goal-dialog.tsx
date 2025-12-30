@@ -336,6 +336,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+              className="!field-sizing-fixed resize-none break-words"
             />
           </div>
         </div>

@@ -290,7 +290,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  className="!field-sizing-fixed resize-none bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+                  className="!field-sizing-fixed resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
               </div>
 

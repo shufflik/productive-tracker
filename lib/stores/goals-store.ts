@@ -26,6 +26,7 @@ type GoalsActions = {
   toggleImportant: (id: string) => void
   rescheduleForTomorrow: (id: string) => void
   moveToToday: (goalIds: string[] | string) => void
+  moveToDate: (goalIds: string[] | string, targetDate: string) => void
   moveToBacklog: (id: string) => void
   
   // Batch operations
@@ -215,6 +216,34 @@ export const useGoalsStore = create<GoalsStore>()(
                 ...g,
                 targetDate: todayDate,
                 isBacklog: undefined, // Clear backlog flag when moving to today
+                completed: false,
+                meta: g.meta,
+              }
+              updatedGoals.push(updated)
+              return updated
+            }
+            return g
+          })
+
+          return { goals }
+        })
+
+        updatedGoals.forEach((goal) => {
+          syncService.enqueueGoalChange("update", goal)
+        })
+      },
+
+      moveToDate: (goalIds, targetDate) => {
+        const idsArray = Array.isArray(goalIds) ? goalIds : [goalIds]
+        const updatedGoals: Goal[] = []
+
+        set((state) => {
+          const goals = state.goals.map((g) => {
+            if (idsArray.includes(g.id)) {
+              const updated = {
+                ...g,
+                targetDate: targetDate,
+                isBacklog: undefined, // Clear backlog flag when moving to a date
                 completed: false,
                 meta: g.meta,
               }

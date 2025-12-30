@@ -156,11 +156,11 @@ export function GlobalGoalDetailDialog({
                   onChange={(e) => setEditedDescription(e.target.value)}
                   placeholder="Опишите вашу мотивацию..."
                   rows={3}
-                  className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+                  className="!field-sizing-fixed resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
               ) : (
-                <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-                  <div className="max-h-20 overflow-y-auto">
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 max-w-full">
+                  <div className="max-h-[4.5rem] overflow-y-auto">
                     <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap">{goal.description}</p>
                   </div>
                 </div>

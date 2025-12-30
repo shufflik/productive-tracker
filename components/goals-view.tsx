@@ -31,6 +31,7 @@ export function GoalsView() {
   const rescheduleInStore = useGoalsStore((state) => state.rescheduleForTomorrow)
   const toggleImportantInStore = useGoalsStore((state) => state.toggleImportant)
   const moveToTodayInStore = useGoalsStore((state) => state.moveToToday)
+  const moveToDateInStore = useGoalsStore((state) => state.moveToDate)
   const moveToBacklogInStore = useGoalsStore((state) => state.moveToBacklog)
 
   // Day state store
@@ -227,11 +228,16 @@ export function GoalsView() {
 
   const displayDate = selectedDay === "today" ? today : selectedDay === "tomorrow" ? tomorrow : "Goals for later"
 
-  const moveFromBacklogToToday = useCallback(
+  const moveFromBacklog = useCallback(
     (goalIds: string[]) => {
-      moveToTodayInStore(goalIds)
+      if (selectedDay === "tomorrow") {
+        const tomorrowDate = toISODateString(new Date(Date.now() + 86400000))
+        moveToDateInStore(goalIds, tomorrowDate)
+      } else {
+        moveToTodayInStore(goalIds)
+      }
     },
-    [moveToTodayInStore]
+    [selectedDay, moveToTodayInStore, moveToDateInStore]
   )
 
   // Check if today is ended
@@ -526,7 +532,7 @@ export function GoalsView() {
         open={backlogOpen}
         onClose={() => setBacklogOpen(false)}
         goals={goals.filter((g) => g.isBacklog === true)}
-        onMoveToToday={moveFromBacklogToToday}
+        onMoveToDate={moveFromBacklog}
       />
 
       <DayReviewDialog
