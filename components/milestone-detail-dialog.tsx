@@ -25,7 +25,6 @@ type MilestoneDetailDialogProps = {
   milestone: Milestone | null
   goalId: string
   historyData?: { daysSpent: number; isCompleted: boolean }
-  activityData?: { goalsCompleted: number; goalsTotal: number }
 }
 
 export function MilestoneDetailDialog({
@@ -34,7 +33,6 @@ export function MilestoneDetailDialog({
   milestone,
   goalId,
   historyData,
-  activityData,
 }: MilestoneDetailDialogProps) {
   const updateMilestone = useGlobalGoalsStore((state) => state.updateMilestone)
   const deleteMilestone = useGlobalGoalsStore((state) => state.deleteMilestone)
