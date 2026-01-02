@@ -58,6 +58,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState("")
   const [newTaskLabel, setNewTaskLabel] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -74,6 +75,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       setShowAddTaskDialog(false)
       setNewTaskTitle("")
       setNewTaskLabel("")
+      setIsSaving(false)
 
       // Stop polling when dialog opens (Step 1: Confirmation)
       syncService.stopPolling()
@@ -186,6 +188,10 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   }
 
   const handleSave = async () => {
+    // Prevent double submission
+    if (isSaving) return
+    setIsSaving(true)
+
     try {
       // Calculate day status
       const completedCount = localGoals.filter((g) => g.completed).length
@@ -286,11 +292,11 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
         // Clear stats cache
         clearStatsCache()
 
-        // Resume polling
-        syncService.startPolling()
-
-        // Close dialog
+        // Close dialog first, then resume polling to avoid race conditions
         onClose()
+
+        // Resume polling after dialog is closed
+        syncService.startPolling()
 
         // Show success feedback
         setTimeout(() => {
@@ -316,12 +322,14 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
         // Unexpected error
         toast.error(data.message || "Failed to save day review")
         syncService.startPolling()  // Resume polling on error
+        setIsSaving(false)
       }
 
     } catch (error) {
       console.error("[DayReview] End day error:", error)
       toast.error("Network error. Please try again.")
       syncService.startPolling()  // Resume polling on error
+      setIsSaving(false)
     }
   }
 
@@ -786,6 +794,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             onClick={handleContinue}
             className="flex-1 min-w-0"
             disabled={
+              isSaving ||
               (step === "details" &&
                 incompleteGoals.some((g) => !g.reason || (g.reason === "other" && !g.customReason?.trim()) || !g.action)) ||
               (step === "retro" && (!dayReflection.trim() || !distractionLevel || baselineLoadImpact === null))
@@ -795,7 +804,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             {step === "completion" && "Continue"}
             {step === "summary" && (incompleteGoals.length > 0 ? "Continue" : "Next")}
             {step === "details" && "Continue"}
-            {step === "retro" && "Finish"}
+            {step === "retro" && (isSaving ? "Saving..." : "Finish")}
           </Button>
         </div>
       </DialogContent>
