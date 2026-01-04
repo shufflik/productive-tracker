@@ -1,8 +1,9 @@
 "use client"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Target, Calendar } from "lucide-react"
+import { Target, Calendar, Crosshair } from "lucide-react"
 import { DotLottieReact } from "@lottiefiles/dotlottie-react"
+import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import type { Habit } from "@/lib/types"
 
 type HabitDetailDialogProps = {
@@ -14,7 +15,11 @@ type HabitDetailDialogProps = {
 }
 
 export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: HabitDetailDialogProps) {
+  const getGlobalGoalById = useGlobalGoalsStore((state) => state.getGlobalGoalById)
+
   if (!habit) return null
+
+  const linkedGlobalGoal = habit.globalGoalId ? getGlobalGoalById(habit.globalGoalId) : undefined
 
   // Days in Monday-first order with JS day index (0=Sun, 1=Mon, etc.)
   const daysOfWeek = [
@@ -36,12 +41,12 @@ export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: H
 
         <div className="space-y-6 py-4">
           {/* Habit Title */}
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
               <Target className="w-6 h-6 text-primary" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg text-foreground">{habit.title}</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-lg text-foreground break-all">{habit.title}</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 {habit.repeatType === "daily" ? "Every Day" : `${habit.repeatDays?.length} days per week`}
               </p>
@@ -92,6 +97,19 @@ export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: H
                     {day.label}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Linked Global Goal */}
+          {linkedGlobalGoal && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Crosshair className="w-4 h-4" />
+                <span>Global Goal</span>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-sm font-medium text-foreground">{linkedGlobalGoal.title}</p>
               </div>
             </div>
           )}

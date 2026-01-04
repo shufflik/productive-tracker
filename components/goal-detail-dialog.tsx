@@ -2,6 +2,8 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Crosshair, Flag } from "lucide-react"
+import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import type { Goal } from "@/lib/types"
 
 type GoalDetailDialogProps = {
@@ -11,7 +13,13 @@ type GoalDetailDialogProps = {
 }
 
 export function GoalDetailDialog({ open, onClose, goal }: GoalDetailDialogProps) {
+  const getGlobalGoalById = useGlobalGoalsStore((state) => state.getGlobalGoalById)
+  const milestones = useGlobalGoalsStore((state) => state.milestones)
+
   if (!goal) return null
+
+  const linkedGlobalGoal = goal.globalGoalId ? getGlobalGoalById(goal.globalGoalId) : undefined
+  const linkedMilestone = goal.milestoneId ? milestones.find(m => m.id === goal.milestoneId) : undefined
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -39,6 +47,24 @@ export function GoalDetailDialog({ open, onClose, goal }: GoalDetailDialogProps)
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Label</p>
               <p className="text-base text-foreground break-words">{goal.label}</p>
+            </div>
+          )}
+
+          {linkedGlobalGoal && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Crosshair className="w-4 h-4" />
+                <span>Global Goal</span>
+              </div>
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-sm font-medium text-foreground">{linkedGlobalGoal.title}</p>
+                {linkedMilestone && (
+                  <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                    <Flag className="w-3 h-3" />
+                    <span>{linkedMilestone.title}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

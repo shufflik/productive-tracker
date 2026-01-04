@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion"
-import { Pencil, TrendingUp, Star, Check } from "lucide-react"
+import { Pencil, TrendingUp, Star, Check, Crosshair } from "lucide-react"
 import type { Habit } from "@/lib/types"
 
 type SwipeableHabitItemProps = {
@@ -27,6 +27,8 @@ export function SwipeableHabitItem({
   const [isOpen, setIsOpen] = useState<'left' | 'right' | null>(null)
   const dragX = useMotionValue(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLParagraphElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const offset = info.offset.x
@@ -57,6 +59,27 @@ export function SwipeableHabitItem({
 
   const leftActionOpacity = useTransform(dragX, [0, 100], [0, 1])
   const rightActionOpacity = useTransform(dragX, [-100, 0], [1, 0])
+
+  // Автоматическое уменьшение шрифта при переносе текста
+  useEffect(() => {
+    const titleElement = titleRef.current
+    const contentElement = contentRef.current
+    if (!titleElement || !contentElement) return
+
+    let fontSize = 16
+    const minFontSize = 11
+    const targetHeight = 64
+
+    const checkFit = () => {
+      titleElement.style.fontSize = `${fontSize}px`
+      if (contentElement.scrollHeight > targetHeight && fontSize > minFontSize) {
+        fontSize = Math.max(minFontSize, fontSize - 0.5)
+        setTimeout(checkFit, 0)
+      }
+    }
+
+    setTimeout(checkFit, 10)
+  }, [habit.title])
 
   return (
     <div
@@ -115,9 +138,11 @@ export function SwipeableHabitItem({
         className="relative"
       >
         <div
-          className={`bg-card border border-border rounded-lg p-4 flex items-start gap-3 w-full transition-all duration-300 cursor-pointer ${
+          ref={contentRef}
+          className={`bg-card border border-border rounded-lg p-4 flex items-center gap-3 w-full transition-all duration-300 cursor-pointer overflow-hidden ${
             !isCurrentDate ? "opacity-60" : ""
           }`}
+          style={{ height: '4rem' }}
           onClick={() => {
             if (isOpen) {
               closeSwipe()
@@ -126,18 +151,24 @@ export function SwipeableHabitItem({
             }
           }}
         >
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex items-center">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               {habit.important && <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0" />}
-              <p className={`font-medium ${isCompleted ? "line-through text-muted-foreground" : "text-foreground"}`}>
+              <p
+                ref={titleRef}
+                className={`font-medium min-w-0 break-words flex-1 ${isCompleted ? "line-through text-muted-foreground" : "text-foreground"}`}
+                style={{ fontSize: '16px', lineHeight: '1.5' }}
+              >
                 {habit.title}
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-lg font-bold text-primary">{streak}</span>
+            <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+              {habit.globalGoalId && (
+                <Crosshair className="w-3.5 h-3.5 text-primary" aria-label="Linked to global goal" />
+              )}
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <span className="text-lg font-bold text-primary">{streak}</span>
+            </div>
           </div>
         </div>
       </motion.div>

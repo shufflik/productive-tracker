@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion"
-import { Pencil, Trash2, Check, Star, Clock, Target } from "lucide-react"
+import { Pencil, Trash2, Check, Star, Clock, Crosshair } from "lucide-react"
 import { GoalMoveMenu } from "@/components/goal-move-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -273,7 +273,7 @@ export function SwipeableGoalItem({
             </div>
             <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
               {goal.globalGoalId && (
-                <Target className="w-3.5 h-3.5 text-primary" aria-label="Linked to global goal" />
+                <Crosshair className="w-3.5 h-3.5 text-primary" aria-label="Linked to global goal" />
               )}
               {goal.meta?.isPostponed && (
                 <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-label="Postponed task" />

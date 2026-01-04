@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertTriangle, ChevronDown, Target, X, TrendingUp, Layers } from "lucide-react"
+import { AlertTriangle, ChevronDown, Crosshair, X, TrendingUp, Layers } from "lucide-react"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import type { Habit } from "@/lib/types"
 
@@ -244,7 +244,7 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
                     className="w-full flex items-center justify-between p-3 bg-background border border-border rounded-lg text-left hover:border-primary/50 transition-colors"
                   >
                     <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Target className="w-4 h-4" />
+                      <Crosshair className="w-4 h-4" />
                       Link to global goal (optional)
                     </span>
                     <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showGoalSelector ? "rotate-180" : ""}`} />
