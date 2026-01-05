@@ -103,7 +103,7 @@ export function GlobalGoalDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-hidden flex flex-col gap-2 px-6 py-4">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[75vh] overflow-hidden flex flex-col gap-2 px-6 py-4 top-[15vh] translate-y-0">
         <DialogHeader className="flex-shrink-0 flex items-center justify-center pt-4">
           {isEditing ? (
             <div className="w-full">
