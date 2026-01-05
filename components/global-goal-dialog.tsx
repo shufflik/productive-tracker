@@ -199,7 +199,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[70vh] overflow-y-auto top-[12vh] translate-y-0">
         <DialogHeader className="text-center">
           <DialogTitle className="flex justify-center">
             {goal ? "Edit Goal" : step === 1 ? "Choose Goal Type" : step === 3 ? "Additional Info" : (
