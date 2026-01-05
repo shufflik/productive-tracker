@@ -115,6 +115,14 @@ export function HabitsView() {
     )
   }, [selectedDate])
 
+  const isSelectedDateNotFuture = useCallback(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const selected = new Date(selectedDate)
+    selected.setHours(0, 0, 0, 0)
+    return selected <= today
+  }, [selectedDate])
+
   return (
     <div className="h-full overflow-y-auto scrollbar-hide space-y-6">
       <WeekNavigator selectedDate={selectedDate} onDateChange={setSelectedDate} />
@@ -158,7 +166,7 @@ export function HabitsView() {
                     habit={habit}
                     isCompleted={isHabitCompletedForDate(habit.id, selectedDate)}
                     streak={calculateStreak(habit.id)}
-                    isCurrentDate={isSelectedDateToday()}
+                    canToggle={isSelectedDateNotFuture()}
                     onToggle={() => toggleHabitCompletion(habit.id)}
                     onEdit={() => openEditDialog(habit)}
                     onOpenDetail={() => handleHabitClick(habit)}

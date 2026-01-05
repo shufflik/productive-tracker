@@ -7,6 +7,106 @@ import { habitsArraySchema } from "@/lib/schemas/common.schema"
 import { generateId } from "@/lib/utils/id"
 import { syncService } from "@/lib/services/sync"
 
+// Вспомогательная функция для проверки scheduled дня
+function isHabitScheduledForDateStatic(habit: Habit, date: Date): boolean {
+  if (habit.repeatType === "daily") return true
+  if (habit.repeatType === "weekly" && habit.repeatDays) {
+    const dayOfWeek = date.getDay()
+    return habit.repeatDays.includes(dayOfWeek)
+  }
+  return false
+}
+
+// Проверяет, есть ли пропущенные scheduled дни между двумя датами
+function hasGapBetweenDates(habit: Habit, olderDate: Date, newerDate: Date): boolean {
+  const current = new Date(olderDate)
+  current.setDate(current.getDate() + 1)
+
+  while (current < newerDate) {
+    if (isHabitScheduledForDateStatic(habit, current)) {
+      return true // Нашли scheduled день, который пропущен
+    }
+    current.setDate(current.getDate() + 1)
+  }
+  return false
+}
+
+// Конвертирует Date в ISO строку (YYYY-MM-DD) в локальном timezone
+function toISODateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Пересчитывает currentStreak и maxStreak на основе completions
+function calculateStreaksFromCompletions(habit: Habit): { currentStreak: number; maxStreak: number } {
+  const completions = habit.completions || []
+
+  if (completions.length === 0) {
+    return { currentStreak: 0, maxStreak: 0 }
+  }
+
+  // Конвертируем ISO строки в даты и сортируем от новых к старым
+  const completedDates = completions
+    .map((dateStr) => new Date(dateStr))
+    .sort((a, b) => b.getTime() - a.getTime())
+
+  // Вчерашняя дата (сегодня не считается)
+  const yesterday = new Date()
+  yesterday.setHours(0, 0, 0, 0)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  // Set для быстрой проверки наличия даты
+  const completionsSet = new Set(completions)
+
+  let currentStreak = 0
+  let maxStreak = 0
+  let tempStreak = 0
+  let currentStreakBroken = false
+
+  for (let i = 0; i < completedDates.length; i++) {
+    const date = completedDates[i]
+    date.setHours(0, 0, 0, 0)
+
+    if (i === 0) {
+      // Первая (самая новая) дата — проверяем связь со вчера
+      if (!currentStreakBroken) {
+        const yesterdayISO = toISODateString(yesterday)
+        // Проверяем, есть ли пропущенные scheduled дни между этой датой и вчера
+        if (hasGapBetweenDates(habit, date, yesterday) ||
+            (isHabitScheduledForDateStatic(habit, yesterday) && date.getTime() !== yesterday.getTime() && !completionsSet.has(yesterdayISO))) {
+          // Есть пропуск — currentStreak остаётся 0
+          currentStreakBroken = true
+        } else {
+          currentStreak = 1
+        }
+      }
+      tempStreak = 1
+    } else {
+      const prevDate = completedDates[i - 1]
+      prevDate.setHours(0, 0, 0, 0)
+
+      // Проверяем, есть ли пропущенные scheduled дни между текущей и предыдущей датой
+      if (hasGapBetweenDates(habit, date, prevDate)) {
+        // Есть пропуск — streak прерывается
+        maxStreak = Math.max(maxStreak, tempStreak)
+        tempStreak = 1
+        currentStreakBroken = true
+      } else {
+        tempStreak++
+        if (!currentStreakBroken) {
+          currentStreak = tempStreak
+        }
+      }
+    }
+  }
+
+  maxStreak = Math.max(maxStreak, tempStreak)
+
+  return { currentStreak, maxStreak }
+}
+
 type HabitsState = {
   habits: Habit[]
   isLoaded: boolean
@@ -51,9 +151,8 @@ export const useHabitsStore = create<HabitsStore>()(
           globalGoalId,
           currentStreak: 0,
           maxStreak: 0,
-          lastCompletedDate: undefined,
-          completions: {},
-          _version: 0, // Начальная версия для новой привычки
+          completions: [],
+          _version: 0,
         }
 
         set((state) => ({
@@ -102,80 +201,41 @@ export const useHabitsStore = create<HabitsStore>()(
       },
 
       toggleHabitCompletion: (habitId, date) => {
-        const dateString = date.toDateString()
+        const dateISO = toISODateString(date)
         let updatedHabit: Habit | undefined
 
         set((state) => {
           const habit = state.habits.find((h) => h.id === habitId)
           if (!habit) return state
 
-          // Получаем текущий статус выполнения для этой даты
-          const currentCompletions = habit.completions || {}
-          const isCurrentlyCompleted = currentCompletions[dateString] || false
-          const isCompleting = !isCurrentlyCompleted
+          const currentCompletions = habit.completions || []
+          const isCurrentlyCompleted = currentCompletions.includes(dateISO)
 
           // Обновляем completions
-          const newCompletions = {
-            ...currentCompletions,
-            [dateString]: isCompleting,
+          let newCompletions: string[]
+          if (isCurrentlyCompleted) {
+            // Снимаем отметку — удаляем дату из массива
+            newCompletions = currentCompletions.filter((d) => d !== dateISO)
+          } else {
+            // Ставим отметку — добавляем дату в массив
+            newCompletions = [...currentCompletions, dateISO]
           }
 
-          // Если снимаем отметку, удаляем запись (опционально, можно оставить false)
-          if (!isCompleting) {
-            delete newCompletions[dateString]
-          }
+          // Создаём временный habit с новыми completions для пересчёта streaks
+          const tempHabit = { ...habit, completions: newCompletions }
+          const { currentStreak, maxStreak } = calculateStreaksFromCompletions(tempHabit)
 
-          // Update streak
           const updatedHabits = state.habits.map((h) => {
             if (h.id !== habitId) return h
 
-            if (isCompleting) {
-              // Calculate new streak
-              let newStreak = 1
-
-              if (h.lastCompletedDate) {
-                const lastDate = new Date(h.lastCompletedDate)
-                const currentDate = new Date(date)
-                lastDate.setHours(0, 0, 0, 0)
-                currentDate.setHours(0, 0, 0, 0)
-
-                // Find next scheduled day after lastDate
-                const nextScheduled = new Date(lastDate)
-                nextScheduled.setDate(nextScheduled.getDate() + 1)
-
-                // Keep incrementing until we find a scheduled day
-                while (!get().isHabitScheduledForDate(habit, nextScheduled)) {
-                  nextScheduled.setDate(nextScheduled.getDate() + 1)
-                  // Safety: stop after 7 days for weekly, 1 day for daily
-                  if (nextScheduled > currentDate) break
-                }
-
-                // If current date is the next scheduled day -> continue streak
-                if (nextScheduled.getTime() === currentDate.getTime()) {
-                  newStreak = (h.currentStreak || 0) + 1
-                }
-                // Otherwise streak resets to 1 (missed days)
-              }
-
-              updatedHabit = {
-                ...h,
-                currentStreak: newStreak,
-                maxStreak: Math.max(newStreak, h.maxStreak || 0),
-                lastCompletedDate: dateString,
-                completions: newCompletions,
-              }
-
-              return updatedHabit
-            } else {
-              // Unchecking - decrease streak
-              updatedHabit = {
-                ...h,
-                currentStreak: Math.max(0, (h.currentStreak || 0) - 1),
-                completions: newCompletions,
-              }
-
-              return updatedHabit
+            updatedHabit = {
+              ...h,
+              completions: newCompletions,
+              currentStreak,
+              maxStreak,
             }
+
+            return updatedHabit
           })
 
           return { habits: updatedHabits }
@@ -188,10 +248,10 @@ export const useHabitsStore = create<HabitsStore>()(
       },
 
       isHabitCompletedForDate: (habitId, date) => {
-        const dateString = date.toDateString()
+        const dateISO = toISODateString(date)
         const habit = get().habits.find((h) => h.id === habitId)
         if (!habit) return false
-        return habit.completions?.[dateString] || false
+        return habit.completions?.includes(dateISO) || false
       },
 
       isHabitScheduledForDate: (habit, date) => {

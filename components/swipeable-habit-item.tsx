@@ -9,7 +9,7 @@ type SwipeableHabitItemProps = {
   habit: Habit
   isCompleted: boolean
   streak: number
-  isCurrentDate: boolean
+  canToggle: boolean
   onToggle: () => void
   onEdit: () => void
   onOpenDetail: () => void
@@ -19,7 +19,7 @@ export function SwipeableHabitItem({
   habit,
   isCompleted,
   streak,
-  isCurrentDate,
+  canToggle,
   onToggle,
   onEdit,
   onOpenDetail,
@@ -120,7 +120,7 @@ export function SwipeableHabitItem({
 
       {/* Main Content */}
       <motion.div
-        drag={isCurrentDate ? "x" : false}
+        drag={canToggle ? "x" : false}
         dragConstraints={{ left: -90, right: 90 }}
         dragElastic={0.05}
         dragMomentum={false}
@@ -140,7 +140,7 @@ export function SwipeableHabitItem({
         <div
           ref={contentRef}
           className={`bg-card border border-border rounded-lg p-4 flex items-center gap-3 w-full transition-all duration-300 cursor-pointer overflow-hidden ${
-            !isCurrentDate ? "opacity-60" : ""
+            !canToggle ? "opacity-60" : ""
           }`}
           style={{ height: '4rem' }}
           onClick={() => {

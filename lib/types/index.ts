@@ -145,9 +145,8 @@ export type Habit = BaseItem & {
   repeatDays?: number[] // 0-6, where 0 is Sunday
   currentStreak: number
   maxStreak: number
-  lastCompletedDate?: string
-  completions?: Record<string, boolean>
-  
+  completions?: string[] // ISO dates array, e.g. ["2025-01-06", "2025-01-05"]
+
   // Связь с глобальной целью (для process целей)
   globalGoalId?: string
 }

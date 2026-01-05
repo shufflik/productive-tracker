@@ -165,9 +165,9 @@ export function calculateProcessProgress(
   let recentHabitCompletions = 0
   for (const habit of linkedHabits) {
     if (habit.completions) {
-      for (const [dateStr, completed] of Object.entries(habit.completions)) {
+      for (const dateStr of habit.completions) {
         const date = new Date(dateStr)
-        if (date >= weekAgo && date <= now && completed) {
+        if (date >= weekAgo && date <= now) {
           recentHabitCompletions++
         }
       }
@@ -206,10 +206,8 @@ export function calculateProcessProgress(
     const hasGoalActivity = goalsToCount.some(g =>
       g.targetDate === dateStr && g.completed
     )
-    // Habits still use toDateString format for completions keys
-    const habitDateStr = checkDate.toDateString()
     const hasHabitActivity = linkedHabits.some(h =>
-      h.completions?.[habitDateStr] === true
+      h.completions?.includes(dateStr)
     )
 
     if (hasGoalActivity || hasHabitActivity) {
