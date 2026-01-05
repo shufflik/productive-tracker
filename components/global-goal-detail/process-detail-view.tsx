@@ -65,29 +65,29 @@ export function ProcessDetailView({ goal, progress, isEditing }: ProcessDetailVi
         </div>
       )}
 
-      {/* Activity Status + Chart - hidden in editing mode */}
+      {/* Activity Status + Chart + Weekly Stats - hidden in editing mode */}
       {!isEditing && (
-        <ActivityStatusBlock
-          activityStatus={progress.activityStatus}
-          activitySignal={progress.activitySignal}
-          trend={progress.trend}
-          linkedGoals={goalsFor14Days}
-          linkedHabits={linkedHabits}
-          createdAt={goal.createdAt}
-          isLoadingChart={isLoadingChart}
-        />
-      )}
+        <div className="space-y-4">
+          <ActivityStatusBlock
+            activityStatus={progress.activityStatus}
+            activitySignal={progress.activitySignal}
+            trend={progress.trend}
+            linkedGoals={goalsFor14Days}
+            linkedHabits={linkedHabits}
+            createdAt={goal.createdAt}
+            isLoadingChart={isLoadingChart}
+          />
 
-      {/* Weekly Stats - hidden in editing mode */}
-      {!isEditing && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg bg-muted/50">
-            <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.goalsCompleted}</p>
-            <p className="text-xs text-muted-foreground">Задач за неделю</p>
-          </div>
-          <div className="p-3 rounded-lg bg-muted/50">
-            <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.habitsCompleted}</p>
-            <p className="text-xs text-muted-foreground">Привычек за неделю</p>
+          {/* Weekly Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.goalsCompleted}</p>
+              <p className="text-xs text-muted-foreground">Задач за неделю</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-2xl font-bold text-foreground">{progress.weeklyActivity.habitsCompleted}</p>
+              <p className="text-xs text-muted-foreground">Привычек за неделю</p>
+            </div>
           </div>
         </div>
       )}

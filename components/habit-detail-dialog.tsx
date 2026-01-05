@@ -54,7 +54,7 @@ export function HabitDetailDialog({ open, onClose, habit, streak, maxStreak }: H
           </div>
 
           {/* Streak Display */}
-          <div className="bg-gradient-to-br from-orange-500/10 to-red-500/5 rounded-lg p-6 text-center">
+          <div className="bg-gradient-to-br from-orange-500/10 to-red-500/5 rounded-lg px-6 py-3 text-center">
             <div className="flex items-center justify-center gap-3 mb-2">
               {streak > 0 && (
                 <div className="w-16 h-16">
