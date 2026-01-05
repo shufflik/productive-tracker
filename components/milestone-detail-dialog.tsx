@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Pencil,
   Trash2,
@@ -243,9 +242,8 @@ export function MilestoneDetailDialog({
                 </p>
               </div>
             ) : (
-              <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
-                <ScrollArea className="h-48">
-                  <div className="space-y-2 p-3 pr-4">
+              <div className="rounded-lg border border-border bg-muted/20 overflow-hidden max-h-48 overflow-y-auto scrollbar-hide">
+                  <div className="space-y-2 p-3">
                     {linkedGoals.map(task => (
                       <div
                         key={task.id}
@@ -271,7 +269,6 @@ export function MilestoneDetailDialog({
                       </div>
                     )}
                   </div>
-                </ScrollArea>
               </div>
             )}
           </div>

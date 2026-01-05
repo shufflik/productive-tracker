@@ -2,7 +2,6 @@
 
 import { useRef, useEffect } from "react"
 import { Check, Circle, Target, Loader2 } from "lucide-react"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import type { Goal, Habit } from "@/lib/types"
 
 type LinkedItemsListProps = {
@@ -69,9 +68,8 @@ export function LinkedItemsList({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-muted/20 overflow-hidden">
-      <ScrollArea className="h-48">
-        <div className="space-y-2 p-3 pr-4">
+    <div className="rounded-lg border border-border bg-muted/20 overflow-hidden max-h-48 overflow-y-auto scrollbar-hide">
+        <div className="space-y-2 p-3">
           {linkedHabits.map((h) => (
             <div
               key={h.id}
@@ -107,7 +105,6 @@ export function LinkedItemsList({
             </div>
           )}
         </div>
-      </ScrollArea>
     </div>
   )
 }
