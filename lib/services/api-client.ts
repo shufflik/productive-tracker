@@ -8,6 +8,7 @@
 
 import type { SyncRequest, SyncResponse } from "./sync/types"
 import type { Goal } from "@/lib/types"
+import type { AIAnalysisData } from "./ai-cache"
 
 export type LinkedGoalsResponse = {
   items: Goal[]
@@ -225,6 +226,78 @@ export async function getLinkedGoalsApi(params: {
 
   const response = await fetchBackend(`/api/goals?${queryParams.toString()}`, {
     method: 'GET',
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+// ============ AI Analysis API ============
+
+/**
+ * Get AI weekly analyses for a month
+ * Returns array of weekly analyses (empty array if none)
+ */
+export async function getAIWeeklyApi(params: {
+  year: number
+  month: number
+}): Promise<AIAnalysisData[]> {
+  const queryParams = new URLSearchParams({
+    year: String(params.year),
+    month: String(params.month),
+  })
+
+  const response = await fetchBackend(`/api/ai/weekly?${queryParams.toString()}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get AI monthly analysis
+ * Returns null for 404 (silently ignored per requirements)
+ */
+export async function getAIMonthlyApi(params: {
+  year: number
+  month: number
+}): Promise<AIAnalysisData | null> {
+  const queryParams = new URLSearchParams({
+    year: String(params.year),
+    month: String(params.month),
+  })
+
+  const response = await fetchBackend(`/api/ai/monthly?${queryParams.toString()}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null // Silently ignore 404
+    }
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Submit feedback for AI analysis
+ */
+export async function submitAIFeedbackApi(params: {
+  analysisId: string
+  isUseful: boolean
+}): Promise<{ success: boolean; message: string }> {
+  const response = await fetchBackend(`/api/ai/${params.analysisId}/feedback`, {
+    method: 'POST',
+    body: { isUseful: params.isUseful },
   })
 
   if (!response.ok) {

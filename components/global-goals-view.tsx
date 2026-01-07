@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3, Calendar, CheckCircle2 } from "lucide-react"
+import { Plus, Target, TrendingUp, TrendingDown, Layers, Flag, ChevronRight, MapPin, Pause, Circle, ArrowRight, Flame, BarChart3, Calendar, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GlobalGoalDialog } from "@/components/global-goal-dialog"
 import { GlobalGoalDetailDialog } from "@/components/global-goal-detail-dialog"
@@ -10,6 +10,7 @@ import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useHabitsStore } from "@/lib/stores/habits-store"
 import type { GlobalGoal, GlobalGoalType, GlobalGoalProgress } from "@/lib/types"
+import { getWeeklyAnalyses, type GlobalGoalAnalysis } from "@/lib/services/ai-cache"
 
 const TYPE_INFO: Record<GlobalGoalType, { label: string; icon: typeof Target; color: string }> = {
   outcome: { label: "Outcome", icon: Flag, color: "rgb(139, 92, 246)" },
@@ -21,6 +22,21 @@ const STATUS_COLORS: Record<string, string> = {
   not_started: "rgb(156, 163, 175)",
   in_progress: "rgb(59, 130, 246)",
   achieved: "rgb(34, 197, 94)",
+}
+
+// AI Classification config
+const AI_CLASSIFICATION_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }> = {
+  on_track: { icon: CheckCircle2, color: "text-green-600" },
+  at_risk: { icon: AlertTriangle, color: "text-yellow-600" },
+  unlikely: { icon: TrendingDown, color: "text-orange-600" },
+  missed: { icon: XCircle, color: "text-red-600" },
+}
+
+function AIClassificationIcon({ classification }: { classification: string }) {
+  const config = AI_CLASSIFICATION_CONFIG[classification]
+  if (!config) return null
+  const Icon = config.icon
+  return <Icon className={`w-4 h-4 ${config.color}`} />
 }
 
 // Calculate days remaining until deadline
@@ -217,10 +233,12 @@ function GlobalGoalCard({
   goal,
   progress,
   onClick,
+  aiClassification,
 }: {
   goal: GlobalGoal
   progress: GlobalGoalProgress
   onClick: () => void
+  aiClassification?: string
 }) {
   const typeInfo = TYPE_INFO[goal.type]
   const TypeIcon = typeInfo.icon
@@ -281,10 +299,11 @@ function GlobalGoalCard({
       {progress.type === "process" && <ProcessProgressDisplay progress={progress} />}
       {progress.type === "hybrid" && <HybridProgressDisplay progress={progress} isAchieved={isHybridAchieved} />}
 
-      {/* Deadline - only for active goals with deadline */}
-      {goal.periodEnd && (goal.status === "in_progress" || goal.status === "not_started") && (
-        <div className="mt-2 pt-2 border-t border-border/50">
-          <DeadlineDisplay periodEnd={goal.periodEnd} />
+      {/* Deadline and AI Classification - only for active goals */}
+      {(goal.status === "in_progress" || goal.status === "not_started") && (goal.periodEnd || aiClassification) && (
+        <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
+          {goal.periodEnd ? <DeadlineDisplay periodEnd={goal.periodEnd} /> : <div />}
+          {aiClassification && <AIClassificationIcon classification={aiClassification} />}
         </div>
       )}
     </motion.button>
@@ -305,10 +324,31 @@ export function GlobalGoalsView() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
+  const [aiGoalClassifications, setAiGoalClassifications] = useState<Map<string, GlobalGoalAnalysis>>(new Map())
 
   useEffect(() => {
     fetchGlobalGoals()
   }, [fetchGlobalGoals])
+
+  // Load AI classification data from cache
+  useEffect(() => {
+    const now = new Date()
+    const analyses = getWeeklyAnalyses(now.getFullYear(), now.getMonth() + 1)
+    if (analyses.length === 0) return
+
+    // Find the latest analysis by periodStart
+    const latestAnalysis = analyses.sort((a, b) =>
+      new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
+    )[0]
+
+    // Create a map of goalId -> GlobalGoalAnalysis
+    const classificationsMap = new Map<string, GlobalGoalAnalysis>()
+    latestAnalysis.content.analysis.global_goals.forEach((goalAnalysis) => {
+      classificationsMap.set(goalAnalysis.id, goalAnalysis)
+    })
+
+    setAiGoalClassifications(classificationsMap)
+  }, [])
 
   // Calculate progress for each goal
   const goalsWithProgress = useMemo(() => {
@@ -413,6 +453,7 @@ export function GlobalGoalsView() {
                 goal={goal}
                 progress={progress}
                 onClick={() => handleOpenDetail(goal)}
+                aiClassification={aiGoalClassifications.get(goal.id)?.classification}
               />
             ))}
           </div>
