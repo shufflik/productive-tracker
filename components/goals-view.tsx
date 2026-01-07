@@ -453,6 +453,10 @@ export function GoalsView() {
                 No goals{" "}
                 {selectedDay === "today" ? "for today" : selectedDay === "tomorrow" ? "for tomorrow" : "in backlog"}
               </p>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="w-4 h-4" />
+                Add Goal
+              </Button>
             </div>
           ) : (
           <div className="space-y-4">
