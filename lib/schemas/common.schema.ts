@@ -39,8 +39,7 @@ const habitSchema = baseItemSchema.extend({
   repeatDays: z.array(z.number().min(0).max(6)).nullish(),
   currentStreak: z.number().default(0),
   maxStreak: z.number().default(0),
-  lastCompletedDate: z.string().nullish(),
-  completions: z.record(z.string(), z.boolean()).nullish(),
+  completions: z.array(z.string()).nullish(), // ISO dates array
 })
 
 // Separate schemas for goals and habits

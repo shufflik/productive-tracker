@@ -155,6 +155,7 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
               onChange={(e) => handleTitleChange(e.target.value)}
               maxLength={50}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
             />
             {titleError && (
               <p className="text-xs text-destructive">{titleError}</p>

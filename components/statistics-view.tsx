@@ -5,9 +5,20 @@ import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DayStatusDialog } from "@/components/day-status-dialog"
+import { AIStatsBlock } from "@/components/ai-stats-block"
+import { AIStatsDialog } from "@/components/ai-stats-dialog"
 import { getStatsCache, setStatsCache, isCacheValid, getDayFromCache, type DayStatsData, type DayDetailData } from "@/lib/services/stats-cache"
+import {
+  hasValidMonthlyCache,
+  hasValidWeeklyCache,
+  setMonthlyAnalysis,
+  setWeeklyAnalyses,
+  setMonthly404,
+  shouldSkipMonthlyRequest,
+  hasAnyAIDataForMonth
+} from "@/lib/services/ai-cache"
 import { toast } from "sonner"
-import { getStatsRangeApi } from "@/lib/services/api-client"
+import { getStatsRangeApi, getAIMonthlyApi, getAIWeeklyApi } from "@/lib/services/api-client"
 
 type DayStatus = "good" | "average" | "poor" | "bad" | null
 
@@ -27,6 +38,10 @@ export function StatisticsView() {
   const [isReasonsVisible, setIsReasonsVisible] = useState(false)
   const reasonsRef = useRef<HTMLDivElement>(null)
 
+  // AI Stats state
+  const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [hasAIData, setHasAIData] = useState(false)
+
   useEffect(() => {
     loadStats()
   }, [currentDate]) // Reload when month changes
@@ -35,6 +50,46 @@ export function StatisticsView() {
   useEffect(() => {
     loadReasonsStats()
   }, [calendar, currentDate])
+
+  // Load AI data when month changes
+  useEffect(() => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1
+
+    // Check if we have any AI data for this month
+    setHasAIData(hasAnyAIDataForMonth(year, month))
+
+    // Fetch weekly AI data if not cached
+    if (!hasValidWeeklyCache(year, month)) {
+      getAIWeeklyApi({ year, month })
+        .then(data => {
+          setWeeklyAnalyses(year, month, data)
+          if (data.length > 0) {
+            setHasAIData(true)
+          }
+        })
+        .catch(error => {
+          console.error('[Stats] AI weekly fetch failed:', error)
+        })
+    }
+
+    // Fetch monthly AI data if not cached (skip if 404 cached)
+    if (!shouldSkipMonthlyRequest(year, month)) {
+      getAIMonthlyApi({ year, month })
+        .then(data => {
+          if (data) {
+            setMonthlyAnalysis(year, month, data)
+            setHasAIData(true)
+          } else {
+            // API returned null (404) - cache this to avoid repeated requests
+            setMonthly404(year, month)
+          }
+        })
+        .catch(error => {
+          console.error('[Stats] AI monthly fetch failed:', error)
+        })
+    }
+  }, [currentDate])
 
   async function loadStats() {
     setIsLoading(true)
@@ -432,95 +487,100 @@ export function StatisticsView() {
             <div className="grid grid-cols-7 gap-2">{days}</div>
           </div>
 
+          {/* AI Statistics Block */}
+          <AIStatsBlock
+            year={year}
+            month={month + 1}
+            onClick={() => setAiDialogOpen(true)}
+          />
+
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="text-sm font-semibold mb-3 text-foreground">Productivity Status</h3>
-            <div className="space-y-4">
-              {chartData.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-center relative">
-                    <svg width="200" height="200" viewBox="0 0 200 200" className="transform -rotate-90">
-                      <circle
-                        cx="100"
-                        cy="100"
-                        r="80"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="40"
-                        className="text-muted opacity-20"
-                      />
-                      {chartData.map((item, index) => {
-                        const radius = 80
-                        const circumference = 2 * Math.PI * radius
-                        const offset = circumference - (item.angle / 360) * circumference
-                        
-                        return (
-                          <motion.circle
-                            key={item.name}
-                            cx="100"
-                            cy="100"
-                            r={radius}
-                            fill="none"
-                            stroke={item.color}
-                            strokeWidth="40"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={circumference}
-                            strokeLinecap="round"
-                            initial={{ strokeDashoffset: circumference }}
-                            animate={{ strokeDashoffset: offset }}
-                            transition={{
-                              duration: 1,
-                              delay: index * 0.1,
-                              ease: [0.4, 0, 0.2, 1],
-                            }}
-                            style={{
-                              transformOrigin: "100px 100px",
-                              transform: `rotate(${item.startAngle}deg)`,
-                            }}
-                          />
-                        )
-                      })}
-                    </svg>
-                    <div className="absolute flex flex-col items-center justify-center" style={{ width: "200px", height: "200px" }}>
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.5, duration: 0.5 }}
-                        className="text-center"
-                      >
-                        <div className="text-2xl font-bold text-foreground">
-                          {stats.good + stats.average + stats.poor + stats.bad}
-                        </div>
-                        <div className="text-xs text-muted-foreground">days</div>
-                      </motion.div>
+            {chartData.length > 0 ? (
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 relative">
+                  <svg width="120" height="120" viewBox="0 0 200 200" className="transform -rotate-90">
+                    <circle
+                      cx="100"
+                      cy="100"
+                      r="80"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="40"
+                      className="text-muted opacity-20"
+                    />
+                    {chartData.map((item, index) => {
+                      const radius = 80
+                      const circumference = 2 * Math.PI * radius
+                      const offset = circumference - (item.angle / 360) * circumference
+
+                      return (
+                        <motion.circle
+                          key={item.name}
+                          cx="100"
+                          cy="100"
+                          r={radius}
+                          fill="none"
+                          stroke={item.color}
+                          strokeWidth="40"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={circumference}
+                          strokeLinecap="round"
+                          initial={{ strokeDashoffset: circumference }}
+                          animate={{ strokeDashoffset: offset }}
+                          transition={{
+                            duration: 1,
+                            delay: index * 0.1,
+                            ease: [0.4, 0, 0.2, 1],
+                          }}
+                          style={{
+                            transformOrigin: "100px 100px",
+                            transform: `rotate(${item.startAngle}deg)`,
+                          }}
+                        />
+                      )
+                    })}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.5, duration: 0.5 }}
+                      className="text-center"
+                    >
+                      <div className="text-lg font-bold text-foreground">
+                        {stats.good + stats.average + stats.poor + stats.bad}
+                      </div>
+                      <div className="text-xs text-muted-foreground">days</div>
+                    </motion.div>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2 text-xs">
+                  {chartData.map((item, index) => (
+                    <motion.div
+                      key={item.name}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/30"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-foreground font-medium">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-foreground">{item.value}</span>
+                        <span className="text-muted-foreground">({item.percentage}%)</span>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    {chartData.map((item, index) => (
-                      <motion.div
-                        key={item.name}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
-                        className="flex items-center justify-between p-2 rounded-lg bg-muted/30"
-                      >
-                <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                          <span className="text-foreground font-medium">{item.name}</span>
-                </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-foreground">{item.value}</span>
-                          <span className="text-muted-foreground">({item.percentage}%)</span>
+            ) : (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No completed days this month
               </div>
-                      </motion.div>
-                    ))}
-                </div>
-                </>
-              ) : (
-                <div className="text-center py-8 text-sm text-muted-foreground">
-                  No completed days this month
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           <div ref={reasonsRef} className="bg-card border border-border rounded-lg p-4">
@@ -576,6 +636,13 @@ export function StatisticsView() {
         onUpdateStatus={updateDayStatus}
         dayDetail={dayDetail}
         isLoadingDetail={isLoadingDetail}
+      />
+
+      <AIStatsDialog
+        open={aiDialogOpen}
+        onClose={() => setAiDialogOpen(false)}
+        year={year}
+        month={month + 1}
       />
     </div>
   )

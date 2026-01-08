@@ -8,6 +8,7 @@ import { GoalDetailDialog } from "@/components/goal-detail-dialog"
 import { DayReviewDialog, type TaskAction } from "@/components/day-review-dialog"
 import { SwipeableGoalItem } from "@/components/swipeable-goal-item"
 import { BacklogDialog } from "@/components/backlog-dialog"
+import { AILoadInsightButton } from "@/components/ai-load-insight-button"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { syncService } from "@/lib/services/sync"
@@ -367,10 +368,11 @@ export function GoalsView() {
           <p className="text-sm text-muted-foreground">{displayDate}</p>
         </div>
         <div className="flex items-center gap-2">
+          {selectedDay !== "backlog" && <AILoadInsightButton />}
           {selectedDay !== "backlog" && (
-            <Button 
-              onClick={() => setBacklogOpen(true)} 
-              variant="ghost" 
+            <Button
+              onClick={() => setBacklogOpen(true)}
+              variant="ghost"
               size="icon"
               disabled={isCurrentDayEnded}
             >
@@ -451,6 +453,10 @@ export function GoalsView() {
                 No goals{" "}
                 {selectedDay === "today" ? "for today" : selectedDay === "tomorrow" ? "for tomorrow" : "in backlog"}
               </p>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="w-4 h-4" />
+                Add Goal
+              </Button>
             </div>
           ) : (
           <div className="space-y-4">

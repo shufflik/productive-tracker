@@ -144,7 +144,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               maxLength={50}
               onKeyDown={(e) => e.key === "Enter" && label.trim() && handleSave()}
               disabled={isPostponed}
-              className={isPostponed ? "bg-muted cursor-not-allowed" : ""}
+              className={`bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0 ${isPostponed ? "bg-muted cursor-not-allowed" : ""}`}
             />
             {titleError && (
               <p className="text-xs text-destructive">{titleError}</p>
@@ -170,7 +170,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               onChange={(e) => handleLabelChange(e.target.value)}
               maxLength={25}
               disabled={isPostponed}
-              className={isPostponed ? "bg-muted cursor-not-allowed" : ""}
+              className={`bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0 ${isPostponed ? "bg-muted cursor-not-allowed" : ""}`}
             />
             {labelError && (
               <p className="text-xs text-destructive">{labelError}</p>
@@ -336,7 +336,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="!field-sizing-fixed resize-none break-words"
+              className="!field-sizing-fixed resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
             />
           </div>
         </div>

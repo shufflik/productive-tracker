@@ -5,12 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Pencil, Trash2, Calendar } from "lucide-react"
+import { Pencil, Trash2, Calendar, CheckCircle2, AlertTriangle, TrendingDown, XCircle, X, Sparkles } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import { useHabitsStore } from "@/lib/stores/habits-store"
 import type { GlobalGoal, OutcomeProgress, ProcessProgress, HybridProgress } from "@/lib/types"
+import { getWeeklyAnalyses, type GlobalGoalAnalysis } from "@/lib/services/ai-cache"
 import {
   DeadlineInfo,
   OutcomeDetailView,
@@ -23,6 +24,77 @@ type GlobalGoalDetailDialogProps = {
   open: boolean
   onClose: () => void
   goal: GlobalGoal | null
+}
+
+// AI Classification config
+const AI_CLASSIFICATION_CONFIG: Record<string, {
+  icon: typeof CheckCircle2
+  bgColor: string
+  textColor: string
+  borderColor: string
+  label: string
+}> = {
+  on_track: {
+    icon: CheckCircle2,
+    bgColor: "bg-green-500/5 dark:bg-green-500/10",
+    textColor: "text-green-600 dark:text-green-500",
+    borderColor: "border-green-500/20",
+    label: "На пути к цели"
+  },
+  at_risk: {
+    icon: AlertTriangle,
+    bgColor: "bg-yellow-500/5 dark:bg-yellow-500/10",
+    textColor: "text-yellow-600 dark:text-yellow-500",
+    borderColor: "border-yellow-500/20",
+    label: "Под угрозой"
+  },
+  unlikely: {
+    icon: TrendingDown,
+    bgColor: "bg-orange-500/5 dark:bg-orange-500/10",
+    textColor: "text-orange-600 dark:text-orange-500",
+    borderColor: "border-orange-500/20",
+    label: "Маловероятно"
+  },
+  missed: {
+    icon: XCircle,
+    bgColor: "bg-red-500/5 dark:bg-red-500/10",
+    textColor: "text-red-600 dark:text-red-500",
+    borderColor: "border-red-500/20",
+    label: "Пропущено"
+  },
+}
+
+function AIBlockingFactorsBlock({ aiData, onDismiss }: { aiData: GlobalGoalAnalysis; onDismiss: () => void }) {
+  const config = AI_CLASSIFICATION_CONFIG[aiData.classification]
+  if (!config) return null
+
+  const Icon = config.icon
+  const hasBlockingFactors = aiData.blocking_factors.length > 0
+
+  return (
+    <div className={`mb-4 p-3 rounded-lg border ${config.bgColor} ${config.borderColor}`}>
+      <div className="flex items-start gap-2.5">
+        <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${config.textColor}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-sm font-medium ${config.textColor}`}>{config.label}</span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-[10px] text-muted-foreground/60">AI за неделю</span>
+              <button
+                onClick={onDismiss}
+                className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {hasBlockingFactors ? aiData.blocking_factors.join(", ") : "Всё идёт хорошо"}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function GlobalGoalDetailDialog({
@@ -43,6 +115,8 @@ export function GlobalGoalDetailDialog({
   const [editedTitle, setEditedTitle] = useState("")
   const [editedDescription, setEditedDescription] = useState("")
   const [editedDeadline, setEditedDeadline] = useState("")
+  const [aiData, setAiData] = useState<GlobalGoalAnalysis | null>(null)
+  const [aiBlockDismissed, setAiBlockDismissed] = useState(false)
 
   // Reset editing state when goal changes or dialog closes
   useEffect(() => {
@@ -52,7 +126,40 @@ export function GlobalGoalDetailDialog({
       setEditedDescription("")
       setEditedDeadline("")
       setShowDeleteConfirm(false)
+      setAiData(null)
+      setAiBlockDismissed(false)
     }
+  }, [open, goal?.id])
+
+  // Load AI data for the goal
+  useEffect(() => {
+    if (!open || !goal) return
+
+    const now = new Date()
+    const analyses = getWeeklyAnalyses(now.getFullYear(), now.getMonth() + 1)
+    if (analyses.length === 0) {
+      setAiData(null)
+      return
+    }
+
+    // Filter to only weekly analyses (which have global_goals)
+    const weeklyAnalyses = analyses.filter(a => a.type === "weekly")
+    if (weeklyAnalyses.length === 0) {
+      setAiData(null)
+      return
+    }
+
+    // Find the latest analysis by periodStart
+    const latestAnalysis = weeklyAnalyses.sort((a, b) =>
+      new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
+    )[0]
+
+    // Find AI data for this goal (type narrowing ensures global_goals exists)
+    const goalAiData = latestAnalysis.content.analysis.global_goals.find(
+      (g) => g.id === goal.id
+    )
+
+    setAiData(goalAiData || null)
   }, [open, goal?.id])
 
   const progress = useMemo(() => {
@@ -191,6 +298,11 @@ export function GlobalGoalDetailDialog({
             <div className="mb-4">
               <DeadlineInfo periodEnd={goal.periodEnd} />
             </div>
+          )}
+
+          {/* AI Analysis Block - only when not editing, not dismissed, and for active goals */}
+          {!isEditing && !aiBlockDismissed && aiData && (goal.status === "in_progress" || goal.status === "not_started") && (
+            <AIBlockingFactorsBlock aiData={aiData} onDismiss={() => setAiBlockDismissed(true)} />
           )}
 
           {progress.type === "outcome" && (
