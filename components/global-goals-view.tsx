@@ -336,8 +336,12 @@ export function GlobalGoalsView() {
     const analyses = getWeeklyAnalyses(now.getFullYear(), now.getMonth() + 1)
     if (analyses.length === 0) return
 
+    // Filter to only weekly analyses (which have global_goals)
+    const weeklyAnalyses = analyses.filter(a => a.type === "weekly")
+    if (weeklyAnalyses.length === 0) return
+
     // Find the latest analysis by periodStart
-    const latestAnalysis = analyses.sort((a, b) =>
+    const latestAnalysis = weeklyAnalyses.sort((a, b) =>
       new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
     )[0]
 

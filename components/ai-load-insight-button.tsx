@@ -40,16 +40,23 @@ function getLatestInsight(): AIInsightData | null {
 
   if (analyses.length === 0) return null
 
-  // Find the latest analysis by periodStart
-  const latestAnalysis = analyses.sort((a, b) =>
+  // Find the latest weekly analysis by periodStart
+  const weeklyAnalyses = analyses.filter(a => a.type === "weekly")
+  if (weeklyAnalyses.length === 0) return null
+
+  const latestAnalysis = weeklyAnalyses.sort((a, b) =>
     new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
   )[0]
 
   if (!latestAnalysis?.content?.analysis) return null
 
+  // Type guard: we know this is weekly data
+  const analysis = latestAnalysis.content.analysis
+  if (!('load' in analysis) || !('focus' in analysis)) return null
+
   return {
-    load: latestAnalysis.content.analysis.load,
-    focus: latestAnalysis.content.analysis.focus,
+    load: analysis.load,
+    focus: analysis.focus,
     periodStart: latestAnalysis.periodStart,
     periodEnd: latestAnalysis.periodEnd,
   }

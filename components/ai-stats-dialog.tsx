@@ -8,6 +8,8 @@ import {
   ChevronUp,
   Sparkles,
   TrendingDown,
+  TrendingUp,
+  Minus,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -15,14 +17,19 @@ import {
   ThumbsDown,
   Activity,
   Focus,
-  Target
+  Target,
+  Compass,
+  Lightbulb
 } from "lucide-react"
 import {
   getMonthlyAnalysis,
   getWeeklyAnalysesForMonth,
   type AIAnalysisData,
+  type WeeklyAnalysisData,
+  type MonthlyAnalysisData,
   type GlobalGoalAnalysis,
-  type LoadAnalysis
+  type LoadAnalysis,
+  type MonthlyGoalProgress
 } from "@/lib/services/ai-cache"
 import { submitAIFeedbackApi } from "@/lib/services/api-client"
 
@@ -121,6 +128,61 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
     }
   }
 
+  // Monthly analysis helpers
+  const getProgressIcon = (progress: MonthlyGoalProgress["progress"]) => {
+    switch (progress) {
+      case "advancing":
+        return <TrendingUp className="w-4 h-4 text-green-500" />
+      case "stalled":
+        return <Minus className="w-4 h-4 text-yellow-500" />
+      case "regressing":
+        return <TrendingDown className="w-4 h-4 text-red-500" />
+    }
+  }
+
+  const getProgressLabel = (progress: MonthlyGoalProgress["progress"]) => {
+    switch (progress) {
+      case "advancing": return "Advancing"
+      case "stalled": return "Stalled"
+      case "regressing": return "Regressing"
+    }
+  }
+
+  const getProgressColor = (progress: MonthlyGoalProgress["progress"]) => {
+    switch (progress) {
+      case "advancing": return "bg-green-100 text-green-700"
+      case "stalled": return "bg-yellow-100 text-yellow-700"
+      case "regressing": return "bg-red-100 text-red-700"
+    }
+  }
+
+  const getDirectionIcon = (direction: "on_course" | "drifting" | "off_course") => {
+    switch (direction) {
+      case "on_course":
+        return <Compass className="w-4 h-4 text-green-500" />
+      case "drifting":
+        return <AlertTriangle className="w-4 h-4 text-yellow-500" />
+      case "off_course":
+        return <XCircle className="w-4 h-4 text-red-500" />
+    }
+  }
+
+  const getDirectionLabel = (direction: "on_course" | "drifting" | "off_course") => {
+    switch (direction) {
+      case "on_course": return "On Course"
+      case "drifting": return "Drifting"
+      case "off_course": return "Off Course"
+    }
+  }
+
+  const getDirectionColor = (direction: "on_course" | "drifting" | "off_course") => {
+    switch (direction) {
+      case "on_course": return "bg-green-100 text-green-700"
+      case "drifting": return "bg-yellow-100 text-yellow-700"
+      case "off_course": return "bg-red-100 text-red-700"
+    }
+  }
+
   const formatDateRange = (periodStart: string, periodEnd: string) => {
     const start = new Date(periodStart + 'T00:00:00')
     const end = new Date(periodEnd + 'T00:00:00')
@@ -151,7 +213,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
     return weeksDiff + 1
   }
 
-  const renderAnalysisContent = (data: AIAnalysisData, prefix: string) => {
+  const renderWeeklyContent = (data: WeeklyAnalysisData, prefix: string) => {
     const { analysis, message } = data.content
 
     return (
@@ -173,7 +235,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
             )}
           </button>
           {expandedSections[`${prefix}-message`] && (
-            <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+            <div className="bg-card border border-border rounded-lg p-3 space-y-2 text-sm">
               <div>
                 <span className="font-medium text-foreground">Review: </span>
                 <span className="text-muted-foreground">{message.review}</span>
@@ -210,7 +272,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
             {expandedSections[`${prefix}-goals`] && (
               <div className="space-y-2">
                 {analysis.global_goals.map((goal) => (
-                  <div key={goal.id} className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div key={goal.id} className="bg-card border border-border rounded-lg p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-sm font-medium text-foreground flex-1">{goal.title}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0 ${getClassificationColor(goal.classification)}`}>
@@ -248,7 +310,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
             )}
           </button>
           {expandedSections[`${prefix}-focus`] && (
-            <div className="bg-muted/30 rounded-lg p-3 text-sm">
+            <div className="bg-card border border-border rounded-lg p-3 text-sm">
               {analysis.focus.shift_detected ? (
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -288,7 +350,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
             )}
           </button>
           {expandedSections[`${prefix}-load`] && (
-            <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+            <div className="bg-card border border-border rounded-lg p-3 space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-0.5 rounded-full text-xs ${getLoadLevelColor(analysis.load.level)}`}>
                   {getLoadLevelLabel(analysis.load.level)}
@@ -332,6 +394,127 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
     )
   }
 
+  const renderMonthlyContent = (data: MonthlyAnalysisData) => {
+    const { analysis, message } = data.content
+    const prefix = 'monthly'
+
+    return (
+      <div className="space-y-3">
+        {/* Overall Direction Badge */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Overall Direction</span>
+          <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${getDirectionColor(analysis.overall_direction)}`}>
+            {getDirectionIcon(analysis.overall_direction)}
+            {getDirectionLabel(analysis.overall_direction)}
+          </span>
+        </div>
+
+        {/* Key Insight */}
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">{analysis.key_insight}</p>
+          </div>
+        </div>
+
+        {/* Message Section */}
+        <div className="space-y-2">
+          <button
+            onClick={() => toggleSection(`${prefix}-message`)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              Summary
+            </span>
+            {expandedSections[`${prefix}-message`] ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
+          {expandedSections[`${prefix}-message`] && (
+            <div className="bg-card border border-border rounded-lg p-3 space-y-2 text-sm">
+              <div>
+                <span className="font-medium text-foreground">Summary: </span>
+                <span className="text-muted-foreground">{message.summary}</span>
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Strategic Assessment: </span>
+                <span className="text-muted-foreground">{message.strategic_assessment}</span>
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Next Month Focus: </span>
+                <span className="text-muted-foreground">{message.next_month_focus}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Goals Progress Section */}
+        {analysis.goals_progress.length > 0 && (
+          <div className="space-y-2">
+            <button
+              onClick={() => toggleSection(`${prefix}-goals`)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Target className="w-4 h-4 text-blue-500" />
+                Goals Progress ({analysis.goals_progress.length})
+              </span>
+              {expandedSections[`${prefix}-goals`] ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            {expandedSections[`${prefix}-goals`] && (
+              <div className="space-y-2">
+                {analysis.goals_progress.map((goal) => (
+                  <div key={goal.id} className="bg-card border border-border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground flex-1">{goal.title}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0 ${getProgressColor(goal.progress)}`}>
+                        {getProgressIcon(goal.progress)}
+                        {getProgressLabel(goal.progress)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{goal.momentum}</p>
+                    {goal.strategic_risk && (
+                      <div className="flex items-start gap-1.5 text-xs text-orange-600 bg-orange-50 rounded p-2">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>{goal.strategic_risk}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Feedback Section */}
+        {data.isUseful === null && !feedbackSubmitted[data.id] && (
+          <div className="flex items-center justify-center gap-4 pt-2 border-t border-border">
+            <span className="text-xs text-muted-foreground">Was this helpful?</span>
+            <button
+              onClick={() => handleFeedback(data.id, true)}
+              className="p-1.5 rounded-full hover:bg-green-100 transition-colors"
+            >
+              <ThumbsUp className="w-4 h-4 text-muted-foreground hover:text-green-600" />
+            </button>
+            <button
+              onClick={() => handleFeedback(data.id, false)}
+              className="p-1.5 rounded-full hover:bg-red-100 transition-colors"
+            >
+              <ThumbsDown className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   return (
@@ -344,14 +527,19 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto scrollbar-hide space-y-6 py-4">
           {/* Monthly Analysis Section */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">
-              Monthly - {monthName}
-            </h3>
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-purple-500/30" />
+              <h3 className="text-xs font-medium text-purple-500 uppercase tracking-wider">
+                Monthly Report
+              </h3>
+              <div className="h-px flex-1 bg-purple-500/30" />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">{monthName}</p>
             {monthlyData ? (
-              renderAnalysisContent(monthlyData, 'monthly')
+              renderMonthlyContent(monthlyData as MonthlyAnalysisData)
             ) : (
               <div className="text-center py-4 text-sm text-muted-foreground bg-muted/30 rounded-lg">
                 No monthly analysis available
@@ -360,8 +548,14 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
           </div>
 
           {/* Weekly Analysis List */}
-          <div className="space-y-3 pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground">Weekly Analysis</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-blue-500/30" />
+              <h3 className="text-xs font-medium text-blue-500 uppercase tracking-wider">
+                Weekly Reports
+              </h3>
+              <div className="h-px flex-1 bg-blue-500/30" />
+            </div>
             {weeklyDataList.length > 0 ? (
               <div className="space-y-2">
                 {weeklyDataList.map((weekData) => {
@@ -392,7 +586,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
                       {/* Selected Week Details */}
                       {isSelected && (
                         <div className="mt-2 p-3 bg-muted/20 rounded-lg border border-purple-500/20">
-                          {renderAnalysisContent(weekData, `weekly-${weekData.id}`)}
+                          {renderWeeklyContent(weekData as WeeklyAnalysisData, `weekly-${weekData.id}`)}
                         </div>
                       )}
                     </div>

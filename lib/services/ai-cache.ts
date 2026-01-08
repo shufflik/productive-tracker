@@ -9,7 +9,8 @@
  * - Monthly: "ai-monthly-{year}-{month}" (e.g., "ai-monthly-2025-12")
  */
 
-// Type definitions based on ai.md API spec
+// ============ Weekly Analysis Types ============
+
 export type GlobalGoalAnalysis = {
   id: string
   title: string
@@ -28,7 +29,7 @@ export type LoadAnalysis = {
   action: string | null
 }
 
-export type AIAnalysisContent = {
+export type WeeklyAnalysisContent = {
   analysis: {
     global_goals: GlobalGoalAnalysis[]
     focus: FocusAnalysis
@@ -41,15 +42,52 @@ export type AIAnalysisContent = {
   }
 }
 
-export type AIAnalysisData = {
+// ============ Monthly Analysis Types ============
+
+export type MonthlyGoalProgress = {
   id: string
-  type: "weekly" | "monthly"
+  title: string
+  progress: "advancing" | "stalled" | "regressing"
+  momentum: string
+  strategic_risk: string | null
+}
+
+export type MonthlyAnalysisContent = {
+  analysis: {
+    goals_progress: MonthlyGoalProgress[]
+    overall_direction: "on_course" | "drifting" | "off_course"
+    key_insight: string
+  }
+  message: {
+    summary: string
+    strategic_assessment: string
+    next_month_focus: string
+  }
+}
+
+// ============ Union Types ============
+
+export type WeeklyAnalysisData = {
+  id: string
+  type: "weekly"
   periodStart: string
   periodEnd: string
-  content: AIAnalysisContent
+  content: WeeklyAnalysisContent
   isUseful: boolean | null
   createdAt: string
 }
+
+export type MonthlyAnalysisData = {
+  id: string
+  type: "monthly"
+  periodStart: string
+  periodEnd: string
+  content: MonthlyAnalysisContent
+  isUseful: boolean | null
+  createdAt: string
+}
+
+export type AIAnalysisData = WeeklyAnalysisData | MonthlyAnalysisData
 
 type AICacheEntry = {
   data: AIAnalysisData

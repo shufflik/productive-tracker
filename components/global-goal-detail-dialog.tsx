@@ -142,12 +142,19 @@ export function GlobalGoalDetailDialog({
       return
     }
 
+    // Filter to only weekly analyses (which have global_goals)
+    const weeklyAnalyses = analyses.filter(a => a.type === "weekly")
+    if (weeklyAnalyses.length === 0) {
+      setAiData(null)
+      return
+    }
+
     // Find the latest analysis by periodStart
-    const latestAnalysis = analyses.sort((a, b) =>
+    const latestAnalysis = weeklyAnalyses.sort((a, b) =>
       new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
     )[0]
 
-    // Find AI data for this goal
+    // Find AI data for this goal (type narrowing ensures global_goals exists)
     const goalAiData = latestAnalysis.content.analysis.global_goals.find(
       (g) => g.id === goal.id
     )
