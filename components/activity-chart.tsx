@@ -42,10 +42,9 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt,
     const habitActivityByDate: Record<string, number> = {}
     for (const habit of linkedHabits) {
       if (habit.completions) {
-        for (const [dateStr, completed] of Object.entries(habit.completions)) {
-          if (completed) {
-            habitActivityByDate[dateStr] = (habitActivityByDate[dateStr] || 0) + 1
-          }
+        // completions — это массив ISO дат (string[])
+        for (const dateStr of habit.completions) {
+          habitActivityByDate[dateStr] = (habitActivityByDate[dateStr] || 0) + 1
         }
       }
     }
@@ -66,10 +65,9 @@ export function ActivityChart({ linkedGoals, linkedHabits, days = 14, createdAt,
       const date = new Date(now)
       date.setDate(date.getDate() - i)
       const isoDateStr = toISODateString(date)
-      const legacyDateStr = date.toDateString() // Habits use toDateString format
 
       const goalCount = goalActivityByDate[isoDateStr] || 0
-      const habitCount = habitActivityByDate[legacyDateStr] || 0
+      const habitCount = habitActivityByDate[isoDateStr] || 0
       const activity = goalCount + habitCount
 
       if (activity > 0) {
