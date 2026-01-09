@@ -621,7 +621,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[70vh] flex flex-col top-[12vh] translate-y-0">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[76vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-purple-500" />
