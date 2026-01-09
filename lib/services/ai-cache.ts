@@ -29,9 +29,15 @@ export type LoadAnalysis = {
   action: string | null
 }
 
+export type CategoryBreakdown = {
+  label: string
+  completed: number
+}
+
 export type WeeklyAnalysisContent = {
   analysis: {
     global_goals: GlobalGoalAnalysis[]
+    categories?: CategoryBreakdown[]
     focus: FocusAnalysis
     load: LoadAnalysis
   }
@@ -55,6 +61,7 @@ export type MonthlyGoalProgress = {
 export type MonthlyAnalysisContent = {
   analysis: {
     goals_progress: MonthlyGoalProgress[]
+    categories?: CategoryBreakdown[]
     overall_direction: "on_course" | "drifting" | "off_course"
     key_insight: string
   }

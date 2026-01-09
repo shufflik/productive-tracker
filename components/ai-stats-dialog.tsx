@@ -29,8 +29,10 @@ import {
   type MonthlyAnalysisData,
   type GlobalGoalAnalysis,
   type LoadAnalysis,
-  type MonthlyGoalProgress
+  type MonthlyGoalProgress,
+  type CategoryBreakdown
 } from "@/lib/services/ai-cache"
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { submitAIFeedbackApi } from "@/lib/services/api-client"
 
 type AIStatsDialogProps = {
@@ -183,6 +185,100 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
     }
   }
 
+  // Category colors for pie chart
+  const CATEGORY_COLORS = [
+    "#8b5cf6", // purple
+    "#3b82f6", // blue
+    "#10b981", // green
+    "#f59e0b", // amber
+    "#ef4444", // red
+    "#ec4899", // pink
+    "#06b6d4", // cyan
+    "#84cc16", // lime
+  ]
+
+  const renderCategoriesChart = (categories: CategoryBreakdown[] | undefined, prefix: string) => {
+    if (!categories || categories.length === 0) return null
+
+    const completedCategories = categories.filter(cat => cat.completed > 0)
+    if (completedCategories.length === 0) return null
+
+    const chartData = completedCategories.map((cat, index) => ({
+      name: cat.label,
+      value: cat.completed,
+      color: CATEGORY_COLORS[index % CATEGORY_COLORS.length]
+    }))
+
+    return (
+      <div className="space-y-2">
+        <button
+          onClick={() => toggleSection(`${prefix}-categories`)}
+          className="flex items-center justify-between w-full text-left"
+        >
+          <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Target className="w-4 h-4 text-violet-500" />
+            Categories
+          </span>
+          {expandedSections[`${prefix}-categories`] ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+        </button>
+        {expandedSections[`${prefix}-categories`] && (
+          <div className="bg-card border border-border rounded-lg p-3">
+            <div className="flex items-center gap-4">
+              {/* Pie Chart */}
+              <div className="w-20 h-20 flex-shrink-0 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={20}
+                      outerRadius={38}
+                      paddingAngle={2}
+                      dataKey="value"
+                      animationBegin={0}
+                      animationDuration={400}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-sm font-bold text-foreground">
+                    {completedCategories.reduce((sum, cat) => sum + cat.completed, 0)}
+                  </span>
+                </div>
+              </div>
+              {/* Legend */}
+              <div className="flex-1 space-y-1 max-h-20 overflow-y-auto scrollbar-hide">
+                {completedCategories.map((cat, index) => (
+                  <div key={cat.label} className="flex items-center justify-between text-[11px] leading-tight">
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }}
+                      />
+                      <span className="text-muted-foreground truncate max-w-[80px]">{cat.label}</span>
+                    </div>
+                    <span className="font-medium text-foreground ml-1">
+                      {cat.completed}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const formatDateRange = (periodStart: string, periodEnd: string) => {
     const start = new Date(periodStart + 'T00:00:00')
     const end = new Date(periodEnd + 'T00:00:00')
@@ -292,6 +388,9 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
             )}
           </div>
         )}
+
+        {/* Categories Section */}
+        {renderCategoriesChart(analysis.categories, prefix)}
 
         {/* Focus Section */}
         <div className="space-y-2">
@@ -493,6 +592,9 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
           </div>
         )}
 
+        {/* Categories Section */}
+        {renderCategoriesChart(analysis.categories, prefix)}
+
         {/* Feedback Section */}
         {data.isUseful === null && !feedbackSubmitted[data.id] && (
           <div className="flex items-center justify-center gap-4 pt-2 border-t border-border">
@@ -519,7 +621,7 @@ export function AIStatsDialog({ open, onClose, year, month }: AIStatsDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[70vh] flex flex-col top-[12vh] translate-y-0">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-purple-500" />

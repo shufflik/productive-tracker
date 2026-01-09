@@ -101,7 +101,7 @@ function LoadSection({ load }: { load: LoadAnalysis }) {
 
   return (
     <div className={`rounded-lg p-4 ${config.bgColor} border ${config.borderColor}`}>
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2">
         <Icon className={`w-5 h-5 ${config.color}`} />
         <span className={`font-semibold ${config.color}`}>
           Нагрузка: {config.label}
@@ -115,7 +115,7 @@ function LoadSection({ load }: { load: LoadAnalysis }) {
           </p>
           <ul className="space-y-1">
             {load.signals.map((signal, idx) => (
-              <li key={idx} className="text-sm text-foreground flex items-start gap-2">
+              <li key={idx} className="text-sm text-foreground flex items-center gap-2">
                 <span className="text-muted-foreground">•</span>
                 {signal}
               </li>
@@ -192,7 +192,6 @@ export function AILoadInsightButton() {
       >
         <Sparkles
           className={`w-4 h-4 ${iconColorClass}`}
-          style={{ animation: 'ai-glow-pulse 1.5s ease-in-out infinite' }}
         />
       </Button>
 

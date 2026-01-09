@@ -69,7 +69,7 @@ export function GoalDetailDialog({ open, onClose, goal }: GoalDetailDialogProps)
           )}
         </div>
 
-        <Button variant="outline" onClick={onClose} className="w-full bg-transparent">
+        <Button variant="outline" onClick={onClose} className="w-full hover:bg-transparent">
           Close
         </Button>
       </DialogContent>

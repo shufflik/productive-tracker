@@ -1,17 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Check, AlertCircle, Plus, X } from "lucide-react"
+import { Check, AlertCircle, Plus, X, ChevronDown, Crosshair, Flag, TrendingUp, Layers } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Goal } from "@/lib/types"
+import type { Goal, GlobalGoal } from "@/lib/types"
 import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
+import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import confetti from "canvas-confetti"
 import { getTodayLocalISO } from "@/lib/utils/date"
 import { syncService } from "@/lib/services/sync"
@@ -48,8 +49,24 @@ type DayReviewDialogProps = {
   allowCancel?: boolean // Разрешить ли закрытие диалога (для пропущенных дней = false)
 }
 
+const TYPE_INFO = {
+  outcome: { icon: Flag, color: "rgb(139, 92, 246)" },
+  process: { icon: TrendingUp, color: "rgb(34, 197, 94)" },
+  hybrid: { icon: Layers, color: "rgb(59, 130, 246)" },
+}
+
 export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, allowCancel = true }: DayReviewDialogProps) {
   const markDayAsEnded = useDayStateStore((state) => state.markDayAsEnded)
+  const globalGoals = useGlobalGoalsStore((state) => state.globalGoals)
+  const getMilestonesForGoal = useGlobalGoalsStore((state) => state.getMilestonesForGoal)
+
+  const activeGlobalGoals = useMemo(() =>
+    globalGoals.filter((g) =>
+      g.status === "in_progress" || g.status === "not_started"
+    ),
+    [globalGoals]
+  )
+
   const [localGoals, setLocalGoals] = useState<GoalWithDetails[]>([])
   const [step, setStep] = useState<"confirmation" | "completion" | "summary" | "details" | "retro">("confirmation")
   const [distractionLevel, setDistractionLevel] = useState<DistractionLevel | "">("")
@@ -58,7 +75,27 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false)
   const [newTaskTitle, setNewTaskTitle] = useState("")
   const [newTaskLabel, setNewTaskLabel] = useState("")
+  const [newTaskDescription, setNewTaskDescription] = useState("")
+  const [newTaskGlobalGoalId, setNewTaskGlobalGoalId] = useState<string | undefined>(undefined)
+  const [newTaskMilestoneId, setNewTaskMilestoneId] = useState<string | undefined>(undefined)
+  const [showGoalSelector, setShowGoalSelector] = useState(false)
+  const [showMilestoneSelector, setShowMilestoneSelector] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+
+  const selectedGlobalGoal = useMemo(() =>
+    globalGoals.find((g) => g.id === newTaskGlobalGoalId),
+    [globalGoals, newTaskGlobalGoalId]
+  )
+
+  const milestones = useMemo(() => {
+    if (!newTaskGlobalGoalId || selectedGlobalGoal?.type !== "outcome") return []
+    return getMilestonesForGoal(newTaskGlobalGoalId)
+  }, [newTaskGlobalGoalId, selectedGlobalGoal, getMilestonesForGoal])
+
+  const selectedMilestone = useMemo(() =>
+    milestones.find((m) => m.id === newTaskMilestoneId),
+    [milestones, newTaskMilestoneId]
+  )
 
   useEffect(() => {
     if (open) {
@@ -75,6 +112,11 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       setShowAddTaskDialog(false)
       setNewTaskTitle("")
       setNewTaskLabel("")
+      setNewTaskDescription("")
+      setNewTaskGlobalGoalId(undefined)
+      setNewTaskMilestoneId(undefined)
+      setShowGoalSelector(false)
+      setShowMilestoneSelector(false)
       setIsSaving(false)
 
       // Stop polling when dialog opens (Step 1: Confirmation)
@@ -90,6 +132,18 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       }
     }
   }, [open, goals])
+
+  // Clear milestone when global goal changes
+  useEffect(() => {
+    if (selectedGlobalGoal?.type !== "outcome") {
+      setNewTaskMilestoneId(undefined)
+    }
+  }, [newTaskGlobalGoalId, selectedGlobalGoal])
+
+  const handleClearGlobalGoal = () => {
+    setNewTaskGlobalGoalId(undefined)
+    setNewTaskMilestoneId(undefined)
+  }
 
   const toggleGoalCompletion = (id: string) => {
     setLocalGoals(
@@ -145,6 +199,8 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
   const handleAddAdditionalTask = () => {
     if (!newTaskTitle.trim() || !newTaskLabel.trim()) return
+    // Validate milestone is required for outcome goals
+    if (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !newTaskMilestoneId) return
 
     const reviewDate = date || getTodayLocalISO()
 
@@ -152,6 +208,9 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
       id: generateId(),
       title: newTaskTitle.trim(),
       label: newTaskLabel.trim().toUpperCase(),
+      description: newTaskDescription.trim() || undefined,
+      globalGoalId: newTaskGlobalGoalId,
+      milestoneId: newTaskMilestoneId,
       completed: true, // Дополнительные задачи всегда выполнены
       targetDate: reviewDate, // ISO format (YYYY-MM-DD)
       isAdditionalAdded: true, // Помечаем как дополнительно добавленную
@@ -161,6 +220,11 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     setLocalGoals([...localGoals, newGoal])
     setNewTaskTitle("")
     setNewTaskLabel("")
+    setNewTaskDescription("")
+    setNewTaskGlobalGoalId(undefined)
+    setNewTaskMilestoneId(undefined)
+    setShowGoalSelector(false)
+    setShowMilestoneSelector(false)
     setShowAddTaskDialog(false)
   }
 
@@ -217,6 +281,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
           title: g.title,
           label: g.label || "",
           isAdditionalAdded: g.isAdditionalAdded || false,
+          globalGoalId: g.globalGoalId || null,
         })),
         dayStatus: status,
         baselineLoadImpact: baselineLoadImpact as BaselineLoadImpact,
@@ -233,6 +298,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             action: g.action!,
             percentReady: g.percentReady || 0,
             note: g.note,
+            globalGoalId: g.globalGoalId || null,
           })),
         deviceId: syncService.getDeviceId(),
       }
@@ -761,7 +827,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                   placeholder="Share your thoughts about today, what went well, what could be improved..."
                   value={dayReflection}
                   onChange={(e) => setDayReflection(e.target.value)}
-                  className="min-h-[120px] max-h-[200px] text-sm overflow-y-auto overflow-x-hidden resize-none break-words"
+                  className="min-h-[120px] max-h-[200px] text-sm overflow-y-auto overflow-x-hidden resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
               </div>
             </div>
@@ -813,7 +879,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     {/* Диалог добавления дополнительной задачи */}
     {!allowCancel && (
       <Dialog open={showAddTaskDialog} onOpenChange={setShowAddTaskDialog}>
-        <DialogContent className="max-w-[90%] sm:max-w-md">
+        <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Additional Completed Task</DialogTitle>
           </DialogHeader>
@@ -829,6 +895,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 maxLength={50}
                 onKeyDown={(e) => e.key === "Enter" && newTaskLabel.trim() && handleAddAdditionalTask()}
+                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
               />
               <p className="text-xs text-muted-foreground">
                 {newTaskTitle.length}/50 characters
@@ -845,10 +912,166 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                 onChange={(e) => setNewTaskLabel(e.target.value)}
                 maxLength={25}
                 onKeyDown={(e) => e.key === "Enter" && newTaskTitle.trim() && handleAddAdditionalTask()}
+                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
               />
               <p className="text-xs text-muted-foreground">
                 {newTaskLabel.length}/25 characters
               </p>
+            </div>
+
+            {/* Global Goal Link */}
+            {activeGlobalGoals.length > 0 && (
+              <div className="space-y-2">
+                <Label>Link to Global Goal</Label>
+                {selectedGlobalGoal ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+                      {(() => {
+                        const typeInfo = TYPE_INFO[selectedGlobalGoal.type]
+                        const TypeIcon = typeInfo.icon
+                        return <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                      })()}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {selectedGlobalGoal.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {selectedGlobalGoal.type} goal
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearGlobalGoal}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <X className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </div>
+
+                    {/* Milestone selector for outcome goals */}
+                    {selectedGlobalGoal.type === "outcome" && milestones.length > 0 && (
+                      <div className="relative ml-4">
+                        {selectedMilestone ? (
+                          <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                            <Flag className="w-3.5 h-3.5 text-purple-500" />
+                            <span className="text-sm text-foreground flex-1 truncate">
+                              {selectedMilestone.title}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setNewTaskMilestoneId(undefined)}
+                              className="p-0.5 hover:bg-purple-500/20 rounded"
+                            >
+                              <X className="w-3.5 h-3.5 text-purple-500" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setShowMilestoneSelector(!showMilestoneSelector)}
+                              className="w-full flex items-center justify-between p-2 bg-background border border-dashed border-purple-500/50 rounded-lg text-left hover:border-purple-500 transition-colors"
+                            >
+                              <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <Flag className="w-3.5 h-3.5" />
+                                Select milestone <span className="text-destructive">*</span>
+                              </span>
+                              <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showMilestoneSelector ? "rotate-180" : ""}`} />
+                            </button>
+
+                            {showMilestoneSelector && (
+                              <div className="absolute z-10 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-36 overflow-y-auto">
+                                {milestones.map((m) => (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setNewTaskMilestoneId(m.id)
+                                      setShowMilestoneSelector(false)
+                                    }}
+                                    className={`w-full flex items-center gap-2 p-2 hover:bg-muted text-left transition-colors text-sm ${
+                                      m.isActive ? "bg-purple-500/5" : ""
+                                    }`}
+                                  >
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      m.isCompleted
+                                        ? "bg-green-500"
+                                        : m.isActive
+                                          ? "bg-purple-500"
+                                          : "bg-muted-foreground"
+                                    }`} />
+                                    <span className={m.isCompleted ? "text-muted-foreground" : ""}>
+                                      {m.title}
+                                    </span>
+                                    {m.isActive && (
+                                      <span className="text-xs text-purple-500 ml-auto">active</span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowGoalSelector(!showGoalSelector)}
+                      className="w-full flex items-center justify-between p-3 bg-background border border-border rounded-lg text-left hover:border-primary/50 transition-colors"
+                    >
+                      <span className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Crosshair className="w-4 h-4" />
+                        Link to global goal (optional)
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showGoalSelector ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showGoalSelector && (
+                      <div className="absolute z-10 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {activeGlobalGoals.map((g) => {
+                          const typeInfo = TYPE_INFO[g.type]
+                          const TypeIcon = typeInfo.icon
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => {
+                                setNewTaskGlobalGoalId(g.id)
+                                setShowGoalSelector(false)
+                              }}
+                              className="w-full flex items-center gap-2 p-3 hover:bg-muted text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
+                            >
+                              <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{g.title}</p>
+                                <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                                  <TypeIcon className="w-3 h-3" style={{ color: typeInfo.color }} />
+                                  {g.type}
+                                </p>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="additional-task-description">Description</Label>
+              <Textarea
+                id="additional-task-description"
+                placeholder="Add details about this task..."
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                rows={3}
+                className="!field-sizing-fixed resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
+              />
             </div>
           </div>
           <div className="flex gap-2">
@@ -858,6 +1081,11 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                 setShowAddTaskDialog(false)
                 setNewTaskTitle("")
                 setNewTaskLabel("")
+                setNewTaskDescription("")
+                setNewTaskGlobalGoalId(undefined)
+                setNewTaskMilestoneId(undefined)
+                setShowGoalSelector(false)
+                setShowMilestoneSelector(false)
               }}
               className="flex-1 bg-transparent"
             >
@@ -865,7 +1093,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             </Button>
             <Button
               onClick={handleAddAdditionalTask}
-              disabled={!newTaskTitle.trim() || !newTaskLabel.trim()}
+              disabled={!newTaskTitle.trim() || !newTaskLabel.trim() || (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !newTaskMilestoneId)}
               className="flex-1"
             >
               Add

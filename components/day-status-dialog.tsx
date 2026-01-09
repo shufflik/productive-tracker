@@ -363,6 +363,9 @@ export function DayStatusDialog({
             </>
           )}
 
+        </div>
+
+        <div className="flex-shrink-0 pt-4">
           {isSelectedDayEnded && isToday ? (
             <Button
               variant="outline"
