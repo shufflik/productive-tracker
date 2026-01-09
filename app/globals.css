@@ -130,3 +130,23 @@
     display: none;
   }
 }
+
+/* AI Insight icon pulse animation */
+@keyframes ai-glow-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.25);
+    filter: drop-shadow(0 0 12px currentColor) drop-shadow(0 0 24px currentColor);
+  }
+}
+
+@layer utilities {
+  .animate-ai-glow {
+    animation: ai-glow-pulse 1.5s ease-in-out infinite;
+  }
+}

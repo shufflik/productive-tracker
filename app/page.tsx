@@ -9,6 +9,14 @@ import { CheckSquare, BarChart3, Target, Crosshair } from "lucide-react"
 import { syncService } from "@/lib/services/sync"
 // import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
+import {
+  getPreviousMonth,
+  hasValidWeeklyCache,
+  hasValidMonthlyCache,
+  setWeeklyAnalyses,
+  setMonthlyAnalysis
+} from "@/lib/services/ai-cache"
+import { getAIWeeklyApi, getAIMonthlyApi } from "@/lib/services/api-client"
 // import { DayReviewDialog } from "@/components/day-review-dialog"
 // import type { Goal } from "@/lib/types"
 
@@ -102,11 +110,46 @@ export default function Home() {
     // syncOnAppStart() выполняет принудительную синхронизацию один раз за lifecycle приложения
     await syncService.syncOnAppStart()
 
+    // Fetch AI statistics data (non-blocking, parallel)
+    fetchAIDataOnAppStart().catch(error => {
+      console.error('[App] AI data fetch failed:', error)
+    })
+
     // Запускаем polling для автоматической синхронизации
     syncService.startPolling()
 
     // После sync проверяем pending reviews
     // Логика обработки pending reviews теперь в PendingDayReviewsManager (layout.tsx)
+  }
+
+  async function fetchAIDataOnAppStart() {
+    const prevMonth = getPreviousMonth()
+
+    const promises: Promise<void>[] = []
+
+    // Fetch weekly analyses for previous month if not cached
+    if (!hasValidWeeklyCache(prevMonth.year, prevMonth.month)) {
+      promises.push(
+        getAIWeeklyApi({ year: prevMonth.year, month: prevMonth.month })
+          .then(data => {
+            setWeeklyAnalyses(prevMonth.year, prevMonth.month, data)
+          })
+      )
+    }
+
+    // Fetch monthly analysis for previous month if not cached
+    if (!hasValidMonthlyCache(prevMonth.year, prevMonth.month)) {
+      promises.push(
+        getAIMonthlyApi({ year: prevMonth.year, month: prevMonth.month })
+          .then(data => {
+            if (data) {
+              setMonthlyAnalysis(prevMonth.year, prevMonth.month, data)
+            }
+          })
+      )
+    }
+
+    await Promise.allSettled(promises)
   }
 
   // function processNextPendingReview() {
