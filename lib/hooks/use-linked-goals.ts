@@ -60,6 +60,8 @@ export function useLinkedGoals({
       return undefined
     },
     enabled: enabled && !!globalGoalId,
+    staleTime: 0,
+    gcTime: 0,
   })
 
   // Flatten all goals from all pages
