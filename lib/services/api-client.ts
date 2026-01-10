@@ -218,7 +218,6 @@ export async function getLinkedGoalsApi(params: {
     globalGoalId: params.globalGoalId,
     page: String(params.page ?? 0),
     limit: String(params.limit ?? 20),
-    includeDeleted: 'true',
   })
 
   if (params.milestoneId) {
