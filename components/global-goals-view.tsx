@@ -257,8 +257,12 @@ function GlobalGoalCard({
 
   return (
     <motion.button
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{
+        duration: 0.3,
+        ease: [0.4, 1.2, 0.6, 1],
+      }}
       onClick={onClick}
       className={`w-full bg-card border rounded-xl p-4 text-left transition-colors ${
         showGreenBorder

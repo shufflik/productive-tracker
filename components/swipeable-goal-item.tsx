@@ -158,8 +158,14 @@ export function SwipeableGoalItem({
   }, [goal.title])
 
   return (
-    <div
+    <motion.div
       ref={containerRef}
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{
+        duration: 0.3,
+        ease: [0.4, 1.2, 0.6, 1],
+      }}
       className="relative w-full overflow-hidden rounded-lg"
     >
       {/* Leading Actions (Left Swipe - appears on right) */}
@@ -313,6 +319,6 @@ export function SwipeableGoalItem({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }
