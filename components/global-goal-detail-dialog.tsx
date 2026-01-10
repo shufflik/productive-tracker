@@ -5,7 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Pencil, Trash2, Calendar, CheckCircle2, AlertTriangle, TrendingDown, XCircle, X, Sparkles } from "lucide-react"
+import { Pencil, Trash2, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, TrendingDown, XCircle, X, Sparkles } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
 import { Label } from "@/components/ui/label"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
@@ -262,12 +265,12 @@ export function GlobalGoalDetailDialog({
                   value={editedDescription}
                   onChange={(e) => setEditedDescription(e.target.value)}
                   placeholder="Опишите вашу мотивацию..."
-                  rows={3}
+                  rows={5}
                   className="!field-sizing-fixed resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
               ) : (
                 <div className="p-3 rounded-lg bg-muted/30 border border-border/50 max-w-full">
-                  <div className="max-h-[4.5rem] overflow-y-auto">
+                  <div className="max-h-[8rem] overflow-y-auto">
                     <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap">{goal.description}</p>
                   </div>
                 </div>
@@ -279,19 +282,32 @@ export function GlobalGoalDetailDialog({
           {isEditing ? (
             <div className="mb-4">
               <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
-                <Calendar className="w-3.5 h-3.5" />
+                <CalendarIcon className="w-3.5 h-3.5" />
                 Дедлайн
                 {(goal.type === "outcome" || goal.type === "hybrid") && (
                   <span className="text-destructive">*</span>
                 )}
               </Label>
-              <Input
-                type="date"
-                value={editedDeadline}
-                onChange={(e) => setEditedDeadline(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-                className="bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={`w-full justify-start text-left font-normal bg-muted/30 border-border/50 ${!editedDeadline ? "text-muted-foreground" : ""}`}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedDeadline ? format(new Date(editedDeadline), "PPP") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editedDeadline ? new Date(editedDeadline) : undefined}
+                    onSelect={(date) => setEditedDeadline(date ? format(date, "yyyy-MM-dd") : "")}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           ) : goal.periodEnd && (goal.type === "outcome" || goal.type === "hybrid" || goal.type === "process") &&
            (goal.status === "in_progress" || goal.status === "not_started") && (

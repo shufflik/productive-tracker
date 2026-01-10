@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Flag, TrendingUp, Layers, Plus, X, Info, ChevronDown, ChevronUp, Calendar } from "lucide-react"
+import { Flag, TrendingUp, Layers, Plus, X, Info, ChevronDown, ChevronUp, Calendar as CalendarIcon } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
 import { useGlobalGoalsStore } from "@/lib/stores/global-goals-store"
 import type { GlobalGoal, GlobalGoalType } from "@/lib/types"
 
@@ -199,7 +202,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[70vh] overflow-y-auto top-[12vh] translate-y-0">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[70vh] overflow-y-auto">
         <DialogHeader className="text-center">
           <DialogTitle className="flex justify-center">
             {goal ? "Edit Goal" : step === 1 ? "Choose Goal Type" : step === 3 ? "Additional Info" : (
@@ -289,7 +292,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                   placeholder="Describe your motivation..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
+                  rows={4}
                   className="!field-sizing-fixed resize-none break-words bg-muted/30 border-border/50 rounded-lg focus-visible:ring-0"
                 />
               </div>
@@ -297,7 +300,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
               {/* Period Selection */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4" />
+                  <CalendarIcon className="w-4 h-4" />
                   Deadline
                   {(type === "outcome" || type === "hybrid") && (
                     <span className="text-destructive">*</span>
@@ -331,13 +334,26 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
                 {/* Custom date input */}
                 {periodPreset === "custom" && (
                   <div className="pt-2">
-                    <Input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
-                      className="w-full"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left font-normal ${!customEndDate ? "text-muted-foreground" : ""}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {customEndDate ? format(new Date(customEndDate), "PPP") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={customEndDate ? new Date(customEndDate) : undefined}
+                          onSelect={(date) => setCustomEndDate(date ? format(date, "yyyy-MM-dd") : "")}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 )}
                 
