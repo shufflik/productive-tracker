@@ -659,7 +659,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
                   {/* Reason */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Reason *</Label>
+                    <Label className="text-xs text-muted-foreground">Reason <span className="text-destructive">*</span></Label>
                     <Select
                       value={goal.reason || ""}
                       onValueChange={(value) => setGoalReason(goal.id, value as IncompleteReason)}
@@ -689,7 +689,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
                   {/* Action */}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Action *</Label>
+                    <Label className="text-xs text-muted-foreground">Action <span className="text-destructive">*</span></Label>
                     <Select
                       value={goal.action || ""}
                       onValueChange={(value) => setGoalAction(goal.id, value as TaskAction)}
@@ -760,7 +760,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
             <div className="space-y-4">
               {/* Baseline Load Impact */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">How did external obligations impact your day? *</Label>
+                <Label className="text-sm font-medium text-foreground">Day impact <span className="text-destructive">*</span></Label>
                 <Select
                   value={baselineLoadImpact !== null ? String(baselineLoadImpact) : undefined}
                   onValueChange={(value) => setBaselineLoadImpact(Number(value) as BaselineLoadImpact)}
@@ -791,7 +791,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
               {/* Focus Assessment */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">How often were you distracted today? *</Label>
+                <Label className="text-sm font-medium text-foreground">How often were you distracted today? <span className="text-destructive">*</span></Label>
                 <Select
                   value={distractionLevel || undefined}
                   onValueChange={(value) => setDistractionLevel(value as DistractionLevel)}
@@ -822,7 +822,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
               {/* Day Reflection */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-foreground">How did your day go? *</Label>
+                <Label className="text-sm font-medium text-foreground">How did your day go? <span className="text-destructive">*</span></Label>
                 <Textarea
                   placeholder="Share your thoughts about today, what went well, what could be improved..."
                   value={dayReflection}

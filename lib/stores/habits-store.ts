@@ -52,13 +52,14 @@ function calculateStreaksFromCompletions(habit: Habit): { currentStreak: number;
     .map((dateStr) => new Date(dateStr))
     .sort((a, b) => b.getTime() - a.getTime())
 
-  // Вчерашняя дата (сегодня не считается)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayISO = toISODateString(today)
+
   const yesterday = new Date()
   yesterday.setHours(0, 0, 0, 0)
   yesterday.setDate(yesterday.getDate() - 1)
-
-  // Set для быстрой проверки наличия даты
-  const completionsSet = new Set(completions)
+  const yesterdayISO = toISODateString(yesterday)
 
   let currentStreak = 0
   let maxStreak = 0
@@ -68,21 +69,25 @@ function calculateStreaksFromCompletions(habit: Habit): { currentStreak: number;
   for (let i = 0; i < completedDates.length; i++) {
     const date = completedDates[i]
     date.setHours(0, 0, 0, 0)
+    const dateISO = toISODateString(date)
 
     if (i === 0) {
-      // Первая (самая новая) дата — проверяем связь со вчера
-      if (!currentStreakBroken) {
-        const yesterdayISO = toISODateString(yesterday)
-        // Проверяем, есть ли пропущенные scheduled дни между этой датой и вчера
+      tempStreak = 1
+
+      // Проверяем, актуален ли текущий streak
+      if (dateISO === todayISO || dateISO === yesterdayISO) {
+        // Последняя отметка сегодня или вчера — streak минимум 1
+        // (если вчера — день ещё не закончился, пользователь может отметить сегодня)
+        currentStreak = 1
+      } else {
+        // Последняя отметка раньше вчера — проверяем пропущенные scheduled дни
         if (hasGapBetweenDates(habit, date, yesterday) ||
-            (isHabitScheduledForDateStatic(habit, yesterday) && date.getTime() !== yesterday.getTime() && !completionsSet.has(yesterdayISO))) {
-          // Есть пропуск — currentStreak остаётся 0
+            isHabitScheduledForDateStatic(habit, yesterday)) {
           currentStreakBroken = true
         } else {
           currentStreak = 1
         }
       }
-      tempStreak = 1
     } else {
       const prevDate = completedDates[i - 1]
       prevDate.setHours(0, 0, 0, 0)

@@ -139,11 +139,11 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{habit ? "Edit Habit" : "New Habit"}</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto space-y-4 py-4">
+        <div className="py-4 space-y-4 overflow-y-auto flex-1 scrollbar-hide">
           <div className="space-y-2">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
@@ -209,7 +209,7 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
             )}
           </div>
 
-          {/* Global Goal Link - only Process and Hybrid goals */}
+          {/* Global Goal Link */}
           {availableGlobalGoals.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-border">
               <Label>Link to Global Goal</Label>
@@ -238,7 +238,7 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
                   </button>
                 </div>
               ) : (
-                <div className="relative">
+                <div>
                   <button
                     type="button"
                     onClick={() => setShowGoalSelector(!showGoalSelector)}
@@ -252,7 +252,7 @@ export function HabitDialog({ open, onClose, onSave, onDelete, habit }: HabitDia
                   </button>
 
                   {showGoalSelector && (
-                    <div className="absolute z-10 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <div className="mt-2 w-full bg-popover border border-border rounded-lg shadow-lg max-h-45 overflow-y-auto">
                       {availableGlobalGoals.map((g) => {
                         const typeInfo = TYPE_INFO[g.type as keyof typeof TYPE_INFO]
                         if (!typeInfo) return null
