@@ -10,7 +10,6 @@ import { syncService } from "@/lib/services/sync"
 // import { useDayStateStore } from "@/lib/stores/day-state-store"
 import { useGoalsStore } from "@/lib/stores/goals-store"
 import {
-  getPreviousMonth,
   hasValidWeeklyCache,
   hasValidMonthlyCache,
   setWeeklyAnalyses,
@@ -123,27 +122,29 @@ export default function Home() {
   }
 
   async function fetchAIDataOnAppStart() {
-    const prevMonth = getPreviousMonth()
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth() + 1
 
     const promises: Promise<void>[] = []
 
-    // Fetch weekly analyses for previous month if not cached
-    if (!hasValidWeeklyCache(prevMonth.year, prevMonth.month)) {
+    // Fetch weekly analyses for current month if not cached
+    if (!hasValidWeeklyCache(year, month)) {
       promises.push(
-        getAIWeeklyApi({ year: prevMonth.year, month: prevMonth.month })
+        getAIWeeklyApi({ year, month })
           .then(data => {
-            setWeeklyAnalyses(prevMonth.year, prevMonth.month, data)
+            setWeeklyAnalyses(year, month, data)
           })
       )
     }
 
-    // Fetch monthly analysis for previous month if not cached
-    if (!hasValidMonthlyCache(prevMonth.year, prevMonth.month)) {
+    // Fetch monthly analysis for current month if not cached
+    if (!hasValidMonthlyCache(year, month)) {
       promises.push(
-        getAIMonthlyApi({ year: prevMonth.year, month: prevMonth.month })
+        getAIMonthlyApi({ year, month })
           .then(data => {
             if (data) {
-              setMonthlyAnalysis(prevMonth.year, prevMonth.month, data)
+              setMonthlyAnalysis(year, month, data)
             }
           })
       )
