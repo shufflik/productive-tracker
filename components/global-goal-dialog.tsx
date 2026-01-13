@@ -202,7 +202,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[70vh] overflow-y-auto">
+      <DialogContent className="max-w-[95%] sm:max-w-md max-h-[70vh] overflow-y-auto">
         <DialogHeader className="text-center">
           <DialogTitle className="flex justify-center">
             {goal ? "Edit Goal" : step === 1 ? "Choose Goal Type" : step === 3 ? "Additional Info" : (
@@ -221,7 +221,7 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Step 1: Type Selection */}
           {step === 1 && (
             <div className="space-y-2">
@@ -504,52 +504,52 @@ export function GlobalGoalDialog({ open, onClose, goal }: GlobalGoalDialogProps)
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 min-w-0">
           {step > 1 && !goal && (
             <Button
               variant="outline"
               onClick={() => setStep((step - 1) as 1 | 2)}
-              className="flex-1 bg-transparent"
+              className="flex-1 min-w-0 bg-transparent"
             >
               Back
             </Button>
           )}
-          
+
           {step === 1 && (
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1 bg-transparent"
+              className="flex-1 min-w-0 bg-transparent"
             >
               Cancel
             </Button>
           )}
-          
+
           {step === 1 && (
             <Button
               onClick={() => setStep(2)}
               disabled={!canProceedToStep2}
-              className="flex-1"
+              className="flex-1 min-w-0"
             >
               Continue
             </Button>
           )}
-          
+
           {step === 2 && (
             <Button
               onClick={() => setStep(3)}
               disabled={!canProceedToStep3}
-              className="flex-1"
+              className="flex-1 min-w-0"
             >
               {type === "process" ? "Create" : "Continue"}
             </Button>
           )}
-          
+
           {step === 3 && (
             <Button
               onClick={handleSave}
               disabled={!canSave || isSubmitting}
-              className="flex-1"
+              className="flex-1 min-w-0"
             >
               {isSubmitting ? "Creating..." : "Create Goal"}
             </Button>

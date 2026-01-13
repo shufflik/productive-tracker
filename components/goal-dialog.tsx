@@ -127,11 +127,11 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[95%] sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{goal ? "Edit Goal" : "New Goal"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 min-w-0">
           <div className="space-y-2">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
@@ -341,11 +341,11 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+        <div className="flex gap-2 min-w-0">
+          <Button variant="outline" onClick={onClose} className="flex-1 min-w-0 bg-transparent">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25 || (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !milestoneId)} className="flex-1">
+          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25 || (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !milestoneId)} className="flex-1 min-w-0">
             {goal ? "Update" : "Add"} Goal
           </Button>
         </div>
