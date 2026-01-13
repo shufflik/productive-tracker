@@ -21,6 +21,7 @@ import type {
   SyncRequest,
   SyncReviewBlock,
   SyncConflicts,
+  SyncResult,
   GoalsApplyHandler,
   HabitsApplyHandler,
   GlobalGoalsApplyHandler,
@@ -56,7 +57,7 @@ export class SyncService {
   private hasPerformedInitialSync = false
 
   // Promise-based sync lock to prevent concurrent syncs
-  private currentSyncPromise: Promise<void> | null = null
+  private currentSyncPromise: Promise<SyncResult> | null = null
 
   // Minimum interval between forced syncs (30 seconds)
   private readonly FORCE_SYNC_INTERVAL_MS = 30000
@@ -276,13 +277,51 @@ export class SyncService {
   }
 
   /**
+   * Sync with result - returns sync status instead of void
+   * Used when caller needs to know sync result before proceeding (e.g., before end-day)
+   */
+  async syncAndWaitResult(options?: { force?: boolean }): Promise<SyncResult> {
+    // If already syncing - wait for current sync to complete
+    if (this.currentSyncPromise) {
+      try {
+        await this.currentSyncPromise
+      } catch (error) {
+        // Ignore errors from previous sync
+      }
+    }
+
+    const hasChanges = this.queueManager.hasPendingChanges()
+    const isFirstSync = this.meta.lastSyncAt === 0
+    const forceSync = options?.force === true
+    const shouldForceSyncByTime = this.shouldForceSyncByTime()
+
+    // If no changes and not first sync and not forced and not time-based force - return success
+    if (!forceSync && !isFirstSync && !hasChanges && !shouldForceSyncByTime) {
+      return { status: "success" }
+    }
+
+    // Create promise for sync and save it
+    this.currentSyncPromise = this.performSync()
+
+    try {
+      const result = await this.currentSyncPromise
+      this.hasPerformedInitialSync = true
+      return result
+    } catch (error) {
+      return { status: "error", error: error instanceof Error ? error : new Error(String(error)) }
+    } finally {
+      this.currentSyncPromise = null
+    }
+  }
+
+  /**
    * Internal method for performing sync
    * Called from sync() with proper lock management
+   * Returns SyncResult for callers that need to handle the result
    */
-  private async performSync(): Promise<void> {
+  private async performSync(): Promise<SyncResult> {
     this.isSyncing = true
     const queue = this.queueManager.getQueue()
-
 
     // CRITICAL: Take snapshot of changes that will be sent
     // This protects from losing changes added during sync request
@@ -339,7 +378,6 @@ export class SyncService {
           // Save metadata only if no conflicts
           this.storage.saveMeta(this.meta)
 
-
           // Reset retry count on successful sync
           this.retryManager.reset()
         } else {
@@ -376,14 +414,20 @@ export class SyncService {
           if (this.conflictsHandler) {
             this.conflictsHandler(response.conflicts)
           }
+
+          return { status: "conflict", conflicts: response.conflicts }
         }
+
+        return { status: "success" }
       } else {
         console.error("[SyncService] Sync failed - response.success = false")
         this.handleSyncError(new Error("Sync failed"))
+        return { status: "error", error: new Error("Sync failed") }
       }
     } catch (error) {
       console.error("[SyncService] Sync error:", error)
       this.handleSyncError(error)
+      return { status: "error", error: error instanceof Error ? error : new Error(String(error)) }
     } finally {
       this.isSyncing = false
     }

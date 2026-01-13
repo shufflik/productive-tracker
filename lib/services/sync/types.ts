@@ -249,3 +249,13 @@ export type GlobalGoalsDeleteHandler = (ids: string[]) => void
 export type MilestonesDeleteHandler = (ids: string[]) => void
 export type PendingReviewsApplyHandler = (reviewBlock: SyncReviewBlock) => void
 export type ConflictsHandler = (conflicts: SyncConflicts) => void
+
+/**
+ * Result of syncAndWaitResult() method
+ * Used to handle sync results synchronously before proceeding with other operations
+ */
+export type SyncResult = {
+  status: "success" | "conflict" | "error"
+  conflicts?: SyncConflicts
+  error?: Error
+}
