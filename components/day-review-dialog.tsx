@@ -218,6 +218,10 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     }
 
     setLocalGoals([...localGoals, newGoal])
+
+    // Add to sync queue - will be sent before end-day
+    syncService.enqueueGoalChange("create", newGoal)
+
     setNewTaskTitle("")
     setNewTaskLabel("")
     setNewTaskDescription("")
@@ -229,7 +233,13 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
   }
 
   const handleRemoveAdditionalTask = (id: string) => {
+    const goalToRemove = localGoals.find((g) => g.id === id)
     setLocalGoals(localGoals.filter((g) => g.id !== id))
+
+    // Remove from sync queue (create + delete = nothing sent to backend)
+    if (goalToRemove) {
+      syncService.enqueueGoalChange("delete", goalToRemove)
+    }
   }
 
   const handleContinue = () => {
@@ -257,6 +267,21 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
     setIsSaving(true)
 
     try {
+      // Sync pending changes (including additional goals) before end-day
+      const syncResult = await syncService.syncAndWaitResult({ force: true })
+
+      if (syncResult.status === "conflict") {
+        // Conflict - form already shown via conflictsHandler
+        setIsSaving(false)
+        return
+      }
+
+      if (syncResult.status === "error") {
+        // Network error - retry mechanism will show toast
+        setIsSaving(false)
+        return
+      }
+
       // Calculate day status
       const completedCount = localGoals.filter((g) => g.completed).length
       const totalCount = localGoals.length

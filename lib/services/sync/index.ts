@@ -16,6 +16,7 @@ export type {
   SyncResponse,
   SyncMeta,
   SyncQueue,
+  SyncResult,
   GoalsApplyHandler,
   HabitsApplyHandler,
   GoalsDeleteHandler,
