@@ -127,12 +127,12 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95%] sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-[90%] sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{goal ? "Edit Goal" : "New Goal"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4 min-w-0">
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
             </Label>
@@ -159,7 +159,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <Label htmlFor="label">
               Label <span className="text-destructive">*</span>
             </Label>
@@ -187,15 +187,15 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
 
           {/* Global Goal Link */}
           {activeGlobalGoals.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label>Link to Global Goal</Label>
               {selectedGlobalGoal ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+                <div className="space-y-2 min-w-0">
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border min-w-0 w-full overflow-hidden">
                     {(() => {
                       const typeInfo = TYPE_INFO[selectedGlobalGoal.type]
                       const TypeIcon = typeInfo.icon
-                      return <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                      return <TypeIcon className="w-5 h-5 flex-shrink-0" style={{ color: typeInfo.color }} />
                     })()}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
@@ -208,7 +208,7 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
                     <button
                       type="button"
                       onClick={handleClearGlobalGoal}
-                      className="p-1 hover:bg-muted rounded"
+                      className="p-1 hover:bg-muted rounded flex-shrink-0"
                     >
                       <X className="w-4 h-4 text-muted-foreground" />
                     </button>
@@ -216,17 +216,17 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
                   
                   {/* Milestone selector for outcome goals */}
                   {selectedGlobalGoal.type === "outcome" && milestones.length > 0 && (
-                    <div className="relative ml-4">
+                    <div className="relative w-full min-w-0 px-3">
                       {selectedMilestone ? (
-                        <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
-                          <Flag className="w-3.5 h-3.5 text-purple-500" />
-                          <span className="text-sm text-foreground flex-1 truncate">
+                        <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg border border-purple-500/30 min-w-0 w-full overflow-hidden">
+                          <Flag className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                          <span className="text-sm text-foreground flex-1 truncate min-w-0">
                             {selectedMilestone.title}
                           </span>
                           <button
                             type="button"
                             onClick={() => setMilestoneId(undefined)}
-                            className="p-0.5 hover:bg-purple-500/20 rounded"
+                            className="p-0.5 hover:bg-purple-500/20 rounded flex-shrink-0"
                           >
                             <X className="w-3.5 h-3.5 text-purple-500" />
                           </button>
@@ -341,11 +341,11 @@ export function GoalDialog({ open, onClose, onSave, goal }: GoalDialogProps) {
           </div>
         </div>
 
-        <div className="flex gap-2 min-w-0">
-          <Button variant="outline" onClick={onClose} className="flex-1 min-w-0 bg-transparent">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25 || (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !milestoneId)} className="flex-1 min-w-0">
+          <Button onClick={handleSave} disabled={!title.trim() || !label.trim() || title.length > 50 || label.length > 25 || (selectedGlobalGoal?.type === "outcome" && milestones.length > 0 && !milestoneId)} className="flex-1">
             {goal ? "Update" : "Add"} Goal
           </Button>
         </div>

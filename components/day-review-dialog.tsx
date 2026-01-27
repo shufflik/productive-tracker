@@ -904,8 +904,8 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
           <DialogHeader>
             <DialogTitle>Add Additional Completed Task</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
+          <div className="space-y-4 py-4 min-w-0">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="additional-task-title">
                 Task Title <span className="text-destructive">*</span>
               </Label>
@@ -922,7 +922,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                 {newTaskTitle.length}/50 characters
               </p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label htmlFor="additional-task-label">
                 Label <span className="text-destructive">*</span>
               </Label>
@@ -942,15 +942,15 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
             {/* Global Goal Link */}
             {activeGlobalGoals.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label>Link to Global Goal</Label>
                 {selectedGlobalGoal ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
+                  <div className="space-y-2 min-w-0">
+                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border min-w-0 w-full overflow-hidden">
                       {(() => {
                         const typeInfo = TYPE_INFO[selectedGlobalGoal.type]
                         const TypeIcon = typeInfo.icon
-                        return <TypeIcon className="w-5 h-5" style={{ color: typeInfo.color }} />
+                        return <TypeIcon className="w-5 h-5 flex-shrink-0" style={{ color: typeInfo.color }} />
                       })()}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
@@ -963,7 +963,7 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
                       <button
                         type="button"
                         onClick={handleClearGlobalGoal}
-                        className="p-1 hover:bg-muted rounded"
+                        className="p-1 hover:bg-muted rounded flex-shrink-0"
                       >
                         <X className="w-4 h-4 text-muted-foreground" />
                       </button>
@@ -971,17 +971,17 @@ export function DayReviewDialog({ open, onClose, goals, onUpdateGoals, date, all
 
                     {/* Milestone selector for outcome goals */}
                     {selectedGlobalGoal.type === "outcome" && milestones.length > 0 && (
-                      <div className="relative ml-4">
+                      <div className="relative w-full min-w-0 px-3">
                         {selectedMilestone ? (
-                          <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
-                            <Flag className="w-3.5 h-3.5 text-purple-500" />
-                            <span className="text-sm text-foreground flex-1 truncate">
+                          <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg border border-purple-500/30 min-w-0 w-full overflow-hidden">
+                            <Flag className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                            <span className="text-sm text-foreground flex-1 truncate min-w-0">
                               {selectedMilestone.title}
                             </span>
                             <button
                               type="button"
                               onClick={() => setNewTaskMilestoneId(undefined)}
-                              className="p-0.5 hover:bg-purple-500/20 rounded"
+                              className="p-0.5 hover:bg-purple-500/20 rounded flex-shrink-0"
                             >
                               <X className="w-3.5 h-3.5 text-purple-500" />
                             </button>
