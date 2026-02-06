@@ -5,6 +5,7 @@
  *
  * Manages client-side caching for statistics data
  * - TTL: 30 minutes
+ * - Multi-month storage: each month cached independently
  * - Invalidation: manual via clearStatsCache() on end-day operations
  * - Offline support: shows stale data if available
  */
@@ -40,27 +41,60 @@ export type DayStatsData = {
 // Backward compatibility alias
 export type DayDetailData = DayStatsData
 
-export type StatsCache = {
-  data: DayStatsData[]  // Array of days with full information
+export type MonthCacheEntry = {
+  data: DayStatsData[]
   cachedAt: number
-  startDate: string  // Range start date for cache validation
-  endDate: string    // Range end date for cache validation
+  startDate: string
+  endDate: string
+}
+
+// Keep for isCacheValid compatibility
+export type StatsCache = MonthCacheEntry
+
+type MultiStatsCache = {
+  months: Record<string, MonthCacheEntry>
 }
 
 const CACHE_KEY = 'stats-cache'
 const TTL = 30 * 60 * 1000  // 30 minutes in milliseconds
 
+function getMonthKey(dateStr: string): string {
+  return dateStr.substring(0, 7) // "2025-01"
+}
+
 /**
- * Get cached stats data
+ * Get full multi-month cache from localStorage
  */
-export function getStatsCache(): StatsCache | null {
+function getFullCache(): MultiStatsCache | null {
   if (typeof window === 'undefined') return null
 
   const cached = localStorage.getItem(CACHE_KEY)
   if (!cached) return null
 
   try {
-    return JSON.parse(cached)
+    const parsed = JSON.parse(cached)
+
+    // Migration: old single-month format → multi-month
+    if (parsed.data && Array.isArray(parsed.data)) {
+      const monthKey = parsed.startDate?.substring(0, 7)
+      if (monthKey) {
+        const migrated: MultiStatsCache = {
+          months: {
+            [monthKey]: {
+              data: parsed.data,
+              cachedAt: parsed.cachedAt,
+              startDate: parsed.startDate,
+              endDate: parsed.endDate,
+            }
+          }
+        }
+        setFullCache(migrated)
+        return migrated
+      }
+      return null
+    }
+
+    return parsed
   } catch (error) {
     console.error('[StatsCache] Failed to parse cache:', error)
     return null
@@ -68,17 +102,10 @@ export function getStatsCache(): StatsCache | null {
 }
 
 /**
- * Save stats to cache
+ * Save full multi-month cache to localStorage
  */
-export function setStatsCache(data: DayStatsData[], startDate: string, endDate: string): void {
+function setFullCache(cache: MultiStatsCache): void {
   if (typeof window === 'undefined') return
-
-  const cache: StatsCache = {
-    data,
-    cachedAt: Date.now(),
-    startDate,
-    endDate,
-  }
 
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
@@ -88,17 +115,49 @@ export function setStatsCache(data: DayStatsData[], startDate: string, endDate: 
 }
 
 /**
- * Get day data from cache by date
+ * Get cached stats for a specific month range
  */
-export function getDayFromCache(date: string): DayStatsData | null {
-  const cache = getStatsCache()
-  if (!cache) return null
+export function getMonthCache(startDate: string, endDate: string): MonthCacheEntry | null {
+  const full = getFullCache()
+  if (!full) return null
 
-  return cache.data.find(day => day.date === date) || null
+  const monthKey = getMonthKey(startDate)
+  return full.months[monthKey] || null
 }
 
 /**
- * Clear stats cache
+ * Save stats to cache (merges with existing months)
+ */
+export function setStatsCache(data: DayStatsData[], startDate: string, endDate: string): void {
+  const full = getFullCache() || { months: {} }
+  const monthKey = getMonthKey(startDate)
+
+  full.months[monthKey] = {
+    data,
+    cachedAt: Date.now(),
+    startDate,
+    endDate,
+  }
+
+  setFullCache(full)
+}
+
+/**
+ * Get day data from cache by date
+ */
+export function getDayFromCache(date: string): DayStatsData | null {
+  const full = getFullCache()
+  if (!full) return null
+
+  const monthKey = getMonthKey(date)
+  const entry = full.months[monthKey]
+  if (!entry) return null
+
+  return entry.data.find(day => day.date === date) || null
+}
+
+/**
+ * Clear entire stats cache (all months)
  */
 export function clearStatsCache(): void {
   if (typeof window === 'undefined') return
@@ -108,31 +167,39 @@ export function clearStatsCache(): void {
 }
 
 /**
- * Remove specific day from cache
+ * Remove specific day from cache (only affects its month)
  */
 export function removeDayFromCache(date: string): void {
   if (typeof window === 'undefined') return
 
-  const cache = getStatsCache()
-  if (!cache) return
+  const full = getFullCache()
+  if (!full) return
 
-  const filteredData = cache.data.filter(day => day.date !== date)
-  
-  // If no days left, clear entire cache
+  const monthKey = getMonthKey(date)
+  const entry = full.months[monthKey]
+  if (!entry) return
+
+  const filteredData = entry.data.filter(day => day.date !== date)
+
   if (filteredData.length === 0) {
-    clearStatsCache()
-    return
+    delete full.months[monthKey]
+  } else {
+    full.months[monthKey] = { ...entry, data: filteredData }
   }
 
-  // Update cache with filtered data
-  setStatsCache(filteredData, cache.startDate, cache.endDate)
-  console.log(`[StatsCache] Day ${date} removed from cache`)
+  if (Object.keys(full.months).length === 0) {
+    clearStatsCache()
+  } else {
+    setFullCache(full)
+  }
+
+  console.log(`[StatsCache] Day ${date} removed from month ${monthKey}`)
 }
 
 /**
- * Check if cache is still valid (within TTL)
+ * Check if cache entry is still valid (within TTL)
  */
-export function isCacheValid(cache: StatsCache | null): boolean {
+export function isCacheValid(cache: MonthCacheEntry | null): boolean {
   if (!cache) return false
 
   const age = Date.now() - cache.cachedAt
@@ -142,7 +209,7 @@ export function isCacheValid(cache: StatsCache | null): boolean {
 /**
  * Get cache age in milliseconds
  */
-export function getCacheAge(cache: StatsCache | null): number | null {
+export function getCacheAge(cache: MonthCacheEntry | null): number | null {
   if (!cache) return null
 
   return Date.now() - cache.cachedAt
@@ -151,7 +218,7 @@ export function getCacheAge(cache: StatsCache | null): number | null {
 /**
  * Format cache age for display
  */
-export function formatCacheAge(cache: StatsCache | null): string {
+export function formatCacheAge(cache: MonthCacheEntry | null): string {
   const age = getCacheAge(cache)
   if (age === null) return 'No cache'
 

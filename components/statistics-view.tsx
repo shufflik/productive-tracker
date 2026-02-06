@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { motion } from "framer-motion"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DayStatusDialog } from "@/components/day-status-dialog"
 import { AIStatsBlock } from "@/components/ai-stats-block"
 import { AIStatsDialog } from "@/components/ai-stats-dialog"
-import { getStatsCache, setStatsCache, isCacheValid, getDayFromCache, type DayStatsData, type DayDetailData } from "@/lib/services/stats-cache"
+import { getMonthCache, setStatsCache, isCacheValid, getDayFromCache, type DayStatsData, type DayDetailData } from "@/lib/services/stats-cache"
 import {
   hasValidMonthlyCache,
   hasValidWeeklyCache,
@@ -94,20 +94,19 @@ export function StatisticsView() {
   async function loadStats() {
     setIsLoading(true)
 
+    // Calculate month date range
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth() + 1 // JS months are 0-indexed
+    const lastDay = new Date(year, month, 0)
+    const startDate = `${year}-${String(month).padStart(2, "0")}-01`
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`
+
     try {
-      // Calculate month date range
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth() + 1 // JS months are 0-indexed
-      const firstDay = new Date(year, month - 1, 1)
-      const lastDay = new Date(year, month, 0)
-      const startDate = `${year}-${String(month).padStart(2, "0")}-01`
-      const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`
+      // Check cache for this month
+      const cache = getMonthCache(startDate, endDate)
 
-      // Check cache first
-      const cache = getStatsCache()
-
-      // If cache is valid and covers this month - use it and skip backend call
-      if (cache && isCacheValid(cache) && cache.startDate <= startDate && cache.endDate >= endDate) {
+      // If cache is valid - use it and skip backend call
+      if (cache && isCacheValid(cache)) {
         applyStatsData(cache.data)
         console.log('[Stats] Using valid cache, skipping backend call')
         setIsLoading(false)
@@ -134,7 +133,7 @@ export function StatisticsView() {
       console.error('[Stats] Failed to load stats:', error)
 
       // Try to use cache on error
-      const cache = getStatsCache()
+      const cache = getMonthCache(startDate, endDate)
       if (cache) {
         applyStatsData(cache.data)
         toast.info("Showing cached data (offline)")
@@ -216,9 +215,6 @@ export function StatisticsView() {
     setIsLoadingReasons(true)
 
     try {
-      // Get cache
-      const cache = getStatsCache()
-      
       // Load details from cache
       const details = monthDaysWithStatus.map((date) => {
         return getDayFromCache(date)
@@ -467,10 +463,10 @@ export function StatisticsView() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">{monthName}</h3>
             <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={previousMonth} className="h-8 w-8 p-0 bg-transparent">
+              <Button variant="outline" size="sm" onClick={previousMonth} disabled={isLoading} className="h-8 w-8 p-0 bg-transparent">
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={nextMonth} className="h-8 w-8 p-0 bg-transparent">
+              <Button variant="outline" size="sm" onClick={nextMonth} disabled={isLoading} className="h-8 w-8 p-0 bg-transparent">
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
@@ -484,7 +480,13 @@ export function StatisticsView() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-2">{days}</div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-7 gap-2">{days}</div>
+            )}
           </div>
 
           {/* AI Statistics Block */}
@@ -496,7 +498,11 @@ export function StatisticsView() {
 
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="text-sm font-semibold mb-3 text-foreground">Productivity Status</h3>
-            {chartData.length > 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : chartData.length > 0 ? (
               <div className="flex items-center gap-4">
                 <div className="flex-shrink-0 relative">
                   <svg width="120" height="120" viewBox="0 0 200 200" className="transform -rotate-90">
@@ -585,8 +591,10 @@ export function StatisticsView() {
 
           <div ref={reasonsRef} className="bg-card border border-border rounded-lg p-4">
             <h3 className="text-sm font-semibold mb-3 text-foreground">Incomplete Reasons</h3>
-            {isLoadingReasons ? (
-              <div className="text-sm text-muted-foreground text-center py-4">Loading statistics...</div>
+            {isLoading || isLoadingReasons ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
             ) : sortedReasons.length > 0 ? (
               <div className="space-y-3">
                 {sortedReasons.map(({ reason, count }) => {

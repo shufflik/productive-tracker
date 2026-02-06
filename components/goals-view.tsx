@@ -46,7 +46,7 @@ export function GoalsView() {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [selectedGoalForDetail, setSelectedGoalForDetail] = useState<Goal | null>(null)
   const [selectedDay, setSelectedDay] = useState<"today" | "tomorrow" | "backlog">("today")
-  const [movingGoals, setMovingGoals] = useState<Record<string, string>>({})
+  const [exitingGoals, setExitingGoals] = useState<Set<string>>(new Set())
 
   const addGoal = useCallback(
     (title: string, label: string, description: string, globalGoalId?: string, milestoneId?: string) => {
@@ -84,22 +84,17 @@ export function GoalsView() {
 
   const rescheduleForTomorrow = useCallback(
     (id: string) => {
-      const goal = goals.find((g) => g.id === id)
-
-      if (goal) {
-        setMovingGoals(prev => ({ ...prev, [id]: "Перенесено на Tomorrow" }))
-
-        setTimeout(() => {
-          rescheduleInStore(id)
-          setMovingGoals(prev => {
-            const newState = { ...prev }
-            delete newState[id]
-            return newState
-          })
-        }, 3000)
-      }
+      setExitingGoals(prev => new Set(prev).add(id))
+      setTimeout(() => {
+        rescheduleInStore(id)
+        setExitingGoals(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 400)
     },
-    [rescheduleInStore, goals]
+    [rescheduleInStore]
   )
 
   const toggleImportant = useCallback(
@@ -111,42 +106,32 @@ export function GoalsView() {
 
   const moveToBacklog = useCallback(
     (id: string) => {
-      const goal = goals.find((g) => g.id === id)
-
-      if (goal) {
-        setMovingGoals(prev => ({ ...prev, [id]: "Перенесено в Backlog" }))
-
-        setTimeout(() => {
-          moveToBacklogInStore(id)
-          setMovingGoals(prev => {
-            const newState = { ...prev }
-            delete newState[id]
-            return newState
-          })
-        }, 3000)
-      }
+      setExitingGoals(prev => new Set(prev).add(id))
+      setTimeout(() => {
+        moveToBacklogInStore(id)
+        setExitingGoals(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 400)
     },
-    [moveToBacklogInStore, goals]
+    [moveToBacklogInStore]
   )
 
   const moveToTodaySingle = useCallback(
     (id: string) => {
-      const goal = goals.find((g) => g.id === id)
-      
-      if (goal) {
-        setMovingGoals(prev => ({ ...prev, [id]: "Перенесено в Today" }))
-        
-        setTimeout(() => {
-          moveToTodayInStore(id)
-          setMovingGoals(prev => {
-            const newState = { ...prev }
-            delete newState[id]
-            return newState
-          })
-        }, 3000)
-      }
+      setExitingGoals(prev => new Set(prev).add(id))
+      setTimeout(() => {
+        moveToTodayInStore(id)
+        setExitingGoals(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 400)
     },
-    [moveToTodayInStore, goals]
+    [moveToTodayInStore]
   )
 
   const openEditDialog = useCallback((goal: Goal) => {
@@ -199,8 +184,7 @@ export function GoalsView() {
 
   const groupedGoals = useMemo(
     () => {
-      // Group goals by label for all days
-      return displayGoals.reduce(
+      const groups = displayGoals.reduce(
         (acc, goal) => {
           const labelKey = goal.label || "Unlabeled"
           if (!acc[labelKey]) {
@@ -211,6 +195,13 @@ export function GoalsView() {
         },
         {} as Record<string, Goal[]>
       )
+
+      // Sort within each group: important goals first
+      for (const key of Object.keys(groups)) {
+        groups[key].sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0))
+      }
+
+      return groups
     },
     [displayGoals]
   )
@@ -508,7 +499,7 @@ export function GoalsView() {
                           onMoveToBacklog={moveToBacklog}
                           onToggleImportant={toggleImportant}
                           onOpenDetail={openGoalDetail}
-                          movingMessage={movingGoals[goal.id]}
+                          isExiting={exitingGoals.has(goal.id)}
                           isTodayEnded={isTodayEnded()}
                           labelColor={labelColor}
                         />

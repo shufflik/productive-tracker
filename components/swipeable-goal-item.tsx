@@ -19,7 +19,7 @@ interface SwipeableGoalItemProps {
   onMoveToBacklog: (id: string) => void
   onToggleImportant: (id: string) => void
   onOpenDetail: (goal: Goal) => void
-  movingMessage?: string
+  isExiting?: boolean
   isTodayEnded?: boolean
   labelColor?: string
 }
@@ -35,7 +35,7 @@ export function SwipeableGoalItem({
   onMoveToBacklog,
   onToggleImportant,
   onOpenDetail,
-  movingMessage,
+  isExiting = false,
   isTodayEnded = false,
   labelColor,
 }: SwipeableGoalItemProps) {
@@ -161,10 +161,15 @@ export function SwipeableGoalItem({
     <motion.div
       ref={containerRef}
       initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{
+        opacity: isExiting ? 0 : 1,
+        scale: isExiting ? 0.95 : 1,
+        height: isExiting ? 0 : "auto",
+        marginBottom: isExiting ? 0 : undefined,
+      }}
       transition={{
-        duration: 0.3,
-        ease: [0.4, 1.2, 0.6, 1],
+        duration: isExiting ? 0.35 : 0.3,
+        ease: isExiting ? [0.4, 0, 1, 1] : [0.4, 1.2, 0.6, 1],
       }}
       className="relative w-full overflow-hidden rounded-lg"
     >
@@ -217,7 +222,7 @@ export function SwipeableGoalItem({
 
       {/* Main Content */}
       <motion.div
-        drag={movingMessage ? false : (canDrag ? "x" : false)}
+        drag={isExiting ? false : (canDrag ? "x" : false)}
         dragConstraints={{ left: -140, right: 140 }}
         dragElastic={0.01}
         dragMomentum={false}
@@ -238,7 +243,7 @@ export function SwipeableGoalItem({
       >
         <div
           ref={contentRef}
-          className={`bg-card border border-border rounded-lg p-4 flex items-center gap-3 w-full transition-all duration-300 cursor-pointer overflow-hidden ${movingMessage ? 'opacity-40 grayscale' : 'opacity-100'}`}
+          className="bg-card border border-border rounded-lg p-4 flex items-center gap-3 w-full cursor-pointer overflow-hidden"
           style={{
             ...(labelColor ? { borderLeftWidth: '3px', borderLeftColor: getBorderColor() } : {}),
             height: '4rem',
@@ -288,13 +293,6 @@ export function SwipeableGoalItem({
           </div>
         </div>
 
-        {movingMessage && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-            <p className="text-sm font-medium text-foreground px-4 py-2 bg-card border border-border rounded-md shadow-lg z-10">
-              {movingMessage}
-            </p>
-          </div>
-        )}
       </motion.div>
 
       {/* Delete Confirmation Dialog */}
