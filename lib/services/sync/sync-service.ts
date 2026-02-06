@@ -384,10 +384,12 @@ export class SyncService {
           console.warn("[SyncService] Conflicts detected - NOT updating lastSyncAt and NOT clearing queue")
         }
 
-        // Apply review block from backend (pendingReview with goals and dayEnded status)
-        if (response.review && this.applyPendingReviews) {
-          this.applyPendingReviews(response.review)
-        }
+          // Apply review block from backend (pendingReview with goals and dayEnded status)
+          // Skip if conflicts exist — review data may be stale; after conflict resolution,
+          // the next sync will bring a fresh review block
+          if (!hasConflictsInResponse && response.review && this.applyPendingReviews) {
+              this.applyPendingReviews(response.review)
+          }
 
         // Collect conflicted IDs for filtering
         const conflictedIds = collectConflictedIds(response.conflicts)
